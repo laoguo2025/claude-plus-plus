@@ -105,7 +105,6 @@ function App() {
             <tr>
               <th>模型角色</th>
               <th>菜单显示名</th>
-              <th>Claude 模型</th>
               <th>实际请求模型</th>
             </tr>
           </thead>
@@ -114,13 +113,12 @@ function App() {
               <tr key={m.role}>
                 <td>{m.role_kind}</td>
                 <td>{m.display}</td>
-                <td>{m.role}</td>
                 <td>{m.model}</td>
               </tr>
             ))}
             {!pm?.mappings.length && (
               <tr>
-                <td colSpan={4} className="empty">
+                <td colSpan={3} className="empty">
                   无映射
                 </td>
               </tr>
