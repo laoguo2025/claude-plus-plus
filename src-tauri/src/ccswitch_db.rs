@@ -9,10 +9,27 @@ use std::path::PathBuf;
 pub struct Mapping {
     /// labelOverride,若空回退为 role
     pub display: String,
-    /// claudeDesktopModelRoutes 的 key,标准角色 ID(如 claude-haiku-4-5)
+    /// claudeDesktopModelRoutes 的 key(转发给 CC Switch,如 claude-opus-4-7-r2),不可改
     pub role: String,
+    /// 从 role key 提取的角色类别:opus / sonnet / haiku(仅展示)
+    pub role_kind: String,
     /// 路由实际转发的上游模型(如 mimo-v2.5)
     pub model: String,
+}
+
+/// 从 route key(如 claude-opus-4-7-r2)提取角色类别 opus/sonnet/haiku。
+/// 角色只有这三种,版本号会变(4-6/4-7/4-8…),所以按关键字匹配。
+fn role_kind_of(role_key: &str) -> String {
+    let lower = role_key.to_ascii_lowercase();
+    if lower.contains("opus") {
+        "opus".to_string()
+    } else if lower.contains("sonnet") {
+        "sonnet".to_string()
+    } else if lower.contains("haiku") {
+        "haiku".to_string()
+    } else {
+        role_key.to_string()
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -80,6 +97,7 @@ pub fn load_mappings(db_path: &std::path::Path) -> Result<ProviderMappings, Stri
             .to_string();
         mappings.push(Mapping {
             display,
+            role_kind: role_kind_of(role),
             role: role.clone(),
             model,
         });

@@ -5,6 +5,7 @@ import "./App.css";
 interface Mapping {
   display: string;
   role: string;
+  role_kind: string;
   model: string;
 }
 interface ProviderMappings {
@@ -104,6 +105,7 @@ function App() {
             <tr>
               <th>显示名 (picker)</th>
               <th>角色 (role)</th>
+              <th>Claude 模型</th>
               <th>真实模型</th>
             </tr>
           </thead>
@@ -111,13 +113,14 @@ function App() {
             {pm?.mappings.map((m) => (
               <tr key={m.role}>
                 <td>{m.display}</td>
+                <td>{m.role_kind}</td>
                 <td>{m.role}</td>
                 <td>{m.model}</td>
               </tr>
             ))}
             {!pm?.mappings.length && (
               <tr>
-                <td colSpan={3} className="empty">
+                <td colSpan={4} className="empty">
                   无映射
                 </td>
               </tr>
