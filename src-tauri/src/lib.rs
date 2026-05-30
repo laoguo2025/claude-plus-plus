@@ -1,6 +1,7 @@
 mod ccswitch_db;
 mod cd_config;
 mod claude_desktop;
+mod claude_zh;
 mod proxy;
 mod server;
 
@@ -60,6 +61,21 @@ fn revert_cd_config() -> Result<(), String> {
 #[tauri::command]
 fn restart_claude_desktop() -> Result<(), String> {
     claude_desktop::restart()
+}
+
+#[tauri::command]
+fn claude_zh_status() -> claude_zh::ClaudeZhStatus {
+    claude_zh::status()
+}
+
+#[tauri::command]
+fn install_claude_zh(language: String, skip_asar_patch: bool) -> Result<(), String> {
+    claude_zh::install(&language, skip_asar_patch)
+}
+
+#[tauri::command]
+fn uninstall_claude_zh() -> Result<(), String> {
+    claude_zh::uninstall()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -125,7 +141,10 @@ pub fn run() {
             get_mappings,
             apply_cd_config,
             revert_cd_config,
-            restart_claude_desktop
+            restart_claude_desktop,
+            claude_zh_status,
+            install_claude_zh,
+            uninstall_claude_zh
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

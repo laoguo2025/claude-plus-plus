@@ -43,6 +43,10 @@ h1 {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+.muted {
+  color: #6b7280;
+  font-size: 13px;
+}
 
 .dot {
   width: 10px;
@@ -64,6 +68,14 @@ button {
 }
 button:hover:not(:disabled) { background: #f3f4f6; }
 button:disabled { opacity: 0.5; cursor: default; }
+
+select {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
 
 .notice {
   margin-top: 8px;
@@ -113,5 +125,21 @@ table.map td.empty {
   padding: 10px 12px;
 }
 
-.todo strong { font-size: 13px; color: #6b7280; }
-.todoRow { display: flex; gap: 10px; margin-top: 10px; }
+.zhCard strong { font-size: 13px; }
+.zhControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.zhControls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 13px;
+}
+.zhControls .check {
+  color: #1f2328;
+}

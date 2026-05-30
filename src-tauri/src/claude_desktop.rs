@@ -26,7 +26,7 @@ pub fn restart() -> Result<(), String> {
 }
 
 #[cfg(target_os = "windows")]
-fn stop_claude_processes() -> Result<(), String> {
+pub(crate) fn stop_claude_processes() -> Result<(), String> {
     let output = hidden_command("taskkill")
         .args(["/IM", "Claude.exe", "/T", "/F"])
         .output()
@@ -59,7 +59,7 @@ fn taskkill_means_not_running(stdout: &[u8], stderr: &[u8]) -> bool {
 }
 
 #[cfg(target_os = "windows")]
-fn launch_claude() -> Result<(), String> {
+pub(crate) fn launch_claude() -> Result<(), String> {
     if let Some(shortcut) = claude_desktop_shortcut() {
         if launch_with_explorer(shortcut.as_os_str()).is_ok() {
             return Ok(());

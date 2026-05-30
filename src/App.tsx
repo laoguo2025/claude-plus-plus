@@ -18,10 +18,23 @@ interface StatusInfo {
   port: number | null;
   cd_applied: boolean;
 }
+interface ClaudeZhStatus {
+  supported: boolean;
+  claude_found: boolean;
+  installed: boolean;
+  backup_available: boolean;
+  install_path: string | null;
+  resources_path: string | null;
+  locale: string | null;
+  language_files: string[];
+}
 
 function App() {
   const [status, setStatus] = useState<StatusInfo | null>(null);
   const [pm, setPm] = useState<ProviderMappings | null>(null);
+  const [zhStatus, setZhStatus] = useState<ClaudeZhStatus | null>(null);
+  const [zhLanguage, setZhLanguage] = useState("zh-CN");
+  const [skipAsarPatch, setSkipAsarPatch] = useState(false);
   const [err, setErr] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [restartNeeded, setRestartNeeded] = useState(false);
@@ -52,6 +65,12 @@ function App() {
       setErr(String(e));
       setPm(null);
     }
+    try {
+      setZhStatus(await invoke<ClaudeZhStatus>("claude_zh_status"));
+    } catch (e) {
+      setErr(String(e));
+      setZhStatus(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -79,6 +98,35 @@ function App() {
     try {
       await invoke("restart_claude_desktop");
       setRestartNeeded(false);
+      await refresh();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const installClaudeZh = async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      await invoke("install_claude_zh", {
+        language: zhLanguage,
+        skipAsarPatch,
+      });
+      await refresh();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const uninstallClaudeZh = async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      await invoke("uninstall_claude_zh");
       await refresh();
     } catch (e) {
       setErr(String(e));
@@ -171,11 +219,63 @@ function App() {
 
       {err && <p className="err">{err}</p>}
 
-      <section className="card todo">
-        <strong>后续功能(规划中)</strong>
-        <div className="todoRow">
+      <section className="card zhCard">
+        <div className="statusRow">
+          <span className={zhStatus?.installed ? "dot on" : "dot off"} />
+          <strong>Claude Desktop 汉化</strong>
+          <span className="muted">
+            {zhStatus?.installed
+              ? `已安装 ${zhStatus.language_files.join(", ")}`
+              : zhStatus?.claude_found
+                ? "未安装"
+                : "未检测到 Claude Desktop"}
+          </span>
+          <div className="spacer" />
           <button disabled title="规划中">一键下载 Claude Desktop</button>
-          <button disabled title="规划中">一键汉化</button>
+        </div>
+
+        <div className="zhControls">
+          <label>
+            语言
+            <select
+              disabled={busy}
+              value={zhLanguage}
+              onChange={(e) => setZhLanguage(e.target.value)}
+            >
+              <option value="zh-CN">简体中文</option>
+              <option value="zh-TW">繁体中文(中国台湾)</option>
+              <option value="zh-HK">繁体中文(中国香港)</option>
+            </select>
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              disabled={busy}
+              checked={skipAsarPatch}
+              onChange={(e) => setSkipAsarPatch(e.target.checked)}
+            />
+            安全模式
+          </label>
+          <div className="spacer" />
+          <div className="actions">
+            <button
+              disabled={busy || !zhStatus?.supported || !zhStatus?.claude_found}
+              onClick={installClaudeZh}
+            >
+              一键汉化
+            </button>
+            <button
+              disabled={busy || !zhStatus?.backup_available}
+              onClick={uninstallClaudeZh}
+            >
+              恢复英文
+            </button>
+          </div>
+        </div>
+
+        <div className="notice">
+          当前语言: {zhStatus?.locale ?? "未设置"}。汉化会关闭 Claude Desktop，写入语言资源并重启；
+          安全模式会跳过 app.asar 和 Claude.exe 完整性补丁。
         </div>
       </section>
     </main>
