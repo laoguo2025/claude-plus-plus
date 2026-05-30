@@ -14,7 +14,8 @@ use axum::{
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
-const UPSTREAM: &str = "http://127.0.0.1:15721/claude-desktop";
+/// 上游地址兜底(读不到 CC Switch 配置时用)。正常应从 CC Switch 读取。
+const UPSTREAM_FALLBACK: &str = "http://127.0.0.1:15721/claude-desktop";
 
 #[derive(Clone)]
 pub struct AppState {
@@ -31,6 +32,11 @@ impl AppState {
             client: reqwest::Client::new(),
             cache: Arc::new(RwLock::new(Vec::new())),
         }
+    }
+
+    /// 上游网关地址,实时跟随 CC Switch(读 157210.json 的 inferenceGatewayBaseUrl)。
+    fn upstream(&self) -> String {
+        crate::server::read_ccswitch_base_url().unwrap_or_else(|| UPSTREAM_FALLBACK.to_string())
     }
 
     /// 读 DB 取映射,失败时回退缓存;成功则刷新缓存。
@@ -67,8 +73,12 @@ pub fn router(state: AppState) -> Router {
 
 async fn handle_models(State(state): State<AppState>) -> Response {
     let mappings = state.mappings();
+    // 多个角色可能用相同菜单显示名(如 haiku/sonnet 都叫 mimo-v2.5)。
+    // 模型列表的 id 必须唯一,否则 Claude Desktop 列表会错乱,所以按 display 去重(保序)。
+    let mut seen = std::collections::HashSet::new();
     let data: Vec<serde_json::Value> = mappings
         .iter()
+        .filter(|m| seen.insert(m.display.clone()))
         .map(|m| {
             serde_json::json!({
                 "type": "model",
@@ -97,10 +107,11 @@ async fn handle_proxy(
     body: axum::body::Bytes,
 ) -> Response {
     // 拼上游 URL:保留原 path 中 /claude-desktop 之后的部分 + query
+    let upstream = state.upstream();
     let path = uri.path();
     let suffix = path.strip_prefix("/claude-desktop").unwrap_or(path);
     let query = uri.query().map(|q| format!("?{q}")).unwrap_or_default();
-    let upstream_url = format!("{UPSTREAM}{suffix}{query}");
+    let upstream_url = format!("{upstream}{suffix}{query}");
 
     // 若 body 是 JSON 且含 model,做 显示名->角色ID 改写
     let out_body: Vec<u8> = if !body.is_empty() {

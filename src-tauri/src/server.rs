@@ -78,23 +78,26 @@ impl ServerHandle {
 /// 从 CC Switch 当前生效的 Claude Desktop profile 文件读 bearer key。
 /// 优先读运行实例配置库里 CC Switch 写的 157210 条目。
 pub fn read_ccswitch_api_key() -> Option<String> {
+    read_ccswitch_field("inferenceGatewayApiKey")
+}
+
+/// 读 CC Switch 写的上游网关地址(如 http://127.0.0.1:15721/claude-desktop)。
+/// 端口/路径都跟随 CC Switch 生成的结果,不硬编码。
+pub fn read_ccswitch_base_url() -> Option<String> {
+    read_ccswitch_field("inferenceGatewayBaseUrl")
+}
+
+/// 读 157210.json 里的某个字符串字段。
+fn read_ccswitch_field(field: &str) -> Option<String> {
     let dir = crate::cd_config::resolve_config_library_dir().ok()?;
     // CC Switch 固定写这个条目
-    let candidates = [
-        dir.join("00000000-0000-4000-8000-000000157210.json"),
-    ];
-    for p in candidates {
-        if let Ok(s) = std::fs::read_to_string(&p) {
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&s) {
-                if let Some(k) = v.get("inferenceGatewayApiKey").and_then(|x| x.as_str()) {
-                    if !k.is_empty() {
-                        return Some(k.to_string());
-                    }
-                }
-            }
-        }
-    }
-    None
+    let p = dir.join("00000000-0000-4000-8000-000000157210.json");
+    let s = std::fs::read_to_string(&p).ok()?;
+    let v = serde_json::from_str::<serde_json::Value>(&s).ok()?;
+    v.get(field)
+        .and_then(|x| x.as_str())
+        .filter(|k| !k.is_empty())
+        .map(|k| k.to_string())
 }
 
 /// 默认 DB 路径透出,供命令层使用。
