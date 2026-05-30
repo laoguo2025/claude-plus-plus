@@ -4,7 +4,11 @@ mod proxy;
 mod server;
 
 use server::ServerHandle;
-use tauri::Manager;
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager, WindowEvent,
+};
 
 const DEFAULT_PORT: u16 = 15722;
 
@@ -66,7 +70,45 @@ pub fn run() {
             if let Err(e) = handle.start(DEFAULT_PORT, server::default_db_path()) {
                 tracing::error!("auto start proxy failed: {e}");
             }
+            let show = MenuItem::with_id(app, "show", "Show ccs2claude", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show, &quit])?;
+            let tray = TrayIconBuilder::new()
+                .tooltip("ccs2claude")
+                .menu(&menu)
+                .show_menu_on_left_click(false);
+            let tray = if let Some(icon) = app.default_window_icon().cloned() {
+                tray.icon(icon)
+            } else {
+                tray
+            };
+            tray.on_menu_event(|app, event| match event.id().as_ref() {
+                "show" => show_main_window(app),
+                "quit" => app.exit(0),
+                _ => {}
+            })
+            .on_tray_icon_event(|tray, event| {
+                if matches!(
+                    event,
+                    TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    }
+                ) {
+                    show_main_window(tray.app_handle());
+                }
+            })
+            .build(app)?;
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                if let Err(e) = window.hide() {
+                    tracing::error!("hide window failed: {e}");
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             proxy_status,
@@ -78,4 +120,18 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+fn show_main_window<R: tauri::Runtime>(manager: &impl Manager<R>) {
+    if let Some(window) = manager.get_webview_window("main") {
+        if let Err(e) = window.show() {
+            tracing::error!("show window failed: {e}");
+        }
+        if let Err(e) = window.unminimize() {
+            tracing::error!("unminimize window failed: {e}");
+        }
+        if let Err(e) = window.set_focus() {
+            tracing::error!("focus window failed: {e}");
+        }
+    }
 }

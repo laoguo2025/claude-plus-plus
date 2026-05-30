@@ -2,7 +2,7 @@
 use crate::ccswitch_db;
 use crate::proxy::{self, AppState};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex};
 use tauri::async_runtime::JoinHandle;
 use tokio::sync::oneshot;
 
@@ -34,16 +34,20 @@ impl ServerHandle {
         let state = AppState::new(db_path);
         let app = proxy::router(state);
         let (tx, rx) = oneshot::channel::<()>();
+        let (bind_tx, bind_rx) = mpsc::channel::<Result<(), String>>();
 
         let addr = format!("127.0.0.1:{port}");
         let handle = tauri::async_runtime::spawn(async move {
             let listener = match tokio::net::TcpListener::bind(&addr).await {
                 Ok(l) => l,
                 Err(e) => {
-                    tracing::error!("bind {addr} failed: {e}");
+                    let msg = format!("bind {addr} failed: {e}");
+                    tracing::error!("{msg}");
+                    let _ = bind_tx.send(Err(msg));
                     return;
                 }
             };
+            let _ = bind_tx.send(Ok(()));
             tracing::info!("ccs2claude proxy listening on {addr}");
             let server = axum::serve(listener, app).with_graceful_shutdown(async {
                 let _ = rx.await;
@@ -52,6 +56,12 @@ impl ServerHandle {
                 tracing::error!("server error: {e}");
             }
         });
+
+        match bind_rx.recv() {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => return Err(e),
+            Err(e) => return Err(format!("server startup failed: {e}")),
+        }
 
         *guard = Some(ProxyServer {
             port,
