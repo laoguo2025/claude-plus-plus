@@ -1,7 +1,7 @@
 # Workbench
 
 ## Long-term docs
-- Project map: `doc/ccs2claude-project-map.md`
+- Project map: `doc/claude-plus-plus-project-map.md`
 - Long-term doc registry: `doc/workbench-longterm-doc-registry.md`
 
 ## Governance

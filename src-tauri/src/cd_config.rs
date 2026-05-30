@@ -1,11 +1,11 @@
-// 在 Claude Desktop 3P 配置库新建独立 ccs2claude 条目并切为生效。
+// 在 Claude Desktop 3P 配置库新建独立 Claude++ 条目并切为生效。
 // 不修改 CC Switch 写的条目(切服务商会被覆盖),两条目共存。
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
-/// ccs2claude 在配置库里使用的固定条目 UUID(避免重复创建)。
-pub const CCS2CLAUDE_ENTRY_ID: &str = "11111111-1111-4111-8111-ccccccccccc2";
-pub const CCS2CLAUDE_ENTRY_NAME: &str = "ccs2claude";
+/// Claude++ 在配置库里使用的固定条目 UUID(避免重复创建)。
+pub const CLAUDE_PLUS_PLUS_ENTRY_ID: &str = "11111111-1111-4111-8111-ccccccccccc2";
+pub const CLAUDE_PLUS_PLUS_ENTRY_NAME: &str = "Claude++";
 
 /// 运行实例(Windows Store 版)的配置库目录。
 pub fn store_config_library_dir() -> Option<PathBuf> {
@@ -51,10 +51,10 @@ fn meta_path(dir: &Path) -> PathBuf {
 }
 
 fn entry_path(dir: &Path) -> PathBuf {
-    dir.join(format!("{CCS2CLAUDE_ENTRY_ID}.json"))
+    dir.join(format!("{CLAUDE_PLUS_PLUS_ENTRY_ID}.json"))
 }
 
-/// 接入:写 ccs2claude 条目文件 + 更新 _meta.json(appliedId 指向它,保留其它条目)。
+/// 接入:写 Claude++ 条目文件 + 更新 _meta.json(appliedId 指向它,保留其它条目)。
 /// `port`:中间件监听端口;`api_key`:沿用 CC Switch 当前 bearer key。
 pub fn apply(port: u16, api_key: &str) -> Result<(), String> {
     let dir = resolve_config_library_dir()?;
@@ -88,20 +88,25 @@ pub fn apply(port: u16, api_key: &str) -> Result<(), String> {
         .and_then(|v| v.as_array_mut())
         .ok_or_else(|| "meta.entries not an array".to_string())?;
 
-    let exists = entries
-        .iter()
-        .any(|e| e.get("id").and_then(|i| i.as_str()) == Some(CCS2CLAUDE_ENTRY_ID));
-    if !exists {
-        entries.push(json!({ "id": CCS2CLAUDE_ENTRY_ID, "name": CCS2CLAUDE_ENTRY_NAME }));
+    let mut exists = false;
+    for entry in entries.iter_mut() {
+        if entry.get("id").and_then(|i| i.as_str()) == Some(CLAUDE_PLUS_PLUS_ENTRY_ID) {
+            exists = true;
+            entry["name"] = json!(CLAUDE_PLUS_PLUS_ENTRY_NAME);
+            break;
+        }
     }
-    meta["appliedId"] = json!(CCS2CLAUDE_ENTRY_ID);
+    if !exists {
+        entries.push(json!({ "id": CLAUDE_PLUS_PLUS_ENTRY_ID, "name": CLAUDE_PLUS_PLUS_ENTRY_NAME }));
+    }
+    meta["appliedId"] = json!(CLAUDE_PLUS_PLUS_ENTRY_ID);
 
     std::fs::write(&mp, serde_json::to_string_pretty(&meta).unwrap())
         .map_err(|e| format!("write meta failed: {e}"))?;
     Ok(())
 }
 
-/// 回滚:把 appliedId 切回指定条目(默认 CC Switch 的 157210),不删除 ccs2claude 条目文件。
+/// 回滚:把 appliedId 切回指定条目(默认 CC Switch 的 157210),不删除 Claude++ 条目文件。
 pub fn revert(target_entry_id: Option<&str>) -> Result<(), String> {
     let dir = resolve_config_library_dir()?;
     let mp = meta_path(&dir);
@@ -115,12 +120,12 @@ pub fn revert(target_entry_id: Option<&str>) -> Result<(), String> {
     let fallback = target_entry_id
         .map(|s| s.to_string())
         .or_else(|| {
-            // 优先切回名为非 ccs2claude 的第一个条目
+            // 优先切回非 Claude++ 的第一个条目
             meta.get("entries")
                 .and_then(|v| v.as_array())
                 .and_then(|arr| {
                     arr.iter()
-                        .find(|e| e.get("id").and_then(|i| i.as_str()) != Some(CCS2CLAUDE_ENTRY_ID))
+                        .find(|e| e.get("id").and_then(|i| i.as_str()) != Some(CLAUDE_PLUS_PLUS_ENTRY_ID))
                         .and_then(|e| e.get("id").and_then(|i| i.as_str()).map(|s| s.to_string()))
                 })
         })
@@ -132,7 +137,7 @@ pub fn revert(target_entry_id: Option<&str>) -> Result<(), String> {
     Ok(())
 }
 
-/// 当前 appliedId 是否为 ccs2claude。
+/// 当前 appliedId 是否为 Claude++。
 pub fn is_applied() -> bool {
     let Ok(dir) = resolve_config_library_dir() else {
         return false;
@@ -144,5 +149,5 @@ pub fn is_applied() -> bool {
     let Ok(meta) = serde_json::from_str::<Value>(&s) else {
         return false;
     };
-    meta.get("appliedId").and_then(|v| v.as_str()) == Some(CCS2CLAUDE_ENTRY_ID)
+    meta.get("appliedId").and_then(|v| v.as_str()) == Some(CLAUDE_PLUS_PLUS_ENTRY_ID)
 }

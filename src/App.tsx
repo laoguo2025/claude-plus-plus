@@ -137,7 +137,7 @@ function App() {
 
   return (
     <main className="container">
-      <h1>ccs2claude</h1>
+      <h1>Claude++</h1>
       <p className="sub">CC Switch ↔ Claude Desktop 模型名桥接</p>
 
       <section className="card">
@@ -175,7 +175,7 @@ function App() {
         {status?.cd_applied && (
           <div className={restartNeeded ? "notice warn" : "notice"}>
             {restartNeeded
-              ? "已检测到 CC Switch 模型或服务商变化。ccs2claude 已同步，Claude Desktop 需要重启后刷新模型列表。"
+              ? "已检测到 CC Switch 模型或服务商变化。Claude++ 已同步，Claude Desktop 需要重启后刷新模型列表。"
               : "Claude Desktop 的模型列表只在启动时发现；CC Switch 切换后请重启 Claude Desktop。"}
           </div>
         )}

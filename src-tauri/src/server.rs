@@ -48,7 +48,7 @@ impl ServerHandle {
                 }
             };
             let _ = bind_tx.send(Ok(()));
-            tracing::info!("ccs2claude proxy listening on {addr}");
+            tracing::info!("Claude++ proxy listening on {addr}");
             let server = axum::serve(listener, app).with_graceful_shutdown(async {
                 let _ = rx.await;
             });

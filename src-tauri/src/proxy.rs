@@ -19,6 +19,7 @@ use std::sync::{Arc, RwLock};
 
 /// 上游地址兜底(读不到 CC Switch 配置时用)。正常应从 CC Switch 读取。
 const UPSTREAM_FALLBACK: &str = "http://127.0.0.1:15721/claude-desktop";
+const MODEL_ID_PREFIX: &str = "claude-plus-plus";
 
 #[derive(Clone)]
 pub struct AppState {
@@ -104,7 +105,7 @@ async fn handle_models(State(state): State<AppState>) -> Response {
 }
 
 fn menu_model_id(mapping: &Mapping) -> String {
-    format!("ccs2claude-{}-{}", mapping.role_kind, mapping.display)
+    format!("{MODEL_ID_PREFIX}/{}-{}", mapping.role_kind, mapping.display)
 }
 
 fn menu_display_name(mapping: &Mapping) -> String {
@@ -234,8 +235,8 @@ mod tests {
         let sonnet = mapping("mimo-v2.5", "claude-sonnet-4-6", "sonnet", "mimo-v2.5");
         let haiku = mapping("mimo-v2.5", "claude-haiku-4-5", "haiku", "mimo-v2.5");
 
-        assert_eq!(menu_model_id(&sonnet), "ccs2claude-sonnet-mimo-v2.5");
-        assert_eq!(menu_model_id(&haiku), "ccs2claude-haiku-mimo-v2.5");
+        assert_eq!(menu_model_id(&sonnet), "claude-plus-plus/sonnet-mimo-v2.5");
+        assert_eq!(menu_model_id(&haiku), "claude-plus-plus/haiku-mimo-v2.5");
         assert_ne!(menu_model_id(&sonnet), menu_model_id(&haiku));
     }
 
@@ -252,7 +253,7 @@ mod tests {
     }
 
     #[test]
-    fn old_session_model_ids_fallback_by_role_kind() {
+    fn unknown_model_names_fallback_by_role_kind() {
         let mappings = vec![
             mapping("mimo-v2.5-pro", "claude-opus-4-7-r2", "opus", "mimo-v2.5-pro"),
             mapping("mimo-v2.5", "claude-sonnet-4-6", "sonnet", "mimo-v2.5"),

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ccs2claude",
+  "productName": "Claude++",
   "version": "0.1.0",
-  "identifier": "com.laoguo2025.ccs2claude",
+  "identifier": "com.laoguo2025.claude-plus-plus",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "ccs2claude",
+        "title": "Claude++",
         "width": 800,
         "height": 600
       }

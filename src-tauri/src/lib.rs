@@ -94,11 +94,11 @@ pub fn run() {
                 tracing::error!("auto start proxy failed: {e}");
             }
             spawn_mapping_monitor(DEFAULT_PORT);
-            let show = MenuItem::with_id(app, "show", "Show ccs2claude", true, None::<&str>)?;
+            let show = MenuItem::with_id(app, "show", "Show Claude++", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
             let tray = TrayIconBuilder::new()
-                .tooltip("ccs2claude")
+                .tooltip("Claude++")
                 .menu(&menu)
                 .show_menu_on_left_click(false);
             let tray = if let Some(icon) = app.default_window_icon().cloned() {

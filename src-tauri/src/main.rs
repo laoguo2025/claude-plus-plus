@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    ccs2claude_lib::run()
+    claude_plus_plus_lib::run()
 }
