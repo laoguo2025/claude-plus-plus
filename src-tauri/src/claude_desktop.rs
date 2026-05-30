@@ -32,7 +32,10 @@ pub(crate) fn stop_claude_processes() -> Result<(), String> {
         .output()
         .map_err(|e| format!("关闭 Claude Desktop 失败: {e}"))?;
 
-    if output.status.success() || taskkill_means_not_running(&output.stdout, &output.stderr) {
+    if output.status.success()
+        || output.status.code() == Some(128)
+        || taskkill_means_not_running(&output.stdout, &output.stderr)
+    {
         Ok(())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();

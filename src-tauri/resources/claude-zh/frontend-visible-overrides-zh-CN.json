@@ -641,5 +641,16 @@
   "z2Ayna2YQb": "正在抓取 · {pct}%",
   "z3m5JkfEfc": "我想头脑风暴。先问我几个关于我正在做什么的简短问题，然后提出三个可走方向。",
   "zApbjQWOBc": "审查我的 PR diff",
-  "znCeYD3m6L": "你的连接正常，但提供商拒绝了测试请求。通常是模型访问权限或配额问题。"
+  "znCeYD3m6L": "你的连接正常，但提供商拒绝了测试请求。通常是模型访问权限或配额问题。",
+  "0vTMSdGW5Z": "Claude 会在不暂停请求批准的情况下工作。这可能让你的数据面临风险。<link>了解更多</link>",
+  "HpC1rD45hD": "Claude 会控制看板。试试：“用我的工作流和活跃智能体设置一个看板。”",
+  "L3HkMgBFnj": "你的计划包含有限的 Claude Code 使用量",
+  "MS4FXVJgyN": "Claude 可以在运行期间无需请求权限，使用这些连接器中所有未受限制的工具，包括写入操作。",
+  "YScydo43CK": "需要 Claude Max 或 Pro 才能连接 Claude Code",
+  "qV5DrBiofF": "Claude 会抓取你的整个仓库，并按影响程度排序展示正确性 Bug。",
+  "qmYNn7jcu2": "Claude 已独立验证此发现（{n}/3 项检查通过）。",
+  "ufmahxJ7x6": "Claude 可以在不暂停请求批准的情况下浏览网站并执行操作。",
+  "vYCL/necc9": "Claude Code、Cowork 和 200K 上下文",
+  "xnmDYbH504": "Claude 会在不暂停请求批准的情况下使用你的连接器。",
+  "zuBzxY6QwA": "需要 Claude Max、Pro 或 Team 才能连接 Claude Code"
 }

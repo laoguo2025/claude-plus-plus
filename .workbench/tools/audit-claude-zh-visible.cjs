@@ -13,16 +13,39 @@ const overridePath = path.join(packDir, "frontend-visible-overrides-zh-CN.json")
 const overrides = fs.existsSync(overridePath)
   ? JSON.parse(fs.readFileSync(overridePath, "utf8"))
   : {};
+const hardcodedPath = path.join(packDir, "frontend-hardcoded-zh-CN.json");
+const hardcodedReplacements = fs.existsSync(hardcodedPath)
+  ? JSON.parse(fs.readFileSync(hardcodedPath, "utf8"))
+  : [];
 
 const cjk = /[\u4e00-\u9fff]/;
 const englishWord = /[A-Za-z]{3,}/;
 const technicalOnly =
   /^(?:[A-Z][A-Za-z0-9+.#-]*|[a-z]+(?:-[a-z0-9]+)*|\{[^}]+\}|\([^)]*\)|[\d.,/%: +#-]+|[A-Z]{2,}|[\w.-]+@[\w.-]+)$/;
 const allowVisibleEnglish = [
-  /^Claude\b/,
-  /^Anthropic\b/,
-  /^Google\b/,
-  /^GitHub\b/,
+  /^Claude$/,
+  /^Claude Code$/,
+  /^Claude Code CLI$/,
+  /^Claude Desktop$/,
+  /^Claude in Chrome$/,
+  /^Claude Cowork$/,
+  /^Claude API$/,
+  /^Claude Free$/,
+  /^Claude Enterprise$/,
+  /^Claude Max$/,
+  /^Claude Pro$/,
+  /^Claude Platform$/,
+  /^Claude Ship$/,
+  /^Claude Artifact$/,
+  /^Claude \{featureName\}$/,
+  /^Anthropic$/,
+  /^Anthropic Sans$/,
+  /^Anthropic Academy$/,
+  /^Anthropic Labs$/,
+  /^Google$/,
+  /^Google Play$/,
+  /^Google Vertex AI$/,
+  /^GitHub$/,
   /^Gmail$/,
   /^Amazon Bedrock$/,
   /^Azure AI Foundry$/,
@@ -115,7 +138,81 @@ for (const key of Object.keys(en)) {
   if (translated === value && !shouldIgnore(value)) rows.push({ key, value });
 }
 
+for (const value of remainingHardcodedVisibleEnglish()) {
+  rows.push({ key: "hardcoded:third-party-inference", value });
+}
+
 console.log(JSON.stringify({ count: rows.length, rows }, null, 2));
+
+function remainingHardcodedVisibleEnglish() {
+  const assetsDir = path.join(claudeResources, "ion-dist/assets/v1");
+  if (!fs.existsSync(assetsDir)) return [];
+  let text = "";
+  for (const file of jsFiles(assetsDir)) {
+    const content = fs.readFileSync(file, "utf8");
+    if (
+      content.includes("inferenceGatewayBaseUrl") ||
+      content.includes("Configure third-party inference") ||
+      content.includes("配置第三方推理")
+    ) {
+      text += `${content}\n`;
+    }
+  }
+  if (!text) return [];
+  for (const [source, target] of hardcodedReplacements) {
+    if (text.includes(source)) text = text.split(source).join(target);
+  }
+  const tracked = [
+    "Choose where Claude Desktop sends inference requests.",
+    "Sandbox & workspace",
+    "Allow Claude Code tab",
+    "Show the Code tab (terminal-based coding sessions).",
+    "Domains Cowork's tools may reach during a turn.",
+    "Built-in tools removed from Cowork.",
+    "Folders users may attach as a workspace.",
+    "MCP SERVERS",
+    "Managed MCP servers",
+    "Org-pushed remote MCP servers.",
+    "Allow user-added MCP servers",
+    "Local stdio servers added via the Developer settings.",
+    "EXTENSIONS",
+    "Show extension directory",
+    "The in-app catalogue of installable extensions.",
+    "Require signed extensions",
+    "Reject desktop extensions that are not signed",
+    "Prompts, completions, and your data are never sent to Anthropic",
+    "OpenTelemetry collector endpoint",
+    "Where Cowork sends OpenTelemetry logs and metrics.",
+    "UPDATES",
+    "Block auto-updates",
+    "Stop Cowork from fetching updates.",
+    "Auto-update enforcement window",
+    "Hours before a downloaded update",
+    "Per-user soft cap, counted client-side",
+    "Plugins and skills aren't set in this configuration.",
+    "Drop plugin folders here.",
+    "Hosts your network firewall must allow",
+    "CORE (VM BUNDLE + CLAUDE CLI BINARY)",
+    "DESKTOP EXTENSIONS (PYTHON RUNTIME)",
+    "AUTO-UPDATES",
+    "ESSENTIAL TELEMETRY",
+    "NONESSENTIAL TELEMETRY",
+    "NONESSENTIAL SERVICES",
+    "Gateway extra headers",
+    "Inference provider",
+  ];
+  return tracked.filter((value) => text.includes(value));
+}
+
+function jsFiles(root) {
+  const files = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const file = path.join(root, entry.name);
+    if (entry.isDirectory()) files.push(...jsFiles(file));
+    else if (entry.isFile() && file.endsWith(".js")) files.push(file);
+  }
+  return files;
+}
 
 function findClaudeResources() {
   const roots = [

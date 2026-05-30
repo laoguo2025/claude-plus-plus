@@ -252,8 +252,10 @@ mod imp {
 
     fn collect_windows_app_candidates(root: &Path, candidates: &mut Vec<PathBuf>) {
         let Ok(entries) = fs::read_dir(root) else {
+            collect_windows_app_candidates_with_shell(root, candidates);
             return;
         };
+        let before = candidates.len();
         for entry in entries.flatten() {
             let path = entry.path();
             let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
@@ -261,6 +263,36 @@ mod imp {
             };
             if name.starts_with("Claude_") && path.is_dir() {
                 candidates.push(path);
+            }
+        }
+        if candidates.len() == before {
+            collect_windows_app_candidates_with_shell(root, candidates);
+        }
+    }
+
+    fn collect_windows_app_candidates_with_shell(root: &Path, candidates: &mut Vec<PathBuf>) {
+        let root = root.display().to_string().replace('\'', "''");
+        let script = format!(
+            "Get-ChildItem '{root}\\Claude_*' -Directory -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | ForEach-Object {{ $_.FullName }}"
+        );
+        for shell in ["pwsh.exe", "powershell.exe"] {
+            let Ok(output) = hidden_command(shell)
+                .args(["-NoProfile", "-Command", &script])
+                .output()
+            else {
+                continue;
+            };
+            if !output.status.success() {
+                continue;
+            }
+            for line in String::from_utf8_lossy(&output.stdout).lines() {
+                let path = PathBuf::from(line.trim());
+                if !path.as_os_str().is_empty() && path.is_dir() {
+                    candidates.push(path);
+                }
+            }
+            if !candidates.is_empty() {
+                break;
             }
         }
     }
@@ -810,13 +842,16 @@ mod imp {
         patched: bool,
     ) -> Result<Option<(usize, usize)>, String> {
         let regex = BytesRegex::new(
-            r#"function ([A-Za-z_$][A-Za-z0-9_$]*)\(([A-Za-z_$][A-Za-z0-9_$]*)\)\{const ([A-Za-z_$][A-Za-z0-9_$]*)=\2\.toLowerCase\(\);return ([^{};]+)\}"#,
+            r#"function ([A-Za-z_$][A-Za-z0-9_$]*)\(([A-Za-z_$][A-Za-z0-9_$]*)\)\{const ([A-Za-z_$][A-Za-z0-9_$]*)=([A-Za-z_$][A-Za-z0-9_$]*)\.toLowerCase\(\);return ([^{};]+)\}"#,
         )
         .map_err(|e| format!("创建 3P 名称校验匹配器失败: {e}"))?;
         let mut found = None;
         for cap in regex.captures_iter(content) {
             let m = cap.get(0).unwrap();
-            let expr = cap.get(4).unwrap();
+            if cap.get(2).unwrap().as_bytes() != cap.get(4).unwrap().as_bytes() {
+                continue;
+            }
+            let expr = cap.get(5).unwrap();
             let window_start = m.start().saturating_sub(1500);
             let window_end = std::cmp::min(content.len(), m.start() + 3000);
             let window = &content[window_start..window_end];
