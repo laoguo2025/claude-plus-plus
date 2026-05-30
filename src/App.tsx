@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
@@ -24,6 +24,8 @@ function App() {
   const [pm, setPm] = useState<ProviderMappings | null>(null);
   const [err, setErr] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  const [restartNeeded, setRestartNeeded] = useState(false);
+  const lastMappingFingerprint = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     setErr("");
@@ -33,7 +35,19 @@ function App() {
       setErr(String(e));
     }
     try {
-      setPm(await invoke<ProviderMappings>("get_mappings"));
+      const nextPm = await invoke<ProviderMappings>("get_mappings");
+      const nextFingerprint = JSON.stringify({
+        provider_id: nextPm.provider_id,
+        mappings: nextPm.mappings,
+      });
+      if (
+        lastMappingFingerprint.current !== null &&
+        lastMappingFingerprint.current !== nextFingerprint
+      ) {
+        setRestartNeeded(true);
+      }
+      lastMappingFingerprint.current = nextFingerprint;
+      setPm(nextPm);
     } catch (e) {
       setErr(String(e));
       setPm(null);
@@ -51,6 +65,20 @@ function App() {
     setErr("");
     try {
       await invoke(cmd);
+      await refresh();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const restartClaudeDesktop = async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      await invoke("restart_claude_desktop");
+      setRestartNeeded(false);
       await refresh();
     } catch (e) {
       setErr(String(e));
@@ -79,16 +107,30 @@ function App() {
           <span className={status?.cd_applied ? "dot on" : "dot off"} />
           <span>Claude Desktop {status?.cd_applied ? "已接入" : "未接入"}</span>
           <div className="spacer" />
-          {status?.cd_applied ? (
-            <button disabled={busy} onClick={() => run("revert_cd_config")}>
-              撤销接入
-            </button>
-          ) : (
-            <button disabled={busy} onClick={() => run("apply_cd_config")}>
-              接入 Claude Desktop
-            </button>
-          )}
+          <div className="actions">
+            {status?.cd_applied && (
+              <button disabled={busy} onClick={restartClaudeDesktop}>
+                重启 Claude Desktop
+              </button>
+            )}
+            {status?.cd_applied ? (
+              <button disabled={busy} onClick={() => run("revert_cd_config")}>
+                撤销接入
+              </button>
+            ) : (
+              <button disabled={busy} onClick={() => run("apply_cd_config")}>
+                接入 Claude Desktop
+              </button>
+            )}
+          </div>
         </div>
+        {status?.cd_applied && (
+          <div className={restartNeeded ? "notice warn" : "notice"}>
+            {restartNeeded
+              ? "已检测到 CC Switch 模型或服务商变化。ccs2claude 已同步，Claude Desktop 需要重启后刷新模型列表。"
+              : "Claude Desktop 的模型列表只在启动时发现；CC Switch 切换后请重启 Claude Desktop。"}
+          </div>
+        )}
       </section>
 
       <section className="card">

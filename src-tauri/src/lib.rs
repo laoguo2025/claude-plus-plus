@@ -1,5 +1,6 @@
 mod ccswitch_db;
 mod cd_config;
+mod claude_desktop;
 mod proxy;
 mod server;
 
@@ -54,6 +55,11 @@ fn apply_cd_config() -> Result<(), String> {
 #[tauri::command]
 fn revert_cd_config() -> Result<(), String> {
     cd_config::revert(Some("00000000-0000-4000-8000-000000157210"))
+}
+
+#[tauri::command]
+fn restart_claude_desktop() -> Result<(), String> {
+    claude_desktop::restart()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -118,7 +124,8 @@ pub fn run() {
             stop_proxy,
             get_mappings,
             apply_cd_config,
-            revert_cd_config
+            revert_cd_config,
+            restart_claude_desktop
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -176,13 +183,15 @@ fn spawn_mapping_monitor(port: u16) {
 
 fn refresh_cd_config(port: u16, reason: &str) {
     let Some(key) = server::read_ccswitch_api_key() else {
-        tracing::warn!("skip Claude Desktop config refresh ({reason}): API key not found");
+        tracing::warn!("skip Claude Desktop config entry refresh ({reason}): API key not found");
         return;
     };
 
     if let Err(e) = cd_config::apply(port, &key) {
-        tracing::warn!("Claude Desktop config refresh failed ({reason}): {e}");
+        tracing::warn!("Claude Desktop config entry refresh failed ({reason}): {e}");
     } else {
-        tracing::info!("Claude Desktop config refreshed ({reason})");
+        tracing::info!(
+            "Claude Desktop config entry refreshed ({reason}); restart Claude Desktop to refresh model picker"
+        );
     }
 }

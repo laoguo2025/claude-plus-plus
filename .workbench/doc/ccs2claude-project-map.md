@@ -8,7 +8,7 @@
 - Claude Desktop integration writes a separate `ccs2claude` configLibrary entry and must not edit CC Switch's `00000000-0000-4000-8000-000000157210` entry.
 - The `ccs2claude` configLibrary entry must omit `inferenceModels` so Claude Desktop uses `/v1/models` discovery.
 - The proxy must stay running while Claude Desktop is configured to use `ccs2claude`; otherwise Claude Desktop cannot load model discovery.
-- Claude Desktop can cache gateway discovery results. `ccs2claude` must send no-cache headers on `/v1/models` and refresh its own Claude Desktop configLibrary entry when CC Switch mappings change so Claude Desktop's config watcher reloads.
+- Claude Desktop discovers gateway models only during app startup in the observed Windows Store build. `ccs2claude` still sends no-cache headers on `/v1/models` and refreshes its own Claude Desktop configLibrary entry when CC Switch mappings change so credentials stay current, but the Claude Desktop model picker requires a Claude Desktop restart to show a changed model list.
 - Model discovery IDs must be unique by role, not by CC Switch display label, because multiple roles can share the same labelOverride. Discovery display names should include role plus label, e.g. `Opus - mimo-v2.5-pro`, while request forwarding maps the discovered ID back to the CC Switch role key.
 
 ## Runtime Entry Points
