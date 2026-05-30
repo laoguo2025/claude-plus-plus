@@ -1,0 +1,95 @@
+:root {
+  font-family: -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #1f2328;
+  background: #f6f7f9;
+}
+
+* { box-sizing: border-box; }
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 24px;
+}
+.sub {
+  margin: 4px 0 20px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+.spacer { flex: 1; }
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot.on { background: #22c55e; }
+.dot.off { background: #d1d5db; }
+
+button {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+button:hover:not(:disabled) { background: #f3f4f6; }
+button:disabled { opacity: 0.5; cursor: default; }
+
+table.map {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 13px;
+}
+table.map th,
+table.map td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid #f0f1f3;
+}
+table.map th {
+  color: #6b7280;
+  font-weight: 600;
+  font-size: 12px;
+}
+table.map td.empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 18px;
+}
+
+.err {
+  color: #dc2626;
+  font-size: 13px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.todo strong { font-size: 13px; color: #6b7280; }
+.todoRow { display: flex; gap: 10px; margin-top: 10px; }
