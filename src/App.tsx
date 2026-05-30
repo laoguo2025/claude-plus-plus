@@ -103,17 +103,17 @@ function App() {
         <table className="map">
           <thead>
             <tr>
-              <th>显示名 (picker)</th>
-              <th>角色 (role)</th>
+              <th>模型角色</th>
+              <th>菜单显示名</th>
               <th>Claude 模型</th>
-              <th>真实模型</th>
+              <th>实际请求模型</th>
             </tr>
           </thead>
           <tbody>
             {pm?.mappings.map((m) => (
               <tr key={m.role}>
-                <td>{m.display}</td>
                 <td>{m.role_kind}</td>
+                <td>{m.display}</td>
                 <td>{m.role}</td>
                 <td>{m.model}</td>
               </tr>
