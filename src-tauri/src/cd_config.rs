@@ -22,7 +22,7 @@ pub fn store_config_library_dir() -> Option<PathBuf> {
 }
 
 /// 备选(非 Store 版)路径,按存在性挑选。
-fn candidate_dirs() -> Vec<PathBuf> {
+pub fn candidate_dirs() -> Vec<PathBuf> {
     let mut v = Vec::new();
     if let Some(d) = store_config_library_dir() {
         v.push(d);
@@ -109,7 +109,8 @@ pub fn revert(target_entry_id: Option<&str>) -> Result<(), String> {
         return Err("_meta.json not found".to_string());
     }
     let s = std::fs::read_to_string(&mp).map_err(|e| format!("read meta failed: {e}"))?;
-    let mut meta: Value = serde_json::from_str(&s).map_err(|e| format!("parse meta failed: {e}"))?;
+    let mut meta: Value =
+        serde_json::from_str(&s).map_err(|e| format!("parse meta failed: {e}"))?;
 
     let fallback = target_entry_id
         .map(|s| s.to_string())
@@ -119,9 +120,7 @@ pub fn revert(target_entry_id: Option<&str>) -> Result<(), String> {
                 .and_then(|v| v.as_array())
                 .and_then(|arr| {
                     arr.iter()
-                        .find(|e| {
-                            e.get("id").and_then(|i| i.as_str()) != Some(CCS2CLAUDE_ENTRY_ID)
-                        })
+                        .find(|e| e.get("id").and_then(|i| i.as_str()) != Some(CCS2CLAUDE_ENTRY_ID))
                         .and_then(|e| e.get("id").and_then(|i| i.as_str()).map(|s| s.to_string()))
                 })
         })

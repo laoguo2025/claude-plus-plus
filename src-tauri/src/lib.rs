@@ -4,6 +4,7 @@ mod proxy;
 mod server;
 
 use server::ServerHandle;
+use std::time::Duration;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -70,6 +71,7 @@ pub fn run() {
             if let Err(e) = handle.start(DEFAULT_PORT, server::default_db_path()) {
                 tracing::error!("auto start proxy failed: {e}");
             }
+            spawn_mapping_monitor(DEFAULT_PORT);
             let show = MenuItem::with_id(app, "show", "Show ccs2claude", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
@@ -133,5 +135,54 @@ fn show_main_window<R: tauri::Runtime>(manager: &impl Manager<R>) {
         if let Err(e) = window.set_focus() {
             tracing::error!("focus window failed: {e}");
         }
+    }
+}
+
+fn spawn_mapping_monitor(port: u16) {
+    tauri::async_runtime::spawn(async move {
+        let mut last_fingerprint: Option<String> = None;
+        let mut refreshed_on_startup = false;
+
+        loop {
+            match ccswitch_db::load_mappings(&server::default_db_path()) {
+                Ok(pm) => {
+                    let fingerprint = serde_json::to_string(&pm).unwrap_or_default();
+                    let changed = last_fingerprint
+                        .as_ref()
+                        .map(|last| last != &fingerprint)
+                        .unwrap_or(false);
+
+                    if (!refreshed_on_startup || changed) && cd_config::is_applied() {
+                        let reason = if changed {
+                            "mapping changed"
+                        } else {
+                            "startup"
+                        };
+                        refresh_cd_config(port, reason);
+                        refreshed_on_startup = true;
+                    }
+
+                    last_fingerprint = Some(fingerprint);
+                }
+                Err(e) => {
+                    tracing::warn!("mapping monitor failed to load mappings: {e}");
+                }
+            }
+
+            tokio::time::sleep(Duration::from_secs(2)).await;
+        }
+    });
+}
+
+fn refresh_cd_config(port: u16, reason: &str) {
+    let Some(key) = server::read_ccswitch_api_key() else {
+        tracing::warn!("skip Claude Desktop config refresh ({reason}): API key not found");
+        return;
+    };
+
+    if let Err(e) = cd_config::apply(port, &key) {
+        tracing::warn!("Claude Desktop config refresh failed ({reason}): {e}");
+    } else {
+        tracing::info!("Claude Desktop config refreshed ({reason})");
     }
 }

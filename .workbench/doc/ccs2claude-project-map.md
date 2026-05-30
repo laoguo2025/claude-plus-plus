@@ -8,6 +8,7 @@
 - Claude Desktop integration writes a separate `ccs2claude` configLibrary entry and must not edit CC Switch's `00000000-0000-4000-8000-000000157210` entry.
 - The `ccs2claude` configLibrary entry must omit `inferenceModels` so Claude Desktop uses `/v1/models` discovery.
 - The proxy must stay running while Claude Desktop is configured to use `ccs2claude`; otherwise Claude Desktop cannot load model discovery.
+- Claude Desktop can cache gateway discovery results. `ccs2claude` must send no-cache headers on `/v1/models` and refresh its own Claude Desktop configLibrary entry when CC Switch mappings change so Claude Desktop's config watcher reloads.
 
 ## Runtime Entry Points
 - Tauri lifecycle and commands: `src-tauri/src/lib.rs`.

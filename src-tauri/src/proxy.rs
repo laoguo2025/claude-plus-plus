@@ -6,7 +6,10 @@ use crate::ccswitch_db::{self, Mapping};
 use axum::{
     body::Body,
     extract::State,
-    http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri},
+    http::{
+        header::{CACHE_CONTROL, EXPIRES, PRAGMA},
+        HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri,
+    },
     response::{IntoResponse, Response},
     routing::{any, get},
     Router,
@@ -96,7 +99,15 @@ async fn handle_models(State(state): State<AppState>) -> Response {
         "first_id": first,
         "last_id": last
     });
-    (StatusCode::OK, axum::Json(body)).into_response()
+    let mut response = (StatusCode::OK, axum::Json(body)).into_response();
+    let headers = response.headers_mut();
+    headers.insert(
+        CACHE_CONTROL,
+        HeaderValue::from_static("no-store, no-cache, must-revalidate, max-age=0"),
+    );
+    headers.insert(PRAGMA, HeaderValue::from_static("no-cache"));
+    headers.insert(EXPIRES, HeaderValue::from_static("0"));
+    response
 }
 
 async fn handle_proxy(

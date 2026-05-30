@@ -99,15 +99,22 @@ pub fn read_ccswitch_base_url() -> Option<String> {
 
 /// 读 157210.json 里的某个字符串字段。
 fn read_ccswitch_field(field: &str) -> Option<String> {
-    let dir = crate::cd_config::resolve_config_library_dir().ok()?;
-    // CC Switch 固定写这个条目
-    let p = dir.join("00000000-0000-4000-8000-000000157210.json");
-    let s = std::fs::read_to_string(&p).ok()?;
-    let v = serde_json::from_str::<serde_json::Value>(&s).ok()?;
-    v.get(field)
-        .and_then(|x| x.as_str())
-        .filter(|k| !k.is_empty())
-        .map(|k| k.to_string())
+    crate::cd_config::candidate_dirs()
+        .into_iter()
+        .filter_map(|dir| {
+            let p = dir.join("00000000-0000-4000-8000-000000157210.json");
+            let modified = p.metadata().and_then(|m| m.modified()).ok()?;
+            let s = std::fs::read_to_string(&p).ok()?;
+            let v = serde_json::from_str::<serde_json::Value>(&s).ok()?;
+            let value = v
+                .get(field)
+                .and_then(|x| x.as_str())
+                .filter(|k| !k.is_empty())?
+                .to_string();
+            Some((modified, value))
+        })
+        .max_by_key(|(modified, _)| *modified)
+        .map(|(_, value)| value)
 }
 
 /// 默认 DB 路径透出,供命令层使用。
