@@ -9,6 +9,7 @@
 - The `ccs2claude` configLibrary entry must omit `inferenceModels` so Claude Desktop uses `/v1/models` discovery.
 - The proxy must stay running while Claude Desktop is configured to use `ccs2claude`; otherwise Claude Desktop cannot load model discovery.
 - Claude Desktop can cache gateway discovery results. `ccs2claude` must send no-cache headers on `/v1/models` and refresh its own Claude Desktop configLibrary entry when CC Switch mappings change so Claude Desktop's config watcher reloads.
+- Model discovery IDs must be unique by role, not by CC Switch display label, because multiple roles can share the same labelOverride. Discovery display names should include role plus label, e.g. `Opus - mimo-v2.5-pro`, while request forwarding maps the discovered ID back to the CC Switch role key.
 
 ## Runtime Entry Points
 - Tauri lifecycle and commands: `src-tauri/src/lib.rs`.

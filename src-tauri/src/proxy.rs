@@ -59,10 +59,7 @@ impl AppState {
     }
 
     fn display_to_role(&self, display: &str) -> Option<String> {
-        self.mappings()
-            .into_iter()
-            .find(|m| m.display == display)
-            .map(|m| m.role)
+        display_to_role_from_mappings(&self.mappings(), display)
     }
 }
 
@@ -76,17 +73,13 @@ pub fn router(state: AppState) -> Router {
 
 async fn handle_models(State(state): State<AppState>) -> Response {
     let mappings = state.mappings();
-    // 多个角色可能用相同菜单显示名(如 haiku/sonnet 都叫 mimo-v2.5)。
-    // 模型列表的 id 必须唯一,否则 Claude Desktop 列表会错乱,所以按 display 去重(保序)。
-    let mut seen = std::collections::HashSet::new();
     let data: Vec<serde_json::Value> = mappings
         .iter()
-        .filter(|m| seen.insert(m.display.clone()))
         .map(|m| {
             serde_json::json!({
                 "type": "model",
-                "id": m.display,
-                "display_name": m.display,
+                "id": menu_model_id(m),
+                "display_name": menu_display_name(m),
                 "created_at": "2024-01-01T00:00:00Z"
             })
         })
@@ -108,6 +101,37 @@ async fn handle_models(State(state): State<AppState>) -> Response {
     headers.insert(PRAGMA, HeaderValue::from_static("no-cache"));
     headers.insert(EXPIRES, HeaderValue::from_static("0"));
     response
+}
+
+fn menu_model_id(mapping: &Mapping) -> String {
+    format!("ccs2claude-{}-{}", mapping.role_kind, mapping.display)
+}
+
+fn menu_display_name(mapping: &Mapping) -> String {
+    format!("{} - {}", role_label(&mapping.role_kind), mapping.display)
+}
+
+fn role_label(role_kind: &str) -> String {
+    let mut chars = role_kind.chars();
+    match chars.next() {
+        Some(first) => format!("{}{}", first.to_uppercase(), chars.as_str()),
+        None => "Model".to_string(),
+    }
+}
+
+fn display_to_role_from_mappings(mappings: &[Mapping], model: &str) -> Option<String> {
+    mappings
+        .iter()
+        .find(|m| menu_model_id(m) == model || menu_display_name(m) == model)
+        .or_else(|| mappings.iter().find(|m| m.display == model))
+        .or_else(|| mappings.iter().find(|m| model_matches_role_kind(model, &m.role_kind)))
+        .map(|m| m.role.clone())
+}
+
+fn model_matches_role_kind(model: &str, role_kind: &str) -> bool {
+    let model = model.to_ascii_lowercase();
+    let role_kind = role_kind.to_ascii_lowercase();
+    !role_kind.is_empty() && model.contains(&role_kind)
 }
 
 async fn handle_proxy(
@@ -190,4 +214,58 @@ async fn handle_proxy(
     builder.body(body).unwrap_or_else(|_| {
         (StatusCode::INTERNAL_SERVER_ERROR, "build response failed").into_response()
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mapping(display: &str, role: &str, role_kind: &str, model: &str) -> Mapping {
+        Mapping {
+            display: display.to_string(),
+            role: role.to_string(),
+            role_kind: role_kind.to_string(),
+            model: model.to_string(),
+        }
+    }
+
+    #[test]
+    fn model_ids_are_unique_by_role_even_when_display_names_match() {
+        let sonnet = mapping("mimo-v2.5", "claude-sonnet-4-6", "sonnet", "mimo-v2.5");
+        let haiku = mapping("mimo-v2.5", "claude-haiku-4-5", "haiku", "mimo-v2.5");
+
+        assert_eq!(menu_model_id(&sonnet), "ccs2claude-sonnet-mimo-v2.5");
+        assert_eq!(menu_model_id(&haiku), "ccs2claude-haiku-mimo-v2.5");
+        assert_ne!(menu_model_id(&sonnet), menu_model_id(&haiku));
+    }
+
+    #[test]
+    fn display_names_keep_role_and_model_visible() {
+        let opus = mapping(
+            "mimo-v2.5-pro",
+            "claude-opus-4-7-r2",
+            "opus",
+            "mimo-v2.5-pro",
+        );
+
+        assert_eq!(menu_display_name(&opus), "Opus - mimo-v2.5-pro");
+    }
+
+    #[test]
+    fn old_session_model_ids_fallback_by_role_kind() {
+        let mappings = vec![
+            mapping("mimo-v2.5-pro", "claude-opus-4-7-r2", "opus", "mimo-v2.5-pro"),
+            mapping("mimo-v2.5", "claude-sonnet-4-6", "sonnet", "mimo-v2.5"),
+            mapping("mimo-v2.5", "claude-haiku-4-5", "haiku", "mimo-v2.5"),
+        ];
+
+        assert_eq!(
+            display_to_role_from_mappings(&mappings, "now-opus-4-6"),
+            Some("claude-opus-4-7-r2".to_string())
+        );
+        assert_eq!(
+            display_to_role_from_mappings(&mappings, "claude-haiku-4-5-20251001"),
+            Some("claude-haiku-4-5".to_string())
+        );
+    }
 }
