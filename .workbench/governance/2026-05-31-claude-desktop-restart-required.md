@@ -13,5 +13,8 @@ After CC Switch provider or model changes, `ccs2claude` updates `/claude-desktop
 - Added an in-app notice that CC Switch changes are synced in `ccs2claude`, but Claude Desktop must restart to refresh the model picker.
 - Kept the background config entry rewrite for API key/config freshness, but clarified logs and docs so it is not treated as a live picker refresh.
 
+## Follow-up Fix
+The first restart implementation used PowerShell and directly launched `Claude.exe` from the WindowsApps package. That caused a visible terminal window and could open a different desktop shell than the user's `Claude.lnk` Store app shortcut. The restart path now hides helper processes, stops `Claude.exe`, and launches through the desktop `Claude.lnk` shortcut first, falling back to the Store AppUserModelID `Claude_pzs8sxrjxfjjc!Claude`.
+
 ## Rollback
 Revert the local commit for this slice to remove the restart command and UI notice. The gateway and configLibrary integration can still be reverted through the app's existing revert action.
