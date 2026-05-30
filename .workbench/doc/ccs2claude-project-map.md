@@ -15,6 +15,8 @@
 ## Runtime Entry Points
 - Tauri lifecycle and commands: `src-tauri/src/lib.rs`.
 - Claude Desktop localization install/status/restore: `src-tauri/src/claude_zh.rs`.
+- Claude Desktop simplified Chinese visible-copy overrides: `src-tauri/resources/claude-zh/frontend-visible-overrides-zh-CN.json`.
+- Claude Desktop visible-copy audit: `npm run audit:claude-zh`.
 - Proxy lifecycle and CC Switch config field reads: `src-tauri/src/server.rs`.
 - HTTP gateway routes and model rewrite: `src-tauri/src/proxy.rs`.
 - CC Switch DB mapping read: `src-tauri/src/ccswitch_db.rs`.

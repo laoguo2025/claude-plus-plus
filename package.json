@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "audit:claude-zh": "node .workbench/tools/audit-claude-zh-visible.cjs",
     "tauri": "tauri"
   },
   "dependencies": {

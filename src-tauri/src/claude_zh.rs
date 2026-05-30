@@ -32,6 +32,7 @@ mod imp {
 
     struct LanguagePack {
         frontend: &'static str,
+        frontend_visible_overrides: &'static str,
         frontend_hardcoded: &'static str,
         desktop: &'static str,
         statsig: &'static str,
@@ -193,6 +194,9 @@ mod imp {
         match language {
             "zh-CN" => Ok(LanguagePack {
                 frontend: include_str!("../resources/claude-zh/frontend-zh-CN.json"),
+                frontend_visible_overrides: include_str!(
+                    "../resources/claude-zh/frontend-visible-overrides-zh-CN.json"
+                ),
                 frontend_hardcoded: include_str!(
                     "../resources/claude-zh/frontend-hardcoded-zh-CN.json"
                 ),
@@ -201,6 +205,7 @@ mod imp {
             }),
             "zh-TW" => Ok(LanguagePack {
                 frontend: include_str!("../resources/claude-zh/frontend-zh-TW.json"),
+                frontend_visible_overrides: "{}",
                 frontend_hardcoded: include_str!(
                     "../resources/claude-zh/frontend-hardcoded-zh-TW.json"
                 ),
@@ -209,6 +214,7 @@ mod imp {
             }),
             "zh-HK" => Ok(LanguagePack {
                 frontend: include_str!("../resources/claude-zh/frontend-zh-HK.json"),
+                frontend_visible_overrides: "{}",
                 frontend_hardcoded: include_str!(
                     "../resources/claude-zh/frontend-hardcoded-zh-HK.json"
                 ),
@@ -327,32 +333,49 @@ mod imp {
         backup.backup_resource(&desktop_target)?;
         backup.backup_resource(&statsig_target)?;
 
-        let frontend = merge_frontend_locale(&i18n_dir.join("en-US.json"), pack.frontend)?;
+        let frontend = merge_frontend_locale(
+            &i18n_dir.join("en-US.json"),
+            pack.frontend,
+            pack.frontend_visible_overrides,
+        )?;
         write_utf8(&frontend_target, &frontend)?;
         write_utf8(&desktop_target, pack.desktop)?;
         write_utf8(&statsig_target, pack.statsig)?;
         Ok(())
     }
 
-    fn merge_frontend_locale(en_path: &Path, zh_pack: &str) -> Result<String, String> {
+    fn merge_frontend_locale(
+        en_path: &Path,
+        zh_pack: &str,
+        visible_overrides: &str,
+    ) -> Result<String, String> {
         let en_text = fs::read_to_string(en_path)
             .map_err(|e| format!("读取当前 Claude 英文语言文件失败: {e}"))?;
         let en: Value =
             serde_json::from_str(&en_text).map_err(|e| format!("解析英文语言文件失败: {e}"))?;
         let zh: Value =
             serde_json::from_str(zh_pack).map_err(|e| format!("解析中文语言包失败: {e}"))?;
+        let overrides: Value = serde_json::from_str(visible_overrides)
+            .map_err(|e| format!("解析可见文案覆盖包失败: {e}"))?;
         let en = en
             .as_object()
             .ok_or_else(|| "英文语言文件不是 JSON 对象".to_string())?;
         let zh = zh
             .as_object()
             .ok_or_else(|| "中文语言包不是 JSON 对象".to_string())?;
+        let overrides = overrides
+            .as_object()
+            .ok_or_else(|| "可见文案覆盖包不是 JSON 对象".to_string())?;
 
         let mut merged = Map::new();
         for (key, value) in en {
             merged.insert(
                 key.clone(),
-                zh.get(key).cloned().unwrap_or_else(|| value.clone()),
+                overrides
+                    .get(key)
+                    .or_else(|| zh.get(key))
+                    .cloned()
+                    .unwrap_or_else(|| value.clone()),
             );
         }
         serde_json::to_string(&Value::Object(merged))
