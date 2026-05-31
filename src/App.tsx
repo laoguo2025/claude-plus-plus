@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, useRef, type ComponentType } from "re
 import { invoke } from "@tauri-apps/api/core";
 import {
   Activity,
-  BookOpen,
   FileText,
   Hammer,
   Info,
@@ -305,6 +304,7 @@ function App() {
               busy={busy}
               status={status}
               pm={pm}
+              zhStatus={zhStatus}
               run={run}
               restartClaudeDesktop={restartClaudeDesktop}
             />
@@ -354,12 +354,14 @@ function OverviewPage({
   busy,
   status,
   pm,
+  zhStatus,
   run,
   restartClaudeDesktop,
 }: {
   busy: boolean;
   status: StatusInfo | null;
   pm: ProviderMappings | null;
+  zhStatus: ClaudeZhStatus | null;
   run: (cmd: string) => Promise<void>;
   restartClaudeDesktop: () => Promise<void>;
 }) {
@@ -383,30 +385,30 @@ function OverviewPage({
       <section className="panel routePanel">
         <div className="panelHead routePanelHead">
           <div>
-            <h2>路由状态</h2>
+            <h2>路由转接步骤</h2>
           </div>
           <span className="routeHint">CC Switch 增/改/删模型或切换服务商时，需重启 Claude Desktop</span>
         </div>
         <div className="routeCardBody">
-          <RouteStatusCard active={!!status?.cd_applied} />
+          <RouteStatusCard
+            active={!!zhStatus?.claude_found}
+            label="Claude Desktop"
+            value={zhStatus?.claude_found ? "已安装" : "未安装"}
+          />
+          <RouteStatusCard active={!!pm} label="CC Switch 路由" value={pm ? "已开启" : "已断开"} />
           <RouteActionCard
-            active={!!status?.cd_applied}
+            state={status?.cd_applied ? "on" : "off"}
             disabled={busy}
             icon={PlugZap}
             label="Claude++ 路由"
+            value={status?.cd_applied ? "开启" : "断开"}
             onClick={() => run("use_claude_plus_route")}
           />
           <RouteActionCard
-            active={!status?.cd_applied}
-            disabled={busy}
-            icon={BookOpen}
-            label="CCS 路由"
-            onClick={() => run("use_ccs_route")}
-          />
-          <RouteActionCard
+            state="neutral"
             disabled={busy}
             icon={RotateCw}
-            label="重启 Claude"
+            label="重启 Claude Desktop"
             onClick={restartClaudeDesktop}
           />
         </div>
@@ -640,40 +642,38 @@ function DiagnosticsPage({
   );
 }
 
-function RouteStatusCard({
-  active,
-}: {
-  active: boolean;
-}) {
+function RouteStatusCard({ active, label, value }: { active: boolean; label: string; value: string }) {
   return (
     <div className={`routeStatusCard ${active ? "active" : "inactive"}`}>
       <span className={`dot ${active ? "on" : "off"}`} />
       <div>
-        <span>CC Switch 路由</span>
-        <strong>{active ? "开启" : "关闭"}</strong>
-        {!active && <small>请开启 Claude++ 路由后使用映射模型名。</small>}
+        <span>{label}</span>
+        <strong>{value}</strong>
       </div>
     </div>
   );
 }
 
 function RouteActionCard({
-  active = false,
+  state,
   disabled,
   icon: IconComponent,
   label,
+  value,
   onClick,
 }: {
-  active?: boolean;
+  state: "on" | "off" | "neutral";
   disabled: boolean;
   icon: Icon;
   label: string;
+  value?: string;
   onClick: () => void;
 }) {
   return (
-    <button className={`routeActionCard ${active ? "active" : ""}`} disabled={disabled} onClick={onClick}>
+    <button className={`routeActionCard ${state}`} disabled={disabled} onClick={onClick}>
       <IconComponent size={16} />
       <span>{label}</span>
+      {value && <strong>{value}</strong>}
     </button>
   );
 }

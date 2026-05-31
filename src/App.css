@@ -352,23 +352,25 @@ select {
 
 .routeStatusCard {
   display: grid;
-  grid-template-columns: 12px minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
+  gap: 8px;
+  align-content: center;
+  justify-items: center;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--bg-100);
   min-height: 82px;
   padding: 13px 14px;
+  text-align: center;
+}
+
+.routeStatusCard.active {
+  border-color: rgba(87, 138, 0, 0.28);
+  background: rgba(87, 138, 0, 0.08);
 }
 
 .routeStatusCard.inactive {
-  border-color: rgba(168, 107, 0, 0.22);
-  background: var(--warning-bg);
-}
-
-.routeStatusCard > .dot {
-  margin-top: 6px;
+  border-color: rgba(204, 66, 66, 0.28);
+  background: var(--danger-bg);
 }
 
 .routeStatusCard span,
@@ -422,7 +424,7 @@ select {
 }
 
 .dot.off {
-  background: #c9c6bd;
+  background: var(--danger);
 }
 
 .routeActionCard {
@@ -437,17 +439,34 @@ select {
   text-align: center;
 }
 
-.routeActionCard.active {
-  border-color: var(--brand-strong);
-  background: rgba(220, 125, 87, 0.14);
+.routeActionCard.on {
+  border-color: rgba(87, 138, 0, 0.36);
+  background: rgba(87, 138, 0, 0.12);
   color: var(--text-000);
 }
 
-.routeActionCard span {
+.routeActionCard.off {
+  border-color: rgba(204, 66, 66, 0.36);
+  background: rgba(204, 66, 66, 0.12);
+  color: var(--text-000);
+}
+
+.routeActionCard.neutral {
+  background: var(--bg-000);
+}
+
+.routeActionCard span,
+.routeActionCard strong {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.routeActionCard strong {
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .notice {
