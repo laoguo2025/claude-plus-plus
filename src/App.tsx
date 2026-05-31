@@ -12,7 +12,6 @@ import {
   RefreshCw,
   RotateCw,
   Sun,
-  Table2,
   type LucideProps,
 } from "lucide-react";
 import "./App.css";
@@ -88,30 +87,7 @@ function previewCommand<T>(cmd: string): T {
     return { running: true, port: 15722, cd_applied: true } as T;
   }
   if (cmd === "get_mappings") {
-    return {
-      provider_name: "mimo API（预览示例）",
-      provider_id: "preview",
-      mappings: [
-        {
-          display: "Opus - mimo-v2.5-pro",
-          role: "claude-opus-4-7-r2",
-          role_kind: "Opus",
-          model: "mimo-v2.5-pro",
-        },
-        {
-          display: "Sonnet - mimo-v2.5",
-          role: "claude-sonnet-4-7-r2",
-          role_kind: "Sonnet",
-          model: "mimo-v2.5",
-        },
-        {
-          display: "Haiku - mimo-v2.5-mini",
-          role: "claude-haiku-4-7-r2",
-          role_kind: "Haiku",
-          model: "mimo-v2.5-mini",
-        },
-      ],
-    } as T;
+    throw new Error("浏览器预览无法读取 CC Switch 数据库；请在 Claude++ EXE 中查看真实服务商和模型映射。");
   }
   if (cmd === "claude_zh_status") {
     return {
@@ -141,6 +117,7 @@ function App() {
   const [theme, setTheme] = useState<Theme>(() => loadInitialTheme());
   const [status, setStatus] = useState<StatusInfo | null>(null);
   const [pm, setPm] = useState<ProviderMappings | null>(null);
+  const [mappingError, setMappingError] = useState("");
   const [zhStatus, setZhStatus] = useState<ClaudeZhStatus | null>(null);
   const [zhLanguage, setZhLanguage] = useState("zh-CN");
   const [skipAsarPatch, setSkipAsarPatch] = useState(false);
@@ -175,9 +152,10 @@ function App() {
       }
       lastMappingFingerprint.current = nextFingerprint;
       setPm(nextPm);
+      setMappingError("");
     } catch (e) {
-      setErr(String(e));
       setPm(null);
+      setMappingError(String(e));
     }
     try {
       setZhStatus(await callCommand<ClaudeZhStatus>("claude_zh_status"));
@@ -304,6 +282,7 @@ function App() {
               busy={busy}
               status={status}
               pm={pm}
+              mappingError={mappingError}
               zhStatus={zhStatus}
               run={run}
               restartClaudeDesktop={restartClaudeDesktop}
@@ -354,6 +333,7 @@ function OverviewPage({
   busy,
   status,
   pm,
+  mappingError,
   zhStatus,
   run,
   restartClaudeDesktop,
@@ -361,6 +341,7 @@ function OverviewPage({
   busy: boolean;
   status: StatusInfo | null;
   pm: ProviderMappings | null;
+  mappingError: string;
   zhStatus: ClaudeZhStatus | null;
   run: (cmd: string) => Promise<void>;
   restartClaudeDesktop: () => Promise<void>;
@@ -420,22 +401,17 @@ function OverviewPage({
             <h2>当前服务商与模型映射</h2>
             <p>{pm ? `${pm.mappings.length} 个角色映射` : "读取失败"}</p>
           </div>
-          <Table2 size={20} />
         </div>
         <div className="providerStrip">
           <span>CC Switch 当前生效服务商</span>
           <div>
             <strong>{pm?.provider_name ?? "读取失败"}</strong>
             <small>
-              {pm?.provider_id === "preview"
-                ? "预览示例；EXE 中会读取 CC Switch 的真实服务商"
-                : pm
-                  ? `Provider ID: ${pm.provider_id}`
-                  : "请在 EXE 中读取 CC Switch 数据库后查看。"}
+              {pm ? `Provider ID: ${pm.provider_id}` : mappingError || "请在 Claude++ EXE 中读取 CC Switch 数据库。"}
             </small>
           </div>
         </div>
-        <MiniMapping mappings={pm?.mappings ?? []} />
+        <MiniMapping mappings={pm?.mappings ?? []} emptyText={pm ? "无映射" : "未读取到真实模型映射"} />
       </section>
     </div>
   );
@@ -678,7 +654,7 @@ function RouteActionCard({
   );
 }
 
-function MiniMapping({ mappings }: { mappings: Mapping[] }) {
+function MiniMapping({ mappings, emptyText }: { mappings: Mapping[]; emptyText: string }) {
   return (
     <div className="miniTable">
       {!!mappings.length && (
@@ -695,7 +671,7 @@ function MiniMapping({ mappings }: { mappings: Mapping[] }) {
           <code>{m.model}</code>
         </div>
       ))}
-      {!mappings.length && <div className="emptyInline">无映射</div>}
+      {!mappings.length && <div className="emptyInline">{emptyText}</div>}
     </div>
   );
 }
