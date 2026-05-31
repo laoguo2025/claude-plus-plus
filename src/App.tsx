@@ -391,28 +391,26 @@ function OverviewPage({
         </div>
         <div className="routeCardBody">
           <RouteStatusCard active={!!status?.cd_applied} />
-          <div className="routeActions">
-            <button
-              className={status?.cd_applied ? "active" : ""}
-              disabled={busy}
-              onClick={() => run("use_claude_plus_route")}
-            >
-              <PlugZap size={14} />
-              Claude++ 路由
-            </button>
-            <button
-              className={!status?.cd_applied ? "active" : ""}
-              disabled={busy}
-              onClick={() => run("use_ccs_route")}
-            >
-              <BookOpen size={14} />
-              CCS 路由
-            </button>
-            <button disabled={busy} onClick={restartClaudeDesktop}>
-              <RotateCw size={14} />
-              重启 Claude
-            </button>
-          </div>
+          <RouteActionCard
+            active={!!status?.cd_applied}
+            disabled={busy}
+            icon={PlugZap}
+            label="Claude++ 路由"
+            onClick={() => run("use_claude_plus_route")}
+          />
+          <RouteActionCard
+            active={!status?.cd_applied}
+            disabled={busy}
+            icon={BookOpen}
+            label="CCS 路由"
+            onClick={() => run("use_ccs_route")}
+          />
+          <RouteActionCard
+            disabled={busy}
+            icon={RotateCw}
+            label="重启 Claude"
+            onClick={restartClaudeDesktop}
+          />
         </div>
         <div className={`notice ${restartNeeded ? "warn" : ""}`}>
           {restartNeeded
@@ -663,6 +661,27 @@ function RouteStatusCard({
         {!active && <small>请开启 Claude++ 路由后使用映射模型名。</small>}
       </div>
     </div>
+  );
+}
+
+function RouteActionCard({
+  active = false,
+  disabled,
+  icon: IconComponent,
+  label,
+  onClick,
+}: {
+  active?: boolean;
+  disabled: boolean;
+  icon: Icon;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button className={`routeActionCard ${active ? "active" : ""}`} disabled={disabled} onClick={onClick}>
+      <IconComponent size={16} />
+      <span>{label}</span>
+    </button>
   );
 }
 

@@ -256,7 +256,7 @@ select {
 }
 
 .overviewPage {
-  grid-template-rows: 96px 168px minmax(0, 1fr);
+  grid-template-rows: 96px 176px minmax(0, 1fr);
 }
 
 .mechanismNote {
@@ -332,8 +332,8 @@ select {
 
 .routeCardBody {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px;
-  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
   align-items: stretch;
 }
 
@@ -345,8 +345,8 @@ select {
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--bg-100);
-  min-height: 112px;
-  padding: 14px 14px;
+  min-height: 82px;
+  padding: 13px 14px;
 }
 
 .routeStatusCard.inactive {
@@ -412,21 +412,29 @@ select {
   background: #c9c6bd;
 }
 
-.routeActions {
+.routeActionCard {
   display: grid;
-  grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: 8px;
-}
-
-.routeActions button {
+  align-content: center;
+  justify-items: center;
+  width: 100%;
   min-width: 0;
-  min-height: 32px;
+  min-height: 82px;
+  padding: 10px;
+  text-align: center;
 }
 
-.routeActions button.active {
+.routeActionCard.active {
   border-color: var(--brand-strong);
   background: rgba(220, 125, 87, 0.14);
   color: var(--text-000);
+}
+
+.routeActionCard span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .notice {
