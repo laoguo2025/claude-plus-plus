@@ -282,7 +282,6 @@ select {
   font-weight: 600;
 }
 
-.localizationPage,
 .aboutPage,
 .diagnosticsPage {
   grid-template-columns: minmax(0, 1.45fr) minmax(230px, 0.75fr);
@@ -601,6 +600,120 @@ select {
   grid-template-rows: auto auto auto 1fr;
 }
 
+.localizationFlow {
+  height: 100%;
+  min-height: 0;
+}
+
+.localizationChecklist {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+}
+
+.workflowRows {
+  display: grid;
+  gap: 9px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.workflowRow {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 66px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--bg-100);
+  padding: 10px 12px;
+}
+
+.rowIcon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+}
+
+.rowIcon.success {
+  color: var(--success);
+}
+
+.rowIcon.warning {
+  color: var(--warning);
+}
+
+.rowIcon.danger {
+  color: var(--danger);
+}
+
+.workflowCopy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.workflowCopy strong {
+  overflow: hidden;
+  color: var(--text-000);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflowCopy span {
+  overflow: hidden;
+  color: var(--text-200);
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stateBadge {
+  justify-self: end;
+  border-radius: 999px;
+  background: var(--bg-200);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.stateBadge.success {
+  color: var(--success);
+}
+
+.stateBadge.warning {
+  color: var(--warning);
+}
+
+.stateBadge.danger {
+  color: var(--danger);
+}
+
+.scopeSelect {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.scopeSelect button {
+  white-space: nowrap;
+}
+
+.scopeSelect button.active {
+  border-color: var(--brand-strong);
+  background: rgba(220, 125, 87, 0.14);
+  color: var(--text-000);
+}
+
 .splitForm {
   display: grid;
   grid-template-columns: 1fr;
@@ -772,7 +885,6 @@ select {
     grid-template-columns: 190px minmax(0, 1fr);
   }
 
-  .localizationPage,
   .aboutPage,
   .diagnosticsPage {
     grid-template-columns: 1fr;
@@ -788,7 +900,14 @@ select {
   .splitForm,
   .miniTable div,
   .providerStrip,
+  .workflowRow,
   .themeRow {
     grid-template-columns: 1fr;
+  }
+
+  .rowIcon,
+  .stateBadge,
+  .scopeSelect {
+    justify-self: start;
   }
 }

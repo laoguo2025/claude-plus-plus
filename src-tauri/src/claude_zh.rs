@@ -169,6 +169,18 @@ mod imp {
         Ok(())
     }
 
+    pub fn backup() -> Result<(), String> {
+        let paths = resolve_claude_paths()?;
+        enable_write_access(&paths.resources);
+        let mut backup = BackupContext::new(&paths.resources);
+        backup_current_claude_files(&paths.resources, &mut backup)?;
+        backup
+            .backup_set
+            .as_ref()
+            .map(|_| ())
+            .ok_or_else(|| "未找到可备份的 Claude Desktop 资源".to_string())
+    }
+
     pub fn uninstall() -> Result<(), String> {
         let paths = resolve_claude_paths()?;
         claude_desktop::stop_claude_processes()?;
@@ -179,6 +191,47 @@ mod imp {
         unregister_languages(&paths.resources)?;
         set_claude_locale("en-US")?;
         claude_desktop::launch_claude()?;
+        Ok(())
+    }
+
+    fn backup_current_claude_files(
+        resources_path: &Path,
+        backup: &mut BackupContext,
+    ) -> Result<(), String> {
+        for lang in LANGS {
+            for path in [
+                resources_path
+                    .join("ion-dist")
+                    .join("i18n")
+                    .join(format!("{lang}.json")),
+                resources_path.join(format!("{lang}.json")),
+                resources_path
+                    .join("ion-dist")
+                    .join("i18n")
+                    .join("statsig")
+                    .join(format!("{lang}.json")),
+            ] {
+                backup.backup_resource(&path)?;
+            }
+        }
+
+        let assets_dir = resources_path.join("ion-dist").join("assets").join("v1");
+        if assets_dir.is_dir() {
+            for entry in
+                fs::read_dir(&assets_dir).map_err(|e| format!("读取前端资源目录失败: {e}"))?
+            {
+                let path = entry.map_err(|e| format!("读取前端资源项失败: {e}"))?.path();
+                if path.extension().and_then(|e| e.to_str()) == Some("js") {
+                    backup.backup_resource(&path)?;
+                }
+            }
+        }
+
+        backup.backup_resource(&resources_path.join("app.asar"))?;
+        let app_path = app_path_from_resources(resources_path);
+        for path in [app_path.join("Claude.exe"), app_path.join("claude.exe")] {
+            backup.backup_app_file(&path)?;
+        }
         Ok(())
     }
 
@@ -1184,9 +1237,13 @@ mod imp {
         Err("当前只支持 Windows Claude Desktop 汉化".to_string())
     }
 
+    pub fn backup() -> Result<(), String> {
+        Err("当前只支持 Windows Claude Desktop 汉化".to_string())
+    }
+
     pub fn uninstall() -> Result<(), String> {
         Err("当前只支持 Windows Claude Desktop 汉化".to_string())
     }
 }
 
-pub use imp::{install, status, uninstall, ClaudeZhStatus};
+pub use imp::{backup, install, status, uninstall, ClaudeZhStatus};

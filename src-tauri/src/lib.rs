@@ -75,6 +75,11 @@ fn install_claude_zh(language: String, skip_asar_patch: bool) -> Result<(), Stri
 }
 
 #[tauri::command]
+fn backup_claude_zh() -> Result<(), String> {
+    claude_zh::backup()
+}
+
+#[tauri::command]
 fn uninstall_claude_zh() -> Result<(), String> {
     claude_zh::uninstall()
 }
@@ -145,6 +150,7 @@ pub fn run() {
             restart_claude_desktop,
             claude_zh_status,
             install_claude_zh,
+            backup_claude_zh,
             uninstall_claude_zh
         ])
         .run(tauri::generate_context!())

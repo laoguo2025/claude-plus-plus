@@ -1,7 +1,9 @@
-import { useEffect, useState, useCallback, useRef, type ComponentType } from "react";
+import { useEffect, useState, useCallback, useRef, type ComponentType, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Activity,
+  CheckCircle2,
+  CircleAlert,
   FileText,
   Hammer,
   Info,
@@ -43,6 +45,7 @@ interface ClaudeZhStatus {
 
 type Route = "overview" | "localization" | "enhance" | "about" | "diagnostics";
 type Theme = "light" | "dark";
+type LocalizationScope = "complete" | "safe";
 type Icon = ComponentType<LucideProps>;
 type CommandArgs = Record<string, unknown>;
 
@@ -99,7 +102,7 @@ function previewCommand<T>(cmd: string): T {
       language_files: [],
     } as T;
   }
-  if (cmd === "use_claude_plus_route" || cmd === "use_ccs_route") {
+  if (cmd === "use_claude_plus_route" || cmd === "use_ccs_route" || cmd === "backup_claude_zh") {
     return undefined as T;
   }
   return undefined as T;
@@ -117,8 +120,7 @@ function App() {
   const [pm, setPm] = useState<ProviderMappings | null>(null);
   const [mappingError, setMappingError] = useState("");
   const [zhStatus, setZhStatus] = useState<ClaudeZhStatus | null>(null);
-  const [zhLanguage, setZhLanguage] = useState("zh-CN");
-  const [skipAsarPatch, setSkipAsarPatch] = useState(false);
+  const [zhScope, setZhScope] = useState<LocalizationScope>("complete");
   const [err, setErr] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [restartNeeded, setRestartNeeded] = useState(false);
@@ -201,9 +203,22 @@ function App() {
     setErr("");
     try {
       await callCommand("install_claude_zh", {
-        language: zhLanguage,
-        skipAsarPatch,
+        language: "zh-CN",
+        skipAsarPatch: zhScope === "safe",
       });
+      await refresh();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const backupClaudeZh = async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      await callCommand("backup_claude_zh");
       await refresh();
     } catch (e) {
       setErr(String(e));
@@ -291,11 +306,11 @@ function App() {
             <LocalizationPage
               busy={busy}
               zhStatus={zhStatus}
-              zhLanguage={zhLanguage}
-              skipAsarPatch={skipAsarPatch}
-              setZhLanguage={setZhLanguage}
-              setSkipAsarPatch={setSkipAsarPatch}
+              zhScope={zhScope}
+              setZhScope={setZhScope}
               installClaudeZh={installClaudeZh}
+              backupClaudeZh={backupClaudeZh}
+              restartClaudeDesktop={restartClaudeDesktop}
               uninstallClaudeZh={uninstallClaudeZh}
             />
           )}
@@ -419,84 +434,150 @@ function OverviewPage({
 function LocalizationPage({
   busy,
   zhStatus,
-  zhLanguage,
-  skipAsarPatch,
-  setZhLanguage,
-  setSkipAsarPatch,
+  zhScope,
+  setZhScope,
   installClaudeZh,
+  backupClaudeZh,
+  restartClaudeDesktop,
   uninstallClaudeZh,
 }: {
   busy: boolean;
   zhStatus: ClaudeZhStatus | null;
-  zhLanguage: string;
-  skipAsarPatch: boolean;
-  setZhLanguage: (value: string) => void;
-  setSkipAsarPatch: (value: boolean) => void;
+  zhScope: LocalizationScope;
+  setZhScope: (value: LocalizationScope) => void;
   installClaudeZh: () => Promise<void>;
+  backupClaudeZh: () => Promise<void>;
+  restartClaudeDesktop: () => Promise<void>;
   uninstallClaudeZh: () => Promise<void>;
 }) {
   const statusText = zhStatus?.installed
-    ? `已安装 ${zhStatus.language_files.join(", ")}`
+    ? `已安装简体中文汉化，语言文件 ${zhStatus.language_files.join(", ")}`
     : zhStatus?.claude_found
-      ? "已检测到 Claude Desktop，尚未安装汉化"
+      ? "未安装简体中文汉化"
       : "未检测到 Claude Desktop";
+  const installPercent = zhStatus?.installed ? "已汉化" : zhStatus?.claude_found ? "未汉化" : "无法检测";
+  const scopeText =
+    zhScope === "complete"
+      ? "完整汉化：语言文件、前端文案、菜单与 3P 模型校验补丁"
+      : "安全汉化：跳过 app.asar 与 Claude.exe 完整性补丁";
+  const disabledByMissingClaude = busy || !zhStatus?.supported || !zhStatus?.claude_found;
 
   return (
-    <div className="pageGrid localizationPage">
-      <section className="panel mainPanel">
-        <div className="panelHead">
-          <div>
-            <h2>Claude Desktop 汉化</h2>
-            <p>{statusText}</p>
+    <div className="localizationFlow">
+      <section className="panel localizationChecklist">
+        <div className="workflowRows">
+          <WorkflowRow
+            ok={!!zhStatus?.installed}
+            title="检测汉化程度"
+            description={statusText}
+            badge={installPercent}
+            tone={zhStatus?.installed ? "success" : zhStatus?.claude_found ? "warning" : "danger"}
+          />
+          <WorkflowRow
+            ok={!!zhStatus?.backup_available}
+            title="检测语言文件备份状态"
+            description={
+              zhStatus?.backup_available
+                ? "已发现可恢复备份，可随时恢复英文。"
+                : "未发现可恢复备份；建议先备份当前 Claude Desktop 资源。"
+            }
+            badge={zhStatus?.backup_available ? "可恢复" : undefined}
+            tone={zhStatus?.backup_available ? "success" : "warning"}
+            action={
+              !zhStatus?.backup_available ? (
+                <button disabled={disabledByMissingClaude} onClick={backupClaudeZh}>
+                  备份
+                </button>
+              ) : undefined
+            }
+          />
+          <div className="workflowRow">
+            <div className="rowIcon success">
+              <CheckCircle2 size={16} />
+            </div>
+            <div className="workflowCopy">
+              <strong>选择汉化范围</strong>
+              <span>{scopeText}</span>
+            </div>
+            <div className="scopeSelect" role="group" aria-label="汉化范围">
+              <button
+                className={zhScope === "complete" ? "active" : ""}
+                disabled={busy}
+                onClick={() => setZhScope("complete")}
+              >
+                完整汉化
+              </button>
+              <button
+                className={zhScope === "safe" ? "active" : ""}
+                disabled={busy}
+                onClick={() => setZhScope("safe")}
+              >
+                安全汉化
+              </button>
+            </div>
           </div>
-          <Languages size={20} />
-        </div>
-        <div className="splitForm">
-          <label className="field">
-            <span>语言</span>
-            <select
-              disabled={busy}
-              value={zhLanguage}
-              onChange={(e) => setZhLanguage(e.target.value)}
-            >
-              <option value="zh-CN">简体中文</option>
-              <option value="zh-TW">繁体中文(中国台湾)</option>
-              <option value="zh-HK">繁体中文(中国香港)</option>
-            </select>
-          </label>
-          <label className="toggleRow">
-            <input
-              type="checkbox"
-              disabled={busy}
-              checked={skipAsarPatch}
-              onChange={(e) => setSkipAsarPatch(e.target.checked)}
-            />
-            <span>
-              <strong>安全模式</strong>
-              <small>跳过 app.asar 和 Claude.exe 完整性补丁。</small>
-            </span>
-          </label>
-        </div>
-        <div className="actions primaryActions">
-          <button
-            className="primary"
-            disabled={busy || !zhStatus?.supported || !zhStatus?.claude_found}
-            onClick={installClaudeZh}
-          >
-            一键汉化
-          </button>
-          <button disabled={busy || !zhStatus?.backup_available} onClick={uninstallClaudeZh}>
-            恢复英文
-          </button>
+          <WorkflowRow
+            ok={!!zhStatus?.claude_found}
+            title="一键汉化"
+            description="默认安装简体中文，不再提供语言选择。安装时会自动写入必要备份。"
+            action={
+              <button className="primary" disabled={disabledByMissingClaude} onClick={installClaudeZh}>
+                一键汉化
+              </button>
+            }
+          />
+          <WorkflowRow
+            ok={!!zhStatus?.claude_found}
+            title="重启 Claude Desktop"
+            description="汉化写入后重启 Claude Desktop，让新语言资源立即生效。"
+            action={
+              <button disabled={disabledByMissingClaude} onClick={restartClaudeDesktop}>
+                重启
+              </button>
+            }
+          />
+          <WorkflowRow
+            ok={!!zhStatus?.backup_available}
+            title="恢复英文"
+            description="从最近一次备份恢复 Claude Desktop 资源，并把语言设回 en-US。"
+            action={
+              <button disabled={busy || !zhStatus?.backup_available} onClick={uninstallClaudeZh}>
+                恢复英文
+              </button>
+            }
+          />
         </div>
       </section>
+    </div>
+  );
+}
 
-      <section className="panel statusPanel">
-        <KeyValue label="当前语言" value={zhStatus?.locale ?? "未设置"} />
-        <KeyValue label="Claude Desktop" value={zhStatus?.claude_found ? "已检测到" : "未检测到"} />
-        <KeyValue label="备份状态" value={zhStatus?.backup_available ? "可恢复" : "暂无备份"} />
-        <KeyValue label="资源路径" value={zhStatus?.resources_path ?? "未检测到"} />
-      </section>
+function WorkflowRow({
+  ok,
+  title,
+  description,
+  badge,
+  tone = "success",
+  action,
+}: {
+  ok: boolean;
+  title: string;
+  description: string;
+  badge?: string;
+  tone?: "success" | "warning" | "danger";
+  action?: ReactNode;
+}) {
+  const IconComponent = ok ? CheckCircle2 : CircleAlert;
+  return (
+    <div className="workflowRow">
+      <div className={`rowIcon ${tone}`}>
+        <IconComponent size={16} />
+      </div>
+      <div className="workflowCopy">
+        <strong>{title}</strong>
+        <span>{description}</span>
+      </div>
+      {action ?? (badge && <span className={`stateBadge ${tone}`}>{badge}</span>)}
     </div>
   );
 }
