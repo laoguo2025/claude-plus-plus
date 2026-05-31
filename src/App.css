@@ -332,36 +332,40 @@ select {
 
 .routeCardBody {
   display: grid;
-  grid-template-rows: auto auto;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 14px;
+  align-items: stretch;
 }
 
-.routeSummary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.statusPill {
+.routeStatusCard {
   display: grid;
   grid-template-columns: 12px minmax(0, 1fr);
-  gap: 9px;
-  align-items: center;
+  gap: 10px;
+  align-items: start;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--bg-100);
-  min-height: 52px;
-  padding: 8px 10px;
+  min-height: 112px;
+  padding: 14px 14px;
 }
 
-.statusPill span,
+.routeStatusCard.inactive {
+  border-color: rgba(168, 107, 0, 0.22);
+  background: var(--warning-bg);
+}
+
+.routeStatusCard > .dot {
+  margin-top: 6px;
+}
+
+.routeStatusCard span,
 .providerStrip span {
   display: block;
   color: var(--text-400);
   font-size: 12px;
 }
 
-.statusPill strong,
+.routeStatusCard strong,
 .providerStrip strong {
   display: block;
   min-width: 0;
@@ -372,6 +376,14 @@ select {
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.routeStatusCard small {
+  display: block;
+  margin-top: 8px;
+  color: var(--warning);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .providerStrip small {
@@ -402,12 +414,13 @@ select {
 
 .routeActions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
 .routeActions button {
   min-width: 0;
+  min-height: 32px;
 }
 
 .routeActions button.active {

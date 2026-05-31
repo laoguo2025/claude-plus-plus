@@ -8,7 +8,6 @@ import {
   Info,
   Languages,
   Link2,
-  MonitorCog,
   Moon,
   PlugZap,
   RefreshCw,
@@ -306,7 +305,6 @@ function App() {
               busy={busy}
               status={status}
               pm={pm}
-              proxyText={proxyText}
               restartNeeded={restartNeeded}
               run={run}
               restartClaudeDesktop={restartClaudeDesktop}
@@ -357,7 +355,6 @@ function OverviewPage({
   busy,
   status,
   pm,
-  proxyText,
   restartNeeded,
   run,
   restartClaudeDesktop,
@@ -365,13 +362,10 @@ function OverviewPage({
   busy: boolean;
   status: StatusInfo | null;
   pm: ProviderMappings | null;
-  proxyText: string;
   restartNeeded: boolean;
   run: (cmd: string) => Promise<void>;
   restartClaudeDesktop: () => Promise<void>;
 }) {
-  const routeText = status?.cd_applied ? "Claude++ 路由" : "CCS 路由";
-
   return (
     <div className="pageGrid overviewPage">
       <div className="mechanismNote">
@@ -392,16 +386,11 @@ function OverviewPage({
       <section className="panel routePanel">
         <div className="panelHead">
           <div>
-            <h2>路由模式</h2>
-            <p>{routeText}；Claude++ 本地转接 {proxyText}。</p>
+            <h2>路由状态</h2>
           </div>
-          <MonitorCog size={20} />
         </div>
         <div className="routeCardBody">
-          <div className="routeSummary">
-            <StatusPill active={!!status?.cd_applied} label="当前模式" value={routeText} />
-            <StatusPill active={!!status?.running} label="Claude++ 转接" value={proxyText} />
-          </div>
+          <RouteStatusCard active={!!status?.cd_applied} />
           <div className="routeActions">
             <button
               className={status?.cd_applied ? "active" : ""}
@@ -660,21 +649,18 @@ function DiagnosticsPage({
   );
 }
 
-function StatusPill({
-  label,
-  value,
+function RouteStatusCard({
   active,
 }: {
-  label: string;
-  value: string;
   active: boolean;
 }) {
   return (
-    <div className="statusPill">
+    <div className={`routeStatusCard ${active ? "active" : "inactive"}`}>
       <span className={`dot ${active ? "on" : "off"}`} />
       <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
+        <span>CC Switch 路由</span>
+        <strong>{active ? "开启" : "关闭"}</strong>
+        {!active && <small>请开启 Claude++ 路由后使用映射模型名。</small>}
       </div>
     </div>
   );
