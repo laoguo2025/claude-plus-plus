@@ -399,7 +399,6 @@ function OverviewPage({
         <div className="panelHead">
           <div>
             <h2>当前服务商与模型映射</h2>
-            <p>{pm ? `${pm.mappings.length} 个角色映射` : "读取失败"}</p>
           </div>
         </div>
         <div className="providerStrip">
