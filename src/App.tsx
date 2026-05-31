@@ -52,7 +52,7 @@ type Icon = ComponentType<LucideProps>;
 type CommandArgs = Record<string, unknown>;
 
 const routes: Array<{ id: Route; label: string; icon: Icon }> = [
-  { id: "overview", label: "CCS接入", icon: Link2 },
+  { id: "overview", label: "CCS转接", icon: Link2 },
   { id: "localization", label: "一键汉化", icon: Languages },
   { id: "enhance", label: "页面增强", icon: Hammer },
   { id: "about", label: "关于工具", icon: Info },
@@ -61,7 +61,7 @@ const routes: Array<{ id: Route; label: string; icon: Icon }> = [
 
 const routeMeta: Record<Route, { title: string }> = {
   overview: {
-    title: "CCS接入",
+    title: "CCS转接",
   },
   localization: {
     title: "一键汉化",
@@ -91,20 +91,26 @@ function previewCommand<T>(cmd: string): T {
   }
   if (cmd === "get_mappings") {
     return {
-      provider_name: "CC Switch 当前服务商",
+      provider_name: "mimo API（预览示例）",
       provider_id: "preview",
       mappings: [
         {
           display: "Opus - mimo-v2.5-pro",
-          role: "opus",
+          role: "claude-opus-4-7-r2",
           role_kind: "Opus",
           model: "mimo-v2.5-pro",
         },
         {
           display: "Sonnet - mimo-v2.5",
-          role: "sonnet",
+          role: "claude-sonnet-4-7-r2",
           role_kind: "Sonnet",
           model: "mimo-v2.5",
+        },
+        {
+          display: "Haiku - mimo-v2.5-mini",
+          role: "claude-haiku-4-7-r2",
+          role_kind: "Haiku",
+          model: "mimo-v2.5-mini",
         },
       ],
     } as T;
@@ -120,6 +126,9 @@ function previewCommand<T>(cmd: string): T {
       locale: "en-US",
       language_files: [],
     } as T;
+  }
+  if (cmd === "use_claude_plus_route" || cmd === "use_ccs_route") {
+    return undefined as T;
   }
   return undefined as T;
 }
@@ -244,7 +253,7 @@ function App() {
 
   const meta = routeMeta[route];
   const proxyText = status?.running ? `127.0.0.1:${status.port}` : "未运行";
-  const desktopText = status?.cd_applied ? "已接入" : "未接入";
+  const routeText = status?.cd_applied ? "Claude++ 路由" : "CCS 路由";
   const zhText = zhStatus?.installed
     ? `已安装 ${zhStatus.language_files.join(", ")}`
     : zhStatus?.claude_found
@@ -298,7 +307,6 @@ function App() {
               status={status}
               pm={pm}
               proxyText={proxyText}
-              desktopText={desktopText}
               restartNeeded={restartNeeded}
               run={run}
               restartClaudeDesktop={restartClaudeDesktop}
@@ -325,7 +333,7 @@ function App() {
               theme={theme}
               setTheme={setTheme}
               proxyText={proxyText}
-              desktopText={desktopText}
+              routeText={routeText}
               zhText={zhText}
             />
           )}
@@ -350,7 +358,6 @@ function OverviewPage({
   status,
   pm,
   proxyText,
-  desktopText,
   restartNeeded,
   run,
   restartClaudeDesktop,
@@ -359,92 +366,92 @@ function OverviewPage({
   status: StatusInfo | null;
   pm: ProviderMappings | null;
   proxyText: string;
-  desktopText: string;
   restartNeeded: boolean;
   run: (cmd: string) => Promise<void>;
   restartClaudeDesktop: () => Promise<void>;
 }) {
+  const routeText = status?.cd_applied ? "Claude++ 路由" : "CCS 路由";
+
   return (
     <div className="pageGrid overviewPage">
       <div className="mechanismNote">
         <span>
-          Claude Desktop 只读取自己的第三方推理配置和模型发现接口，不会读取 CC Switch 的 SQLite 配置库；Claude++ 因此作为本机适配层读取当前服务商映射，并代为完成模型发现与请求转发。
+          直连 CC Switch 时，模型其实能跑通，但 Claude Desktop 的菜单仍会显示 Haiku、Opus、Sonnet 这些原名，看不到你在 CC Switch 里填的
+          mimo、DeepSeek、Kimi 等映射名。
+        </span>
+        <span>
+          Claude++ 的作用就是做中间转接：它先读出 CC Switch 当前怎么映射模型，再把更容易看懂的名字交给 Claude Desktop 显示，真正发送请求时再转回
+          CC Switch 能识别的模型角色。
+        </span>
+        <span>
+          例如菜单里可以显示“Opus - mimo-v2.5-pro”；你选它后，Claude++ 会告诉 CC Switch 这是 Opus 档位，最后实际请求发给 mimo-v2.5-pro。
         </span>
         <strong>使用期间请不要退出 Claude++，否则 Claude Desktop 将无法继续通过本工具访问模型。</strong>
       </div>
-      <section className="summaryGrid">
-        <StatusTile icon={PlugZap} title="本地代理" value={proxyText} state={status?.running ? "ok" : "idle"} />
-        <StatusTile
-          icon={MonitorCog}
-          title="Claude Desktop"
-          value={desktopText}
-          state={status?.cd_applied ? "ok" : "idle"}
-        />
-        <StatusTile
-          icon={BookOpen}
-          title="当前服务商"
-          value={pm?.provider_name ?? "读取失败"}
-          state={pm ? "ok" : "warn"}
-        />
-      </section>
 
-      <section className="panel controlPanel">
+      <section className="panel routePanel">
         <div className="panelHead">
           <div>
-            <h2>接入控制</h2>
-            <p>保持代理运行，并把 Claude Desktop 指向 Claude++。</p>
+            <h2>路由模式</h2>
+            <p>{routeText}；Claude++ 本地转接 {proxyText}。</p>
           </div>
           <MonitorCog size={20} />
         </div>
-        <div className="controlRows">
-          <StatusRow
-            label="代理服务"
-            value={status?.running ? `运行中，端口 ${status.port}` : "已停止"}
-            active={!!status?.running}
-            action={
-              <button disabled={busy} onClick={() => run(status?.running ? "stop_proxy" : "start_proxy")}>
-                {status?.running ? "停止" : "启动"}
-              </button>
-            }
-          />
-          <StatusRow
-            label="Claude Desktop 配置"
-            value={status?.cd_applied ? "已接入 Claude++" : "未接入 Claude++"}
-            active={!!status?.cd_applied}
-            action={
-              <div className="actions">
-                {status?.cd_applied && (
-                  <button disabled={busy} onClick={restartClaudeDesktop}>
-                    <RotateCw size={14} />
-                    重启
-                  </button>
-                )}
-                <button
-                  disabled={busy}
-                  onClick={() => run(status?.cd_applied ? "revert_cd_config" : "apply_cd_config")}
-                >
-                  {status?.cd_applied ? "撤销接入" : "接入"}
-                </button>
-              </div>
-            }
-          />
-        </div>
-        {status?.cd_applied && (
-          <div className={`notice ${restartNeeded ? "warn" : ""}`}>
-            {restartNeeded
-              ? "已检测到模型或服务商变化；Claude Desktop 需要重启后刷新模型列表。"
-              : "Claude Desktop 的模型列表只在启动时发现；切换 CC Switch 后请重启 Claude Desktop。"}
+        <div className="routeCardBody">
+          <div className="routeSummary">
+            <StatusPill active={!!status?.cd_applied} label="当前模式" value={routeText} />
+            <StatusPill active={!!status?.running} label="Claude++ 转接" value={proxyText} />
           </div>
-        )}
+          <div className="routeActions">
+            <button
+              className={status?.cd_applied ? "active" : ""}
+              disabled={busy}
+              onClick={() => run("use_claude_plus_route")}
+            >
+              <PlugZap size={14} />
+              Claude++ 路由
+            </button>
+            <button
+              className={!status?.cd_applied ? "active" : ""}
+              disabled={busy}
+              onClick={() => run("use_ccs_route")}
+            >
+              <BookOpen size={14} />
+              CCS 路由
+            </button>
+            <button disabled={busy} onClick={restartClaudeDesktop}>
+              <RotateCw size={14} />
+              重启 Claude
+            </button>
+          </div>
+        </div>
+        <div className={`notice ${restartNeeded ? "warn" : ""}`}>
+          {restartNeeded
+            ? "已检测到模型或服务商变化；Claude Desktop 需要重启后刷新模型列表。"
+            : "Claude Desktop 的模型列表只在启动时读取；切换路由或 CC Switch 服务商后建议重启 Claude Desktop。"}
+        </div>
       </section>
 
       <section className="panel mappingPanel">
         <div className="panelHead">
           <div>
-            <h2>模型映射</h2>
+            <h2>当前服务商与模型映射</h2>
             <p>{pm ? `${pm.mappings.length} 个角色映射` : "读取失败"}</p>
           </div>
           <Table2 size={20} />
+        </div>
+        <div className="providerStrip">
+          <span>CC Switch 当前生效服务商</span>
+          <div>
+            <strong>{pm?.provider_name ?? "读取失败"}</strong>
+            <small>
+              {pm?.provider_id === "preview"
+                ? "预览示例；EXE 中会读取 CC Switch 的真实服务商"
+                : pm
+                  ? `Provider ID: ${pm.provider_id}`
+                  : "请在 EXE 中读取 CC Switch 数据库后查看。"}
+            </small>
+          </div>
         </div>
         <MiniMapping mappings={pm?.mappings ?? []} />
       </section>
@@ -552,13 +559,13 @@ function AboutPage({
   theme,
   setTheme,
   proxyText,
-  desktopText,
+  routeText,
   zhText,
 }: {
   theme: Theme;
   setTheme: (value: Theme) => void;
   proxyText: string;
-  desktopText: string;
+  routeText: string;
   zhText: string;
 }) {
   return (
@@ -595,8 +602,8 @@ function AboutPage({
 
       <section className="panel statusPanel">
         <KeyValue label="版本" value="0.1.0" />
-        <KeyValue label="代理" value={proxyText} />
-        <KeyValue label="Claude Desktop" value={desktopText} />
+        <KeyValue label="Claude++ 转接" value={proxyText} />
+        <KeyValue label="当前路由" value={routeText} />
         <KeyValue label="汉化" value={zhText} />
       </section>
     </div>
@@ -617,8 +624,8 @@ function DiagnosticsPage({
   restartNeeded: boolean;
 }) {
   const lines = [
-    `代理: ${status?.running ? `运行中 127.0.0.1:${status.port}` : "未运行"}`,
-    `Claude Desktop: ${status?.cd_applied ? "已接入" : "未接入"}`,
+    `当前路由: ${status?.cd_applied ? "Claude++ 路由" : "CCS 路由"}`,
+    `Claude++ 转接: ${status?.running ? `运行中 127.0.0.1:${status.port}` : "未运行"}`,
     `服务商: ${pm?.provider_name ?? "读取失败"}`,
     `映射数量: ${pm?.mappings.length ?? 0}`,
     `汉化: ${zhStatus?.installed ? "已安装" : zhStatus?.claude_found ? "未安装" : "未检测到 Claude Desktop"}`,
@@ -653,63 +660,44 @@ function DiagnosticsPage({
   );
 }
 
-function StatusTile({
-  icon: IconComponent,
-  title,
-  value,
-  state,
-}: {
-  icon: Icon;
-  title: string;
-  value: string;
-  state: "ok" | "idle" | "warn";
-}) {
-  return (
-    <article className={`statusTile ${state}`}>
-      <IconComponent size={18} />
-      <div>
-        <span>{title}</span>
-        <strong>{value}</strong>
-      </div>
-    </article>
-  );
-}
-
-function StatusRow({
+function StatusPill({
   label,
   value,
   active,
-  action,
 }: {
   label: string;
   value: string;
   active: boolean;
-  action: React.ReactNode;
 }) {
   return (
-    <div className="statusRow">
+    <div className="statusPill">
       <span className={`dot ${active ? "on" : "off"}`} />
       <div>
-        <strong>{label}</strong>
-        <span>{value}</span>
+        <span>{label}</span>
+        <strong>{value}</strong>
       </div>
-      {action}
     </div>
   );
 }
 
 function MiniMapping({ mappings }: { mappings: Mapping[] }) {
-  const visible = mappings.slice(0, 4);
   return (
     <div className="miniTable">
-      {visible.map((m) => (
+      {!!mappings.length && (
+        <div className="miniTableHead">
+          <span>Claude 菜单显示名</span>
+          <span>CCS 角色</span>
+          <span>实际模型</span>
+        </div>
+      )}
+      {mappings.map((m) => (
         <div key={m.role}>
-          <span>{m.role_kind}</span>
           <strong>{m.display}</strong>
+          <span>{m.role}</span>
           <code>{m.model}</code>
         </div>
       ))}
-      {!visible.length && <div className="emptyInline">无映射</div>}
+      {!mappings.length && <div className="emptyInline">无映射</div>}
     </div>
   );
 }

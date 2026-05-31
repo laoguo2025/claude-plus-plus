@@ -256,23 +256,25 @@ select {
 }
 
 .overviewPage {
-  grid-template-rows: 42px 70px 184px minmax(0, 1fr);
+  grid-template-rows: 96px 168px minmax(0, 1fr);
 }
 
 .mechanismNote {
   display: grid;
-  gap: 2px;
+  align-content: start;
+  gap: 4px;
   overflow: hidden;
   color: var(--accent);
   font-size: 13px;
-  line-height: 1.35;
+  line-height: 1.32;
 }
 
 .mechanismNote span,
 .mechanismNote strong {
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .mechanismNote strong {
@@ -323,85 +325,65 @@ select {
   color: var(--brand-strong);
 }
 
-.summaryGrid {
+.routePanel {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-rows: auto auto minmax(0, auto);
 }
 
-.statusTile {
+.routeCardBody {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-rows: auto auto;
+  gap: 12px;
+}
+
+.routeSummary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.statusPill {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 9px;
   align-items: center;
-  min-height: 74px;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
-  background: var(--bg-000);
-  padding: 12px;
+  background: var(--bg-100);
+  min-height: 52px;
+  padding: 8px 10px;
 }
 
-.statusTile svg {
-  color: var(--text-400);
-}
-
-.statusTile.ok svg {
-  color: var(--success);
-}
-
-.statusTile.warn svg {
-  color: var(--warning);
-}
-
-.statusTile span {
+.statusPill span,
+.providerStrip span {
   display: block;
   color: var(--text-400);
   font-size: 12px;
 }
 
-.statusTile strong {
+.statusPill strong,
+.providerStrip strong {
   display: block;
   min-width: 0;
   overflow: hidden;
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--text-000);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.controlPanel {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-}
-
-.controlRows {
-  display: grid;
-  border-top: 1px solid var(--border-soft);
-}
-
-.statusRow {
-  display: grid;
-  grid-template-columns: 12px minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-  border-bottom: 1px solid var(--border-soft);
-  padding: 11px 0;
-}
-
-.statusRow strong {
+.providerStrip small {
   display: block;
-  color: var(--text-000);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.statusRow span {
-  display: block;
-  margin-top: 2px;
+  min-width: 0;
+  overflow: hidden;
+  margin-top: 3px;
   color: var(--text-400);
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dot {
@@ -418,11 +400,20 @@ select {
   background: #c9c6bd;
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
+.routeActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  justify-content: flex-end;
+}
+
+.routeActions button {
+  min-width: 0;
+}
+
+.routeActions button.active {
+  border-color: var(--brand-strong);
+  background: rgba(220, 125, 87, 0.14);
+  color: var(--text-000);
 }
 
 .notice {
@@ -459,24 +450,52 @@ select {
 
 .miniTable {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .miniTable div {
   display: grid;
-  grid-template-columns: 90px minmax(0, 1fr) minmax(120px, 0.7fr);
+  grid-template-columns: minmax(170px, 1fr) minmax(170px, 0.9fr) minmax(120px, 0.7fr);
   gap: 10px;
   align-items: center;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--bg-100);
+  padding: 7px 10px;
+}
+
+.miniTable .miniTableHead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-color: transparent;
+  background: var(--bg-000);
+  padding-top: 0;
+  padding-bottom: 2px;
+}
+
+.providerStrip {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+  border: 1px solid rgba(220, 125, 87, 0.18);
+  border-radius: 8px;
+  background: rgba(220, 125, 87, 0.08);
   padding: 8px 10px;
 }
 
 .miniTable span,
 .keyValue span {
+  min-width: 0;
+  overflow: hidden;
   color: var(--text-400);
   font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .miniTable strong,
@@ -563,6 +582,9 @@ select {
 }
 
 .primaryActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: flex-start;
   margin-top: 14px;
 }
@@ -682,12 +704,15 @@ select {
     grid-template-rows: minmax(0, 1fr) auto;
   }
 
-  .summaryGrid {
+  .routeCardBody,
+  .routeSummary,
+  .routeActions {
     grid-template-columns: 1fr;
   }
 
   .splitForm,
   .miniTable div,
+  .providerStrip,
   .themeRow {
     grid-template-columns: 1fr;
   }

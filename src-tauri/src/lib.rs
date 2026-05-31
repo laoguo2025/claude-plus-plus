@@ -32,13 +32,14 @@ fn proxy_status(state: tauri::State<ServerHandle>) -> StatusInfo {
 }
 
 #[tauri::command]
-fn start_proxy(state: tauri::State<ServerHandle>) -> Result<(), String> {
-    state.start(DEFAULT_PORT, server::default_db_path())
+fn use_claude_plus_route(state: tauri::State<ServerHandle>) -> Result<(), String> {
+    state.start(DEFAULT_PORT, server::default_db_path())?;
+    apply_cd_config()
 }
 
 #[tauri::command]
-fn stop_proxy(state: tauri::State<ServerHandle>) -> Result<(), String> {
-    state.stop()
+fn use_ccs_route() -> Result<(), String> {
+    revert_cd_config()
 }
 
 #[tauri::command]
@@ -136,8 +137,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             proxy_status,
-            start_proxy,
-            stop_proxy,
+            use_claude_plus_route,
+            use_ccs_route,
             get_mappings,
             apply_cd_config,
             revert_cd_config,
