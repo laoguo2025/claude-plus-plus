@@ -351,6 +351,7 @@ select {
 }
 
 .routeStatusCard {
+  position: relative;
   display: grid;
   gap: 8px;
   align-content: center;
@@ -428,6 +429,7 @@ select {
 }
 
 .routeActionCard {
+  position: relative;
   display: grid;
   gap: 8px;
   align-content: center;
@@ -461,6 +463,26 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.stepBadge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: grid !important;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.68);
+  color: var(--text-200);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .routeActionCard strong {

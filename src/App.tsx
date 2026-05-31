@@ -8,9 +8,7 @@ import {
   Languages,
   Link2,
   Moon,
-  PlugZap,
   RefreshCw,
-  RotateCw,
   Sun,
   type LucideProps,
 } from "lucide-react";
@@ -374,22 +372,24 @@ function OverviewPage({
           <RouteStatusCard
             active={!!zhStatus?.claude_found}
             label="Claude Desktop"
+            step={1}
             value={zhStatus?.claude_found ? "已安装" : "未安装"}
           />
-          <RouteStatusCard active={!!pm} label="CC Switch 路由" value={pm ? "已开启" : "已断开"} />
+          <RouteStatusCard active={!!pm} label="CC Switch 路由" step={2} value={pm ? "已开启" : "已断开"} />
           <RouteActionCard
             state={status?.cd_applied ? "on" : "off"}
             disabled={busy}
-            icon={PlugZap}
             label="Claude++ 路由"
+            step={3}
             value={status?.cd_applied ? "开启" : "断开"}
             onClick={() => run("use_claude_plus_route")}
           />
           <RouteActionCard
             state="neutral"
             disabled={busy}
-            icon={RotateCw}
-            label="重启 Claude Desktop"
+            label="Claude Desktop"
+            step={4}
+            value="重启"
             onClick={restartClaudeDesktop}
           />
         </div>
@@ -618,9 +618,20 @@ function DiagnosticsPage({
   );
 }
 
-function RouteStatusCard({ active, label, value }: { active: boolean; label: string; value: string }) {
+function RouteStatusCard({
+  active,
+  label,
+  step,
+  value,
+}: {
+  active: boolean;
+  label: string;
+  step: number;
+  value: string;
+}) {
   return (
     <div className={`routeStatusCard ${active ? "active" : "inactive"}`}>
+      <span className="stepBadge">{step}</span>
       <span className={`dot ${active ? "on" : "off"}`} />
       <div>
         <span>{label}</span>
@@ -633,21 +644,21 @@ function RouteStatusCard({ active, label, value }: { active: boolean; label: str
 function RouteActionCard({
   state,
   disabled,
-  icon: IconComponent,
   label,
+  step,
   value,
   onClick,
 }: {
   state: "on" | "off" | "neutral";
   disabled: boolean;
-  icon: Icon;
   label: string;
+  step: number;
   value?: string;
   onClick: () => void;
 }) {
   return (
     <button className={`routeActionCard ${state}`} disabled={disabled} onClick={onClick}>
-      <IconComponent size={16} />
+      <span className="stepBadge">{step}</span>
       <span>{label}</span>
       {value && <strong>{value}</strong>}
     </button>
