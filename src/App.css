@@ -256,7 +256,28 @@ select {
 }
 
 .overviewPage {
-  grid-template-rows: 74px 188px minmax(0, 1fr);
+  grid-template-rows: 42px 70px 184px minmax(0, 1fr);
+}
+
+.mechanismNote {
+  display: grid;
+  gap: 2px;
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.mechanismNote span,
+.mechanismNote strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mechanismNote strong {
+  color: var(--brand-strong);
+  font-weight: 600;
 }
 
 .localizationPage,

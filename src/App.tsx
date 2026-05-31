@@ -7,7 +7,7 @@ import {
   Hammer,
   Info,
   Languages,
-  LayoutDashboard,
+  Link2,
   MonitorCog,
   Moon,
   PlugZap,
@@ -52,33 +52,28 @@ type Icon = ComponentType<LucideProps>;
 type CommandArgs = Record<string, unknown>;
 
 const routes: Array<{ id: Route; label: string; icon: Icon }> = [
-  { id: "overview", label: "系统概览", icon: LayoutDashboard },
+  { id: "overview", label: "CCS接入", icon: Link2 },
   { id: "localization", label: "一键汉化", icon: Languages },
   { id: "enhance", label: "页面增强", icon: Hammer },
   { id: "about", label: "关于工具", icon: Info },
   { id: "diagnostics", label: "诊断日志", icon: FileText },
 ];
 
-const routeMeta: Record<Route, { title: string; subtitle: string }> = {
+const routeMeta: Record<Route, { title: string }> = {
   overview: {
-    title: "系统概览",
-    subtitle: "代理、Claude Desktop 接入和模型映射状态。",
+    title: "CCS接入",
   },
   localization: {
     title: "一键汉化",
-    subtitle: "安装或恢复 Claude Desktop 语言资源。",
   },
   enhance: {
     title: "页面增强",
-    subtitle: "预留 Claude Desktop 页面增强能力入口。",
   },
   about: {
     title: "关于工具",
-    subtitle: "版本、边界和界面主题。",
   },
   diagnostics: {
     title: "诊断日志",
-    subtitle: "当前运行状态、最近错误和排查信息。",
   },
 };
 
@@ -287,7 +282,6 @@ function App() {
         <header className="topbar">
           <div>
             <h1>{meta.title}</h1>
-            <p>{meta.subtitle}</p>
           </div>
           <button className="iconButton" disabled={busy} onClick={refresh} title="刷新">
             <RefreshCw size={16} />
@@ -372,6 +366,12 @@ function OverviewPage({
 }) {
   return (
     <div className="pageGrid overviewPage">
+      <div className="mechanismNote">
+        <span>
+          Claude Desktop 只读取自己的第三方推理配置和模型发现接口，不会读取 CC Switch 的 SQLite 配置库；Claude++ 因此作为本机适配层读取当前服务商映射，并代为完成模型发现与请求转发。
+        </span>
+        <strong>使用期间请不要退出 Claude++，否则 Claude Desktop 将无法继续通过本工具访问模型。</strong>
+      </div>
       <section className="summaryGrid">
         <StatusTile icon={PlugZap} title="本地代理" value={proxyText} state={status?.running ? "ok" : "idle"} />
         <StatusTile
