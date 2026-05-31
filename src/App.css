@@ -605,6 +605,11 @@ select {
   min-height: 0;
 }
 
+.enhanceFlow {
+  height: 100%;
+  min-height: 0;
+}
+
 .localizationChecklist {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
@@ -712,6 +717,50 @@ select {
   border-color: var(--brand-strong);
   background: rgba(220, 125, 87, 0.14);
   color: var(--text-000);
+}
+
+.featureMatrixRow {
+  align-items: start;
+}
+
+.featurePills {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+  max-width: 360px;
+}
+
+.featurePill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--bg-000);
+  color: var(--text-200);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.featurePill.enabled {
+  border-color: rgba(87, 138, 0, 0.24);
+  background: rgba(87, 138, 0, 0.08);
+  color: var(--success);
+}
+
+.featurePill.available {
+  border-color: rgba(220, 125, 87, 0.26);
+  background: rgba(220, 125, 87, 0.1);
+  color: var(--brand-strong);
+}
+
+.featurePill.later {
+  color: var(--text-400);
 }
 
 .splitForm {
@@ -907,7 +956,12 @@ select {
 
   .rowIcon,
   .stateBadge,
-  .scopeSelect {
+  .scopeSelect,
+  .featurePills {
     justify-self: start;
+  }
+
+  .featurePill {
+    white-space: normal;
   }
 }

@@ -1,6 +1,7 @@
 mod ccswitch_db;
 mod cd_config;
 mod claude_desktop;
+mod claude_enhance;
 mod claude_zh;
 mod proxy;
 mod server;
@@ -84,6 +85,21 @@ fn uninstall_claude_zh() -> Result<(), String> {
     claude_zh::uninstall()
 }
 
+#[tauri::command]
+fn claude_enhance_status() -> claude_enhance::ClaudeEnhanceStatus {
+    claude_enhance::status()
+}
+
+#[tauri::command]
+fn install_claude_enhance() -> Result<(), String> {
+    claude_enhance::install()
+}
+
+#[tauri::command]
+fn uninstall_claude_enhance() -> Result<(), String> {
+    claude_enhance::uninstall()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt()
@@ -151,7 +167,10 @@ pub fn run() {
             claude_zh_status,
             install_claude_zh,
             backup_claude_zh,
-            uninstall_claude_zh
+            uninstall_claude_zh,
+            claude_enhance_status,
+            install_claude_enhance,
+            uninstall_claude_enhance
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
