@@ -91,13 +91,13 @@ fn claude_enhance_status() -> claude_enhance::ClaudeEnhanceStatus {
 }
 
 #[tauri::command]
-fn install_claude_enhance() -> Result<(), String> {
-    claude_enhance::install()
+fn install_claude_enhance(feature: String) -> Result<(), String> {
+    claude_enhance::install(&feature)
 }
 
 #[tauri::command]
-fn uninstall_claude_enhance() -> Result<(), String> {
-    claude_enhance::uninstall()
+fn uninstall_claude_enhance(feature: String) -> Result<(), String> {
+    claude_enhance::uninstall(&feature)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

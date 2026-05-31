@@ -4,6 +4,7 @@
 - 在 Claude++ 的“页面增强”页提供第一阶段管理入口。
 - 对 Claude Desktop 前端注入侧边栏软入口：第三方API、插件与技能、MCP与扩展。
 - 三个软入口均带独立图标，避免只显示纯文字菜单项。
+- 页面增强管理页改为 5 张增强项卡片加 1 张重启卡片；每个增强项只保留“增强 / 取消”。
 - 三个入口只跳转/定位到 Claude Desktop 已有自定义/开发者页面，不新增 Claude Desktop 页面。
 
 ## 变更原因
@@ -21,3 +22,4 @@
 - `cargo check` 通过；仅剩既有 `server.rs` dead_code warning。
 - 内容检查确认前端包含 `claude_enhance_status`、`install_claude_enhance`、`第三方API`、`Markdown 导出`、`Conversation Timeline`。
 - 内容检查确认 Claude Desktop 注入脚本包含 `cpe-icon` 与三个内联 SVG 图标。
+- 浏览器验证页面增强页只有 6 张卡片：第三方API、插件与技能、MCP与扩展、Markdown 导出、Conversation Timeline、重启 Claude Desktop；旧检测/备份/范围卡片已移除。

@@ -4,12 +4,15 @@ import {
   Activity,
   CheckCircle2,
   CircleAlert,
-  Clock3,
+  Code2,
   FileText,
   Hammer,
   Info,
   Languages,
   Link2,
+  Network,
+  PackageCheck,
+  Plug,
   Moon,
   RefreshCw,
   Sun,
@@ -44,6 +47,7 @@ interface ClaudeZhStatus {
   language_files: string[];
 }
 interface ClaudeEnhanceFeature {
+  id: string;
   label: string;
   enabled: boolean;
   available: boolean;
@@ -128,13 +132,16 @@ function previewCommand<T>(cmd: string): T {
       resources_path: null,
       features: [
         {
-          label: "第三方API / 插件与技能 / MCP与扩展",
+          id: "third_party_api",
+          label: "第三方API",
           enabled: false,
           available: true,
           note: "侧边栏软入口",
         },
-        { label: "Markdown 导出", enabled: false, available: false, note: "下一阶段移植改造" },
-        { label: "Conversation Timeline", enabled: false, available: false, note: "下一阶段移植改造" },
+        { id: "plugins", label: "插件与技能", enabled: false, available: true, note: "侧边栏软入口" },
+        { id: "mcp", label: "MCP与扩展", enabled: false, available: true, note: "侧边栏软入口" },
+        { id: "markdown", label: "Markdown 导出", enabled: false, available: true, note: "待接入导出逻辑" },
+        { id: "timeline", label: "Conversation Timeline", enabled: false, available: true, note: "待接入时间线逻辑" },
       ],
     } as T;
   }
@@ -289,11 +296,11 @@ function App() {
     }
   };
 
-  const installClaudeEnhance = async () => {
+  const installClaudeEnhance = async (feature: string) => {
     setBusy(true);
     setErr("");
     try {
-      await callCommand("install_claude_enhance");
+      await callCommand("install_claude_enhance", { feature });
       await refresh();
     } catch (e) {
       setErr(String(e));
@@ -302,11 +309,11 @@ function App() {
     }
   };
 
-  const uninstallClaudeEnhance = async () => {
+  const uninstallClaudeEnhance = async (feature: string) => {
     setBusy(true);
     setErr("");
     try {
-      await callCommand("uninstall_claude_enhance");
+      await callCommand("uninstall_claude_enhance", { feature });
       await refresh();
     } catch (e) {
       setErr(String(e));
@@ -674,94 +681,86 @@ function EnhancePage({
 }: {
   busy: boolean;
   enhanceStatus: ClaudeEnhanceStatus | null;
-  installClaudeEnhance: () => Promise<void>;
+  installClaudeEnhance: (feature: string) => Promise<void>;
   restartClaudeDesktop: () => Promise<void>;
-  uninstallClaudeEnhance: () => Promise<void>;
+  uninstallClaudeEnhance: (feature: string) => Promise<void>;
 }) {
   const disabledByMissingClaude = busy || !enhanceStatus?.supported || !enhanceStatus?.claude_found;
-  const statusText = enhanceStatus?.installed
-    ? "已安装页面增强，Claude Desktop 侧边栏会显示三个软入口。"
-    : enhanceStatus?.claude_found
-      ? "未安装页面增强。"
-      : "未检测到 Claude Desktop。";
+  const features = enhanceStatus?.features ?? previewEnhanceFeatures();
 
   return (
     <div className="enhanceFlow">
-      <section className="panel localizationChecklist">
-        <div className="workflowRows">
-          <WorkflowRow
-            ok={!!enhanceStatus?.installed}
-            title="检测页面增强状态"
-            description={statusText}
-            badge={enhanceStatus?.installed ? "已安装" : "未安装"}
-            tone={enhanceStatus?.installed ? "success" : enhanceStatus?.claude_found ? "warning" : "danger"}
+      <div className="enhanceCards">
+        {features.map((feature) => (
+          <EnhanceCard
+            key={feature.id}
+            feature={feature}
+            disabled={disabledByMissingClaude || !feature.available}
+            onInstall={() => installClaudeEnhance(feature.id)}
+            onUninstall={() => uninstallClaudeEnhance(feature.id)}
           />
-          <WorkflowRow
-            ok={!!enhanceStatus?.backup_available}
-            title="检测页面增强备份状态"
-            description={
-              enhanceStatus?.backup_available
-                ? "已发现可恢复备份，可以恢复到安装增强前的 Claude Desktop 前端入口。"
-                : "安装页面增强时会自动备份 Claude Desktop 前端入口。"
-            }
-            badge={enhanceStatus?.backup_available ? "可恢复" : "安装时备份"}
-            tone={enhanceStatus?.backup_available ? "success" : "warning"}
-          />
-          <div className="workflowRow featureMatrixRow">
-            <div className="rowIcon success">
-              <Hammer size={16} />
-            </div>
-            <div className="workflowCopy">
-              <strong>选择增强范围</strong>
-              <span>本阶段先安装 Claude Desktop 侧边栏软入口；Markdown 导出和 Timeline 放到下一阶段。</span>
-            </div>
-            <div className="featurePills" aria-label="页面增强范围">
-              {(enhanceStatus?.features ?? []).map((feature) => (
-                <span
-                  key={feature.label}
-                  className={`featurePill ${feature.available ? (feature.enabled ? "enabled" : "available") : "later"}`}
-                  title={feature.note}
-                >
-                  {feature.available ? <CheckCircle2 size={13} /> : <Clock3 size={13} />}
-                  {feature.label}
-                </span>
-              ))}
-            </div>
+        ))}
+        <section className="panel enhanceCard restartCard">
+          <div className="enhanceCardTitle">
+            <RefreshCw size={17} />
+            <strong>重启 Claude Desktop</strong>
           </div>
-          <WorkflowRow
-            ok={!!enhanceStatus?.claude_found}
-            title="应用页面增强"
-            description="在 Claude Desktop 左侧菜单“计划任务”下方增加第三方API、插件与技能、MCP与扩展三个软入口。"
-            action={
-              <button className="primary" disabled={disabledByMissingClaude} onClick={installClaudeEnhance}>
-                应用增强
-              </button>
-            }
-          />
-          <WorkflowRow
-            ok={!!enhanceStatus?.claude_found}
-            title="重启 Claude Desktop"
-            description="增强写入后重启 Claude Desktop，让侧边栏入口立即生效。"
-            action={
-              <button disabled={disabledByMissingClaude} onClick={restartClaudeDesktop}>
-                重启
-              </button>
-            }
-          />
-          <WorkflowRow
-            ok={!!enhanceStatus?.backup_available}
-            title="恢复原版"
-            description="从最近一次页面增强备份恢复 Claude Desktop 前端入口。"
-            action={
-              <button disabled={busy || !enhanceStatus?.backup_available} onClick={uninstallClaudeEnhance}>
-                恢复原版
-              </button>
-            }
-          />
-        </div>
-      </section>
+          <button disabled={disabledByMissingClaude} onClick={restartClaudeDesktop}>
+            重启
+          </button>
+        </section>
+      </div>
     </div>
   );
+}
+
+function EnhanceCard({
+  feature,
+  disabled,
+  onInstall,
+  onUninstall,
+}: {
+  feature: ClaudeEnhanceFeature;
+  disabled: boolean;
+  onInstall: () => void;
+  onUninstall: () => void;
+}) {
+  const IconComponent = enhanceIcon(feature.id);
+  return (
+    <section className={`panel enhanceCard ${feature.enabled ? "enabled" : ""}`}>
+      <div className="enhanceCardTitle">
+        <IconComponent size={17} />
+        <strong>{feature.label}</strong>
+      </div>
+      <div className="enhanceActions">
+        <button className="primary" disabled={disabled || feature.enabled} onClick={onInstall}>
+          增强
+        </button>
+        <button disabled={disabled || !feature.enabled} onClick={onUninstall}>
+          取消
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function previewEnhanceFeatures(): ClaudeEnhanceFeature[] {
+  return [
+    { id: "third_party_api", label: "第三方API", enabled: false, available: true, note: "侧边栏软入口" },
+    { id: "plugins", label: "插件与技能", enabled: false, available: true, note: "侧边栏软入口" },
+    { id: "mcp", label: "MCP与扩展", enabled: false, available: true, note: "侧边栏软入口" },
+    { id: "markdown", label: "Markdown 导出", enabled: false, available: true, note: "待接入导出逻辑" },
+    { id: "timeline", label: "Conversation Timeline", enabled: false, available: true, note: "待接入时间线逻辑" },
+  ];
+}
+
+function enhanceIcon(id: string): Icon {
+  if (id === "third_party_api") return Code2;
+  if (id === "plugins") return PackageCheck;
+  if (id === "mcp") return Network;
+  if (id === "markdown") return FileText;
+  if (id === "timeline") return Activity;
+  return Plug;
 }
 
 function AboutPage({

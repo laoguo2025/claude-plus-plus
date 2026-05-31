@@ -10,8 +10,43 @@ mod imp {
         time::{SystemTime, UNIX_EPOCH},
     };
 
-    const MARKER: &str = "__claudePlusEnhanceNavV2";
-    const INJECT_SCRIPT: &str = r#";(()=>{const m="__claudePlusEnhanceNavV2";if(window[m])return;Object.defineProperty(window,m,{value:!0});const n=[{label:"第三方API",keys:["Custom inference headers","自定义推理请求头","第三方API"],icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M4 17h16"/><path d="M7 7v10"/><path d="M17 7v10"/></svg>'},{label:"插件与技能",keys:["Plugins & skills","插件与技能"],icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v5h5v6h-5v7H9v-7H4V8h5z"/></svg>'},{label:"MCP与扩展",keys:["Connectors & extensions","连接器与扩展","MCP与扩展"],icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.7 10.7 15.3 7.3"/><path d="M8.7 13.3 15.3 16.7"/></svg>'}],t="claude-plus-enhance-style";function r(){if(document.getElementById(t))return;const e=document.createElement("style");e.id=t,e.textContent=".claude-plus-enhance-nav{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;border-radius:8px;padding:7px 10px;margin:1px 0;cursor:pointer;opacity:.9}.claude-plus-enhance-nav:hover{background:rgba(128,128,128,.12);opacity:1}.claude-plus-enhance-nav .cpe-icon{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 16px;opacity:.72}.claude-plus-enhance-nav .cpe-icon svg{width:16px;height:16px;display:block}.claude-plus-enhance-nav .cpe-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",document.head.appendChild(e)}function o(e){return(e.textContent||"").replace(/\s+/g," ").trim()}function i(e){return Array.from(e.querySelectorAll("button,a,[role=button]"))}function d(e,n){e.type="button",e.className="claude-plus-enhance-nav",e.dataset.claudePlusEnhance="1",e.dataset.target=n.label,e.innerHTML='<span class="cpe-icon" aria-hidden="true">'+n.icon+'</span><span class="cpe-label"></span>',e.querySelector(".cpe-label").textContent=n.label,e.onclick=()=>a(n)}function c(e){const t=i(e).find(e=>/计划任务|Scheduled/.test(o(e)));if(!t)return;const c=t.parentElement||t.parentNode;if(!c)return;const l=Array.from(c.querySelectorAll('[data-claude-plus-enhance="1"]'));if(l.length){l.forEach(e=>{const t=n.find(n=>e.dataset.target===n.label||o(e).includes(n.label));t&&d(e,t)});return}n.slice().reverse().forEach(n=>{const e=document.createElement("button");d(e,n),c.insertBefore(e,t.nextSibling)})}function l(){r(),document.querySelectorAll("nav,aside,[role=navigation]").forEach(c)}function a(e){u(),setTimeout(()=>s(e),180),setTimeout(()=>s(e),650),setTimeout(()=>s(e),1300)}function u(){const e=[...document.querySelectorAll("a,button,[role=button]")].find(e=>/自定义|Customize|开发者|Developer/.test(o(e)));if(e){e.click();return}try{history.pushState(null,"","/customize"),window.dispatchEvent(new PopStateEvent("popstate"))}catch(e){}}function s(e){const n=[...document.querySelectorAll("button,a,[role=button],h1,h2,h3,h4,[data-testid],label,summary,div,span")].find(n=>e.keys.some(e=>o(n).includes(e)));if(n){n.scrollIntoView({block:"center",behavior:"smooth"});const e=n.closest("button,a,[role=button],summary");e&&e.click&&e.click();const t=n.closest("section,div")||n;t.animate&&t.animate([{outline:"2px solid rgba(220,125,87,.0)"},{outline:"2px solid rgba(220,125,87,.75)"},{outline:"2px solid rgba(220,125,87,.0)"}],{duration:1100,iterations:1})}}new MutationObserver(()=>l()).observe(document.documentElement,{childList:!0,subtree:!0}),"loading"===document.readyState?document.addEventListener("DOMContentLoaded",l,{once:!0}):l()})();"#;
+    const SCRIPT_MARKER: &str = "__claudePlusEnhanceNavV2";
+    const NAV_API_MARKER: &str = "__claudePlusEnhanceThirdPartyApiV1";
+    const NAV_PLUGINS_MARKER: &str = "__claudePlusEnhancePluginsV1";
+    const NAV_MCP_MARKER: &str = "__claudePlusEnhanceMcpV1";
+    const INJECT_SCRIPT: &str = r#";(()=>{const m="__claudePlusEnhanceNavV2";if(window[m])return;Object.defineProperty(window,m,{value:!0});const n=[{marker:"__claudePlusEnhanceThirdPartyApiV1",label:"第三方API",keys:["Custom inference headers","自定义推理请求头","第三方API"],icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M4 17h16"/><path d="M7 7v10"/><path d="M17 7v10"/></svg>'},{marker:"__claudePlusEnhancePluginsV1",label:"插件与技能",keys:["Plugins & skills","插件与技能"],icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v5h5v6h-5v7H9v-7H4V8h5z"/></svg>'},{marker:"__claudePlusEnhanceMcpV1",label:"MCP与扩展",keys:["Connectors & extensions","连接器与扩展","MCP与扩展"],icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.7 10.7 15.3 7.3"/><path d="M8.7 13.3 15.3 16.7"/></svg>'}],t="claude-plus-enhance-style";function r(){if(document.getElementById(t))return;const e=document.createElement("style");e.id=t,e.textContent=".claude-plus-enhance-nav{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;border-radius:8px;padding:7px 10px;margin:1px 0;cursor:pointer;opacity:.9}.claude-plus-enhance-nav:hover{background:rgba(128,128,128,.12);opacity:1}.claude-plus-enhance-nav .cpe-icon{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 16px;opacity:.72}.claude-plus-enhance-nav .cpe-icon svg{width:16px;height:16px;display:block}.claude-plus-enhance-nav .cpe-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",document.head.appendChild(e)}function o(e){return(e.textContent||"").replace(/\s+/g," ").trim()}function i(e){return Array.from(e.querySelectorAll("button,a,[role=button]"))}function p(){return n.filter(e=>window[e.marker])}function d(e,n){e.type="button",e.className="claude-plus-enhance-nav",e.dataset.claudePlusEnhance="1",e.dataset.target=n.label,e.innerHTML='<span class="cpe-icon" aria-hidden="true">'+n.icon+'</span><span class="cpe-label"></span>',e.querySelector(".cpe-label").textContent=n.label,e.onclick=()=>a(n)}function c(e){const t=i(e).find(e=>/计划任务|Scheduled/.test(o(e)));if(!t)return;const c=t.parentElement||t.parentNode;if(!c)return;const l=p(),g=Array.from(c.querySelectorAll('[data-claude-plus-enhance="1"]'));g.forEach(e=>{l.some(n=>n.label===e.dataset.target)?d(e,l.find(n=>n.label===e.dataset.target)):e.remove()}),l.slice().reverse().forEach(n=>{let e=Array.from(c.querySelectorAll('[data-claude-plus-enhance="1"]')).find(e=>e.dataset.target===n.label);e||(e=document.createElement("button"),d(e,n)),c.insertBefore(e,t.nextSibling)})}function l(){r(),document.querySelectorAll("nav,aside,[role=navigation]").forEach(c)}function a(e){u(),setTimeout(()=>s(e),180),setTimeout(()=>s(e),650),setTimeout(()=>s(e),1300)}function u(){const e=[...document.querySelectorAll("a,button,[role=button]")].find(e=>/自定义|Customize|开发者|Developer/.test(o(e)));if(e){e.click();return}try{history.pushState(null,"","/customize"),window.dispatchEvent(new PopStateEvent("popstate"))}catch(e){}}function s(e){const n=[...document.querySelectorAll("button,a,[role=button],h1,h2,h3,h4,[data-testid],label,summary,div,span")].find(n=>e.keys.some(e=>o(n).includes(e)));if(n){n.scrollIntoView({block:"center",behavior:"smooth"});const e=n.closest("button,a,[role=button],summary");e&&e.click&&e.click();const t=n.closest("section,div")||n;t.animate&&t.animate([{outline:"2px solid rgba(220,125,87,.0)"},{outline:"2px solid rgba(220,125,87,.75)"},{outline:"2px solid rgba(220,125,87,.0)"}],{duration:1100,iterations:1})}}new MutationObserver(()=>l()).observe(document.documentElement,{childList:!0,subtree:!0}),"loading"===document.readyState?document.addEventListener("DOMContentLoaded",l,{once:!0}):l()})();"#;
+
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum EnhanceFeatureId {
+        ThirdPartyApi,
+        Plugins,
+        Mcp,
+        Markdown,
+        Timeline,
+    }
+
+    impl EnhanceFeatureId {
+        fn parse(value: &str) -> Option<Self> {
+            match value {
+                "third_party_api" => Some(Self::ThirdPartyApi),
+                "plugins" => Some(Self::Plugins),
+                "mcp" => Some(Self::Mcp),
+                "markdown" => Some(Self::Markdown),
+                "timeline" => Some(Self::Timeline),
+                _ => None,
+            }
+        }
+
+        fn marker(self) -> &'static str {
+            match self {
+                Self::ThirdPartyApi => NAV_API_MARKER,
+                Self::Plugins => NAV_PLUGINS_MARKER,
+                Self::Mcp => NAV_MCP_MARKER,
+                Self::Markdown => "__claudePlusEnhanceMarkdownExportV1",
+                Self::Timeline => "__claudePlusEnhanceTimelineV1",
+            }
+        }
+    }
 
     #[derive(Serialize)]
     pub struct ClaudeEnhanceStatus {
@@ -26,6 +61,7 @@ mod imp {
 
     #[derive(Serialize)]
     pub struct EnhanceFeature {
+        pub id: &'static str,
         pub label: &'static str,
         pub enabled: bool,
         pub available: bool,
@@ -93,10 +129,11 @@ mod imp {
     pub fn status() -> ClaudeEnhanceStatus {
         let paths = resolve_claude_paths().ok();
         let resources_path = paths.as_ref().map(|p| p.resources.clone());
-        let installed = resources_path
+        let enabled = resources_path
             .as_ref()
-            .map(|path| enhanced_js_files(path).map(|files| !files.is_empty()).unwrap_or(false))
-            .unwrap_or(false);
+            .map(|path| feature_states(path))
+            .unwrap_or_default();
+        let installed = enabled.iter().any(|(_, is_enabled)| *is_enabled);
 
         ClaudeEnhanceStatus {
             supported: true,
@@ -108,67 +145,121 @@ mod imp {
                 .unwrap_or(false),
             install_path: paths.as_ref().map(|p| p.app.display().to_string()),
             resources_path: resources_path.as_ref().map(|p| p.display().to_string()),
-            features: feature_list(installed),
+            features: feature_list(&enabled),
         }
     }
 
-    pub fn install() -> Result<(), String> {
+    pub fn install(feature: &str) -> Result<(), String> {
+        let feature = EnhanceFeatureId::parse(feature)
+            .ok_or_else(|| format!("未知页面增强项: {feature}"))?;
+        if matches!(feature, EnhanceFeatureId::Markdown | EnhanceFeatureId::Timeline) {
+            return Err("该增强项将在下一阶段接入".to_string());
+        }
         let paths = resolve_claude_paths()?;
         claude_desktop::stop_claude_processes()?;
         enable_write_access(&paths.resources);
 
         let mut backup = BackupContext::new(&paths.resources);
-        install_sidebar_entries(&paths.resources, &mut backup)?;
+        update_feature_marker(&paths.resources, &mut backup, feature, true)?;
         claude_desktop::launch_claude()?;
         Ok(())
     }
 
-    pub fn uninstall() -> Result<(), String> {
+    pub fn uninstall(feature: &str) -> Result<(), String> {
+        let feature = EnhanceFeatureId::parse(feature)
+            .ok_or_else(|| format!("未知页面增强项: {feature}"))?;
+        if matches!(feature, EnhanceFeatureId::Markdown | EnhanceFeatureId::Timeline) {
+            return Err("该增强项尚未接入，无需取消".to_string());
+        }
         let paths = resolve_claude_paths()?;
         claude_desktop::stop_claude_processes()?;
         enable_write_access(&paths.resources);
-        restore_latest_backup(&paths.resources)?;
+        let mut backup = BackupContext::new(&paths.resources);
+        update_feature_marker(&paths.resources, &mut backup, feature, false)?;
         claude_desktop::launch_claude()?;
         Ok(())
     }
 
-    fn feature_list(installed: bool) -> Vec<EnhanceFeature> {
+    fn feature_list(enabled: &[(EnhanceFeatureId, bool)]) -> Vec<EnhanceFeature> {
         vec![
             EnhanceFeature {
-                label: "第三方API / 插件与技能 / MCP与扩展",
-                enabled: installed,
+                id: "third_party_api",
+                label: "第三方API",
+                enabled: is_enabled(enabled, EnhanceFeatureId::ThirdPartyApi),
                 available: true,
                 note: "侧边栏软入口",
             },
             EnhanceFeature {
-                label: "Markdown 导出",
-                enabled: false,
-                available: false,
-                note: "下一阶段移植改造",
+                id: "plugins",
+                label: "插件与技能",
+                enabled: is_enabled(enabled, EnhanceFeatureId::Plugins),
+                available: true,
+                note: "侧边栏软入口",
             },
             EnhanceFeature {
+                id: "mcp",
+                label: "MCP与扩展",
+                enabled: is_enabled(enabled, EnhanceFeatureId::Mcp),
+                available: true,
+                note: "侧边栏软入口",
+            },
+            EnhanceFeature {
+                id: "markdown",
+                label: "Markdown 导出",
+                enabled: is_enabled(enabled, EnhanceFeatureId::Markdown),
+                available: true,
+                note: "待接入导出逻辑",
+            },
+            EnhanceFeature {
+                id: "timeline",
                 label: "Conversation Timeline",
-                enabled: false,
-                available: false,
-                note: "下一阶段移植改造",
+                enabled: is_enabled(enabled, EnhanceFeatureId::Timeline),
+                available: true,
+                note: "待接入时间线逻辑",
             },
         ]
     }
 
-    fn install_sidebar_entries(
+    fn is_enabled(enabled: &[(EnhanceFeatureId, bool)], feature: EnhanceFeatureId) -> bool {
+        enabled
+            .iter()
+            .find_map(|(candidate, value)| (*candidate == feature).then_some(*value))
+            .unwrap_or(false)
+    }
+
+    fn feature_states(resources_path: &Path) -> Vec<(EnhanceFeatureId, bool)> {
+        let text = read_index_bundle(resources_path).unwrap_or_default();
+        [
+            EnhanceFeatureId::ThirdPartyApi,
+            EnhanceFeatureId::Plugins,
+            EnhanceFeatureId::Mcp,
+            EnhanceFeatureId::Markdown,
+            EnhanceFeatureId::Timeline,
+        ]
+        .into_iter()
+        .map(|feature| (feature, text.contains(feature.marker())))
+        .collect()
+    }
+
+    fn update_feature_marker(
         resources_path: &Path,
         backup: &mut BackupContext,
+        feature: EnhanceFeatureId,
+        enabled: bool,
     ) -> Result<(), String> {
         let assets_dir = resources_path.join("ion-dist").join("assets").join("v1");
         let mut patched = false;
         for path in js_files(&assets_dir, true)? {
             let text = fs::read_to_string(&path).map_err(|e| format!("读取 Claude 前端入口失败: {e}"))?;
-            if text.contains(MARKER) {
+            let mut next = remove_old_script(&text);
+            next = set_marker(next, feature.marker(), enabled);
+            next = ensure_script(next);
+            if next == text {
                 patched = true;
                 continue;
             }
             backup.backup_resource(&path)?;
-            fs::write(&path, format!("{text}{INJECT_SCRIPT}"))
+            fs::write(&path, next)
                 .map_err(|e| format!("写入 Claude 页面增强入口失败: {e}"))?;
             patched = true;
         }
@@ -180,16 +271,43 @@ mod imp {
         }
     }
 
-    fn enhanced_js_files(resources_path: &Path) -> Result<Vec<PathBuf>, String> {
+    fn ensure_script(mut text: String) -> String {
+        if !text.contains(SCRIPT_MARKER) {
+            text.push_str(INJECT_SCRIPT);
+        }
+        text
+    }
+
+    fn remove_old_script(text: &str) -> String {
+        let Some(start) = text.find(";(()=>{const m=\"__claudePlusEnhanceNavV2\"") else {
+            return text.to_string();
+        };
+        let Some(relative_end) = text[start..].find("})();") else {
+            return text.to_string();
+        };
+        let end = start + relative_end + "})();".len();
+        format!("{}{}", &text[..start], &text[end..])
+    }
+
+    fn set_marker(mut text: String, marker: &str, enabled: bool) -> String {
+        let payload = format!(";window.{marker}=true;");
+        if enabled {
+            if !text.contains(marker) {
+                text.push_str(&payload);
+            }
+            return text;
+        }
+        text.replace(&payload, "")
+    }
+
+    fn read_index_bundle(resources_path: &Path) -> Result<String, String> {
         let assets_dir = resources_path.join("ion-dist").join("assets").join("v1");
-        let mut found = Vec::new();
+        let mut output = String::new();
         for path in js_files(&assets_dir, true)? {
             let text = fs::read_to_string(&path).map_err(|e| format!("读取 Claude 前端入口失败: {e}"))?;
-            if text.contains(MARKER) {
-                found.push(path);
-            }
+            output.push_str(&text);
         }
-        Ok(found)
+        Ok(output)
     }
 
     fn resolve_claude_paths() -> Result<ClaudePaths, String> {
@@ -293,21 +411,6 @@ mod imp {
         }
     }
 
-    fn restore_latest_backup(resources_path: &Path) -> Result<(), String> {
-        let backup =
-            latest_backup(resources_path).ok_or_else(|| "没有可恢复的页面增强备份".to_string())?;
-        let backup_root = backup.clone();
-        for path in files_recursive(&backup)? {
-            let relative = relative_to(&path, &backup_root)?;
-            let target = resources_path.join(relative);
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent).map_err(|e| format!("创建增强恢复父目录失败: {e}"))?;
-            }
-            fs::copy(&path, &target).map_err(|e| format!("恢复页面增强备份失败: {e}"))?;
-        }
-        Ok(())
-    }
-
     fn latest_backup(resources_path: &Path) -> Option<PathBuf> {
         let root = backup_root(resources_path);
         let entries = fs::read_dir(root).ok()?;
@@ -334,22 +437,6 @@ mod imp {
         }
         if files.is_empty() {
             return Err("未找到 Claude 前端 JS bundle".to_string());
-        }
-        Ok(files)
-    }
-
-    fn files_recursive(root: &Path) -> Result<Vec<PathBuf>, String> {
-        let mut files = Vec::new();
-        if !root.is_dir() {
-            return Ok(files);
-        }
-        for entry in fs::read_dir(root).map_err(|e| format!("读取增强备份目录失败: {e}"))? {
-            let path = entry.map_err(|e| format!("读取增强备份项失败: {e}"))?.path();
-            if path.is_dir() {
-                files.extend(files_recursive(&path)?);
-            } else {
-                files.push(path);
-            }
         }
         Ok(files)
     }

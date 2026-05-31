@@ -610,6 +610,59 @@ select {
   min-height: 0;
 }
 
+.enhanceCards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.enhanceCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 82px;
+  padding: 14px;
+}
+
+.enhanceCard.enabled {
+  border-color: rgba(220, 125, 87, 0.28);
+  background: rgba(220, 125, 87, 0.08);
+}
+
+.enhanceCardTitle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  color: var(--brand-strong);
+}
+
+.enhanceCardTitle strong {
+  overflow: hidden;
+  color: var(--text-000);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enhanceCardTitle svg {
+  flex: 0 0 auto;
+}
+
+.enhanceActions {
+  display: flex;
+  gap: 7px;
+  justify-content: flex-end;
+}
+
+.restartCard {
+  grid-column: 1 / -1;
+}
+
 .localizationChecklist {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
@@ -717,50 +770,6 @@ select {
   border-color: var(--brand-strong);
   background: rgba(220, 125, 87, 0.14);
   color: var(--text-000);
-}
-
-.featureMatrixRow {
-  align-items: start;
-}
-
-.featurePills {
-  display: grid;
-  gap: 6px;
-  justify-items: end;
-  max-width: 360px;
-}
-
-.featurePill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-  max-width: 100%;
-  border: 1px solid var(--border-soft);
-  border-radius: 999px;
-  background: var(--bg-000);
-  color: var(--text-200);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.2;
-  padding: 6px 10px;
-  white-space: nowrap;
-}
-
-.featurePill.enabled {
-  border-color: rgba(87, 138, 0, 0.24);
-  background: rgba(87, 138, 0, 0.08);
-  color: var(--success);
-}
-
-.featurePill.available {
-  border-color: rgba(220, 125, 87, 0.26);
-  background: rgba(220, 125, 87, 0.1);
-  color: var(--brand-strong);
-}
-
-.featurePill.later {
-  color: var(--text-400);
 }
 
 .splitForm {
@@ -942,7 +951,8 @@ select {
 
   .routeCardBody,
   .routeSummary,
-  .routeActions {
+  .routeActions,
+  .enhanceCards {
     grid-template-columns: 1fr;
   }
 
@@ -950,6 +960,7 @@ select {
   .miniTable div,
   .providerStrip,
   .workflowRow,
+  .enhanceCard,
   .themeRow {
     grid-template-columns: 1fr;
   }
@@ -957,11 +968,7 @@ select {
   .rowIcon,
   .stateBadge,
   .scopeSelect,
-  .featurePills {
+  .enhanceActions {
     justify-self: start;
-  }
-
-  .featurePill {
-    white-space: normal;
   }
 }
