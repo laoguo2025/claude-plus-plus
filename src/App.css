@@ -327,7 +327,20 @@ select {
 
 .routePanel {
   display: grid;
-  grid-template-rows: auto auto minmax(0, auto);
+  grid-template-rows: auto auto;
+}
+
+.routePanelHead {
+  align-items: center;
+}
+
+.routeHint {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: right;
 }
 
 .routeCardBody {

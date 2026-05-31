@@ -305,7 +305,6 @@ function App() {
               busy={busy}
               status={status}
               pm={pm}
-              restartNeeded={restartNeeded}
               run={run}
               restartClaudeDesktop={restartClaudeDesktop}
             />
@@ -355,14 +354,12 @@ function OverviewPage({
   busy,
   status,
   pm,
-  restartNeeded,
   run,
   restartClaudeDesktop,
 }: {
   busy: boolean;
   status: StatusInfo | null;
   pm: ProviderMappings | null;
-  restartNeeded: boolean;
   run: (cmd: string) => Promise<void>;
   restartClaudeDesktop: () => Promise<void>;
 }) {
@@ -384,10 +381,11 @@ function OverviewPage({
       </div>
 
       <section className="panel routePanel">
-        <div className="panelHead">
+        <div className="panelHead routePanelHead">
           <div>
             <h2>路由状态</h2>
           </div>
+          <span className="routeHint">CC Switch 增/改/删模型或切换服务商时，需重启 Claude Desktop</span>
         </div>
         <div className="routeCardBody">
           <RouteStatusCard active={!!status?.cd_applied} />
@@ -411,11 +409,6 @@ function OverviewPage({
             label="重启 Claude"
             onClick={restartClaudeDesktop}
           />
-        </div>
-        <div className={`notice ${restartNeeded ? "warn" : ""}`}>
-          {restartNeeded
-            ? "已检测到模型或服务商变化；Claude Desktop 需要重启后刷新模型列表。"
-            : "Claude Desktop 的模型列表只在启动时读取；切换路由或 CC Switch 服务商后建议重启 Claude Desktop。"}
         </div>
       </section>
 
