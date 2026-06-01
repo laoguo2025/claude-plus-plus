@@ -180,9 +180,12 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
     }
 
     pub fn install(feature: &str) -> Result<(), String> {
-        let feature = EnhanceFeatureId::parse(feature)
-            .ok_or_else(|| format!("未知页面增强项: {feature}"))?;
-        if matches!(feature, EnhanceFeatureId::Markdown | EnhanceFeatureId::Timeline) {
+        let feature =
+            EnhanceFeatureId::parse(feature).ok_or_else(|| format!("未知页面增强项: {feature}"))?;
+        if matches!(
+            feature,
+            EnhanceFeatureId::Markdown | EnhanceFeatureId::Timeline
+        ) {
             return Err("该增强项将在下一阶段接入".to_string());
         }
         let paths = resolve_claude_paths()?;
@@ -191,14 +194,16 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
 
         let mut backup = BackupContext::new(&paths.resources);
         update_feature_marker(&paths.resources, &mut backup, feature, true)?;
-        claude_desktop::launch_claude()?;
         Ok(())
     }
 
     pub fn uninstall(feature: &str) -> Result<(), String> {
-        let feature = EnhanceFeatureId::parse(feature)
-            .ok_or_else(|| format!("未知页面增强项: {feature}"))?;
-        if matches!(feature, EnhanceFeatureId::Markdown | EnhanceFeatureId::Timeline) {
+        let feature =
+            EnhanceFeatureId::parse(feature).ok_or_else(|| format!("未知页面增强项: {feature}"))?;
+        if matches!(
+            feature,
+            EnhanceFeatureId::Markdown | EnhanceFeatureId::Timeline
+        ) {
             return Err("该增强项尚未接入，无需取消".to_string());
         }
         let paths = resolve_claude_paths()?;
@@ -206,7 +211,6 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
         enable_write_access(&paths.resources);
         let mut backup = BackupContext::new(&paths.resources);
         update_feature_marker(&paths.resources, &mut backup, feature, false)?;
-        claude_desktop::launch_claude()?;
         Ok(())
     }
 
@@ -269,6 +273,10 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
 
     fn feature_states(resources_path: &Path) -> Vec<(EnhanceFeatureId, bool)> {
         let text = read_index_bundle(resources_path).unwrap_or_default();
+        feature_states_from_text(&text)
+    }
+
+    fn feature_states_from_text(text: &str) -> Vec<(EnhanceFeatureId, bool)> {
         [
             EnhanceFeatureId::ThirdPartyApi,
             EnhanceFeatureId::Plugins,
@@ -277,7 +285,7 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
             EnhanceFeatureId::Timeline,
         ]
         .into_iter()
-        .map(|feature| (feature, text.contains(feature.marker())))
+        .map(|feature| (feature, text.contains(&feature_payload(feature.marker()))))
         .collect()
     }
 
@@ -290,7 +298,8 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
         let assets_dir = resources_path.join("ion-dist").join("assets").join("v1");
         let mut patched = false;
         for path in js_files(&assets_dir, true)? {
-            let text = fs::read_to_string(&path).map_err(|e| format!("读取 Claude 前端入口失败: {e}"))?;
+            let text =
+                fs::read_to_string(&path).map_err(|e| format!("读取 Claude 前端入口失败: {e}"))?;
             let mut next = remove_old_script(&text);
             next = set_marker(next, feature.marker(), enabled);
             next = ensure_script(next);
@@ -299,8 +308,7 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
                 continue;
             }
             backup.backup_resource(&path)?;
-            fs::write(&path, next)
-                .map_err(|e| format!("写入 Claude 页面增强入口失败: {e}"))?;
+            fs::write(&path, next).map_err(|e| format!("写入 Claude 页面增强入口失败: {e}"))?;
             patched = true;
         }
 
@@ -330,7 +338,7 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
     }
 
     fn set_marker(mut text: String, marker: &str, enabled: bool) -> String {
-        let payload = format!(";window.{marker}=true;");
+        let payload = feature_payload(marker);
         if enabled {
             if !text.contains(marker) {
                 text.push_str(&payload);
@@ -340,11 +348,56 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
         text.replace(&payload, "")
     }
 
+    fn feature_payload(marker: &str) -> String {
+        format!(";window.{marker}=true;")
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::{
+            feature_payload, feature_states_from_text, EnhanceFeatureId, INJECT_SCRIPT,
+            NAV_API_MARKER, NAV_MCP_MARKER, NAV_PLUGINS_MARKER,
+        };
+
+        fn state(states: &[(EnhanceFeatureId, bool)], feature: EnhanceFeatureId) -> bool {
+            states
+                .iter()
+                .find_map(|(candidate, enabled)| (*candidate == feature).then_some(*enabled))
+                .unwrap_or(false)
+        }
+
+        #[test]
+        fn script_markers_do_not_count_as_enabled_features() {
+            let states = feature_states_from_text(INJECT_SCRIPT);
+
+            assert!(!state(&states, EnhanceFeatureId::ThirdPartyApi));
+            assert!(!state(&states, EnhanceFeatureId::Plugins));
+            assert!(!state(&states, EnhanceFeatureId::Mcp));
+        }
+
+        #[test]
+        fn feature_payload_controls_enabled_state() {
+            let text = format!(
+                "{}{}{}",
+                INJECT_SCRIPT,
+                feature_payload(NAV_API_MARKER),
+                feature_payload(NAV_MCP_MARKER)
+            );
+            let states = feature_states_from_text(&text);
+
+            assert!(state(&states, EnhanceFeatureId::ThirdPartyApi));
+            assert!(!state(&states, EnhanceFeatureId::Plugins));
+            assert!(state(&states, EnhanceFeatureId::Mcp));
+            assert!(!text.contains(&feature_payload(NAV_PLUGINS_MARKER)));
+        }
+    }
+
     fn read_index_bundle(resources_path: &Path) -> Result<String, String> {
         let assets_dir = resources_path.join("ion-dist").join("assets").join("v1");
         let mut output = String::new();
         for path in js_files(&assets_dir, true)? {
-            let text = fs::read_to_string(&path).map_err(|e| format!("读取 Claude 前端入口失败: {e}"))?;
+            let text =
+                fs::read_to_string(&path).map_err(|e| format!("读取 Claude 前端入口失败: {e}"))?;
             output.push_str(&text);
         }
         Ok(output)
@@ -462,7 +515,8 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
     }
 
     fn js_files(assets_dir: &Path, index_only: bool) -> Result<Vec<PathBuf>, String> {
-        let entries = fs::read_dir(assets_dir).map_err(|e| format!("读取 Claude 前端资源目录失败: {e}"))?;
+        let entries =
+            fs::read_dir(assets_dir).map_err(|e| format!("读取 Claude 前端资源目录失败: {e}"))?;
         let mut files = Vec::new();
         for entry in entries.flatten() {
             let path = entry.path();
