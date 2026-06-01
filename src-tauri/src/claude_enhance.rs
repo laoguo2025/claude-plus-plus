@@ -19,8 +19,8 @@ if(window[m])return;
 Object.defineProperty(window,m,{value:!0});
 const v="3.7",n=[
 {id:"third_party_api",marker:"__claudePlusEnhanceThirdPartyApiV1",label:"第三方API",path:"/setup-desktop-3p",open:"custom3p",icon:'<svg width="16" height="16" style="width:1em;height:1em;min-width:1em;max-width:1em;min-height:1em;max-height:1em;flex:none;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h8"/><rect x="4" y="5" width="16" height="14" rx="2"/></svg>'},
-{id:"plugins",marker:"__claudePlusEnhancePluginsV1",label:"插件与技能",path:"/customize/plugins/new?marketplace&plugin",icon:'<svg width="16" height="16" style="width:1em;height:1em;min-width:1em;max-width:1em;min-height:1em;max-height:1em;flex:none;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10H7z"/><path d="M10 3h4v4"/><path d="M10 21h4v-4"/><path d="M3 10h4"/><path d="M17 14h4"/></svg>'},
-{id:"mcp",marker:"__claudePlusEnhanceMcpV1",label:"MCP与扩展",path:"/customize/connectors",icon:'<svg width="16" height="16" style="width:1em;height:1em;min-width:1em;max-width:1em;min-height:1em;max-height:1em;flex:none;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="7" r="2.5"/><circle cx="18" cy="17" r="2.5"/><path d="M8.3 10.9 15.7 8.1"/><path d="M8.3 13.1 15.7 15.9"/></svg>'}
+{id:"plugins",marker:"__claudePlusEnhancePluginsV1",label:"技能",path:"/customize/plugins/new?marketplace&plugin",icon:'<svg width="16" height="16" style="width:1em;height:1em;min-width:1em;max-width:1em;min-height:1em;max-height:1em;flex:none;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10H7z"/><path d="M10 3h4v4"/><path d="M10 21h4v-4"/><path d="M3 10h4"/><path d="M17 14h4"/></svg>'},
+{id:"mcp",marker:"__claudePlusEnhanceMcpV1",label:"MCP",path:"/customize/connectors",icon:'<svg width="16" height="16" style="width:1em;height:1em;min-width:1em;max-width:1em;min-height:1em;max-height:1em;flex:none;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="7" r="2.5"/><circle cx="18" cy="17" r="2.5"/><path d="M8.3 10.9 15.7 8.1"/><path d="M8.3 13.1 15.7 15.9"/></svg>'}
 ];
 let q=0,b=!1;
 function o(e){return(e.textContent||"").replace(/\s+/g," ").trim()}
@@ -228,8 +228,8 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
             EnhanceFeature {
                 id: "plugins",
                 category: "菜单栏增强",
-                label: "插件与技能",
-                description: "在 Claude Desktop 左侧菜单中直达插件与技能设置页。",
+                label: "技能",
+                description: "在 Claude Desktop 左侧菜单中直达技能设置页。",
                 enabled: is_enabled(enabled, EnhanceFeatureId::Plugins),
                 available: true,
                 note: "侧边栏软入口",
@@ -237,8 +237,8 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
             EnhanceFeature {
                 id: "mcp",
                 category: "菜单栏增强",
-                label: "MCP与扩展",
-                description: "在 Claude Desktop 左侧菜单中直达 MCP、连接器与扩展管理页。",
+                label: "MCP",
+                description: "在 Claude Desktop 左侧菜单中直达 MCP 管理页。",
                 enabled: is_enabled(enabled, EnhanceFeatureId::Mcp),
                 available: true,
                 note: "侧边栏软入口",

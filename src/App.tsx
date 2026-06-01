@@ -145,8 +145,8 @@ function previewCommand<T>(cmd: string): T {
         {
           id: "plugins",
           category: "菜单栏增强",
-          label: "插件与技能",
-          description: "在 Claude Desktop 左侧菜单中直达插件与技能设置页。",
+          label: "技能",
+          description: "在 Claude Desktop 左侧菜单中直达技能设置页。",
           enabled: false,
           available: true,
           note: "侧边栏软入口",
@@ -154,8 +154,8 @@ function previewCommand<T>(cmd: string): T {
         {
           id: "mcp",
           category: "菜单栏增强",
-          label: "MCP与扩展",
-          description: "在 Claude Desktop 左侧菜单中直达 MCP、连接器与扩展管理页。",
+          label: "MCP",
+          description: "在 Claude Desktop 左侧菜单中直达 MCP 管理页。",
           enabled: false,
           available: true,
           note: "侧边栏软入口",
@@ -800,8 +800,8 @@ function previewEnhanceFeatures(): ClaudeEnhanceFeature[] {
     {
       id: "plugins",
       category: "菜单栏增强",
-      label: "插件与技能",
-      description: "在 Claude Desktop 左侧菜单中直达插件与技能设置页。",
+      label: "技能",
+      description: "在 Claude Desktop 左侧菜单中直达技能设置页。",
       enabled: false,
       available: true,
       note: "侧边栏软入口",
@@ -809,8 +809,8 @@ function previewEnhanceFeatures(): ClaudeEnhanceFeature[] {
     {
       id: "mcp",
       category: "菜单栏增强",
-      label: "MCP与扩展",
-      description: "在 Claude Desktop 左侧菜单中直达 MCP、连接器与扩展管理页。",
+      label: "MCP",
+      description: "在 Claude Desktop 左侧菜单中直达 MCP 管理页。",
       enabled: false,
       available: true,
       note: "侧边栏软入口",
