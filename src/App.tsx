@@ -48,7 +48,9 @@ interface ClaudeZhStatus {
 }
 interface ClaudeEnhanceFeature {
   id: string;
+  category: string;
   label: string;
+  description: string;
   enabled: boolean;
   available: boolean;
   note: string;
@@ -133,15 +135,49 @@ function previewCommand<T>(cmd: string): T {
       features: [
         {
           id: "third_party_api",
+          category: "菜单栏增强",
           label: "第三方API",
+          description: "在 Claude Desktop 左侧菜单“计划任务”下方增加第三方API快捷入口。",
           enabled: false,
           available: true,
           note: "侧边栏软入口",
         },
-        { id: "plugins", label: "插件与技能", enabled: false, available: true, note: "侧边栏软入口" },
-        { id: "mcp", label: "MCP与扩展", enabled: false, available: true, note: "侧边栏软入口" },
-        { id: "markdown", label: "Markdown 导出", enabled: false, available: true, note: "待接入导出逻辑" },
-        { id: "timeline", label: "Conversation Timeline", enabled: false, available: true, note: "待接入时间线逻辑" },
+        {
+          id: "plugins",
+          category: "菜单栏增强",
+          label: "插件与技能",
+          description: "在 Claude Desktop 左侧菜单中直达插件与技能设置页。",
+          enabled: false,
+          available: true,
+          note: "侧边栏软入口",
+        },
+        {
+          id: "mcp",
+          category: "菜单栏增强",
+          label: "MCP与扩展",
+          description: "在 Claude Desktop 左侧菜单中直达 MCP、连接器与扩展管理页。",
+          enabled: false,
+          available: true,
+          note: "侧边栏软入口",
+        },
+        {
+          id: "markdown",
+          category: "对话栏增强",
+          label: "导出对话为 Markdown",
+          description: "在对话页面增加 Markdown 导出入口，把当前对话保存为 Markdown 文件。",
+          enabled: false,
+          available: true,
+          note: "待接入导出逻辑",
+        },
+        {
+          id: "timeline",
+          category: "状态增强",
+          label: "显示对话时间线",
+          description: "在对话页面显示问题时间线，方便快速定位上下文进度。",
+          enabled: false,
+          available: true,
+          note: "待接入时间线逻辑",
+        },
       ],
     } as T;
   }
@@ -703,6 +739,7 @@ function EnhancePage({
           </div>
           <div className="workflowCopy">
             <strong>重启 Claude Desktop</strong>
+            <span>重启 Claude Desktop，让已启用的页面增强立即出现在对应位置。</span>
           </div>
           <button disabled={disabledByMissingClaude} onClick={restartClaudeDesktop}>
             重启
@@ -731,7 +768,11 @@ function EnhanceCard({
         <IconComponent size={17} />
       </div>
       <div className="workflowCopy">
-        <strong>{feature.label}</strong>
+        <strong>
+          <span className="enhanceCategory">{feature.category}</span>
+          {feature.label}
+        </strong>
+        <span>{feature.description}</span>
       </div>
       <div className="enhanceActions">
         <button className="primary" disabled={disabled || feature.enabled} onClick={onInstall}>
@@ -747,11 +788,51 @@ function EnhanceCard({
 
 function previewEnhanceFeatures(): ClaudeEnhanceFeature[] {
   return [
-    { id: "third_party_api", label: "第三方API", enabled: false, available: true, note: "侧边栏软入口" },
-    { id: "plugins", label: "插件与技能", enabled: false, available: true, note: "侧边栏软入口" },
-    { id: "mcp", label: "MCP与扩展", enabled: false, available: true, note: "侧边栏软入口" },
-    { id: "markdown", label: "Markdown 导出", enabled: false, available: true, note: "待接入导出逻辑" },
-    { id: "timeline", label: "Conversation Timeline", enabled: false, available: true, note: "待接入时间线逻辑" },
+    {
+      id: "third_party_api",
+      category: "菜单栏增强",
+      label: "第三方API",
+      description: "在 Claude Desktop 左侧菜单“计划任务”下方增加第三方API快捷入口。",
+      enabled: false,
+      available: true,
+      note: "侧边栏软入口",
+    },
+    {
+      id: "plugins",
+      category: "菜单栏增强",
+      label: "插件与技能",
+      description: "在 Claude Desktop 左侧菜单中直达插件与技能设置页。",
+      enabled: false,
+      available: true,
+      note: "侧边栏软入口",
+    },
+    {
+      id: "mcp",
+      category: "菜单栏增强",
+      label: "MCP与扩展",
+      description: "在 Claude Desktop 左侧菜单中直达 MCP、连接器与扩展管理页。",
+      enabled: false,
+      available: true,
+      note: "侧边栏软入口",
+    },
+    {
+      id: "markdown",
+      category: "对话栏增强",
+      label: "导出对话为 Markdown",
+      description: "在对话页面增加 Markdown 导出入口，把当前对话保存为 Markdown 文件。",
+      enabled: false,
+      available: true,
+      note: "待接入导出逻辑",
+    },
+    {
+      id: "timeline",
+      category: "状态增强",
+      label: "显示对话时间线",
+      description: "在对话页面显示问题时间线，方便快速定位上下文进度。",
+      enabled: false,
+      available: true,
+      note: "待接入时间线逻辑",
+    },
   ];
 }
 

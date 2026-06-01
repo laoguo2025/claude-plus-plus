@@ -621,7 +621,7 @@ select {
 
 .enhanceWorkflowRow {
   grid-template-columns: 22px minmax(0, 1fr) auto;
-  min-height: 58px;
+  min-height: 72px;
   padding: 8px 12px;
 }
 
@@ -643,7 +643,21 @@ select {
 }
 
 .restartCard {
-  min-height: 58px;
+  min-height: 72px;
+}
+
+.enhanceCategory {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+  border: 1px solid rgba(220, 125, 87, 0.24);
+  border-radius: 999px;
+  background: rgba(220, 125, 87, 0.1);
+  color: var(--brand-strong);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 7px;
 }
 
 .localizationChecklist {

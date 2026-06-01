@@ -62,7 +62,9 @@ mod imp {
     #[derive(Serialize)]
     pub struct EnhanceFeature {
         pub id: &'static str,
+        pub category: &'static str,
         pub label: &'static str,
+        pub description: &'static str,
         pub enabled: bool,
         pub available: bool,
         pub note: &'static str,
@@ -184,35 +186,45 @@ mod imp {
         vec![
             EnhanceFeature {
                 id: "third_party_api",
+                category: "菜单栏增强",
                 label: "第三方API",
+                description: "在 Claude Desktop 左侧菜单“计划任务”下方增加第三方API快捷入口。",
                 enabled: is_enabled(enabled, EnhanceFeatureId::ThirdPartyApi),
                 available: true,
                 note: "侧边栏软入口",
             },
             EnhanceFeature {
                 id: "plugins",
+                category: "菜单栏增强",
                 label: "插件与技能",
+                description: "在 Claude Desktop 左侧菜单中直达插件与技能设置页。",
                 enabled: is_enabled(enabled, EnhanceFeatureId::Plugins),
                 available: true,
                 note: "侧边栏软入口",
             },
             EnhanceFeature {
                 id: "mcp",
+                category: "菜单栏增强",
                 label: "MCP与扩展",
+                description: "在 Claude Desktop 左侧菜单中直达 MCP、连接器与扩展管理页。",
                 enabled: is_enabled(enabled, EnhanceFeatureId::Mcp),
                 available: true,
                 note: "侧边栏软入口",
             },
             EnhanceFeature {
                 id: "markdown",
-                label: "Markdown 导出",
+                category: "对话栏增强",
+                label: "导出对话为 Markdown",
+                description: "在对话页面增加 Markdown 导出入口，把当前对话保存为 Markdown 文件。",
                 enabled: is_enabled(enabled, EnhanceFeatureId::Markdown),
                 available: true,
                 note: "待接入导出逻辑",
             },
             EnhanceFeature {
                 id: "timeline",
-                label: "Conversation Timeline",
+                category: "状态增强",
+                label: "显示对话时间线",
+                description: "在对话页面显示问题时间线，方便快速定位上下文进度。",
                 enabled: is_enabled(enabled, EnhanceFeatureId::Timeline),
                 available: true,
                 note: "待接入时间线逻辑",
@@ -509,7 +521,10 @@ mod imp {
 
     #[derive(Serialize)]
     pub struct EnhanceFeature {
+        pub id: &'static str,
         pub label: &'static str,
+        pub category: &'static str,
+        pub description: &'static str,
         pub enabled: bool,
         pub available: bool,
         pub note: &'static str,
