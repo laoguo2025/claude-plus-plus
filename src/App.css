@@ -256,17 +256,17 @@ select {
 }
 
 .overviewPage {
-  grid-template-rows: 48px 176px minmax(0, 1fr);
+  grid-template-rows: 116px 176px minmax(0, 1fr);
 }
 
 .mechanismNote {
   display: grid;
   align-content: start;
-  gap: 3px;
+  gap: 5px;
   overflow: hidden;
   color: var(--accent);
-  font-size: 13px;
-  line-height: 1.32;
+  font-size: 12.5px;
+  line-height: 1.28;
 }
 
 .mechanismNote span,
@@ -274,7 +274,7 @@ select {
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
 }
 
 .mechanismNote strong {
@@ -613,46 +613,21 @@ select {
 .enhanceCards {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
+  gap: 9px;
   align-content: start;
   min-height: 0;
   overflow: auto;
 }
 
-.enhanceCard {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  min-height: 54px;
-  padding: 7px 14px;
-  box-shadow: 0 4px 12px rgba(31, 31, 30, 0.04);
+.enhanceWorkflowRow {
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  min-height: 58px;
+  padding: 8px 12px;
 }
 
-.enhanceCard.enabled {
+.enhanceWorkflowRow.enabled {
   border-color: rgba(220, 125, 87, 0.28);
   background: rgba(220, 125, 87, 0.08);
-}
-
-.enhanceCardTitle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  color: var(--brand-strong);
-}
-
-.enhanceCardTitle strong {
-  overflow: hidden;
-  color: var(--text-000);
-  font-size: 14px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.enhanceCardTitle svg {
-  flex: 0 0 auto;
 }
 
 .enhanceActions {
@@ -668,7 +643,7 @@ select {
 }
 
 .restartCard {
-  min-height: 54px;
+  min-height: 58px;
 }
 
 .localizationChecklist {
@@ -976,5 +951,14 @@ select {
   .stateBadge,
   .scopeSelect {
     justify-self: start;
+  }
+
+  .enhanceWorkflowRow {
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+  }
+
+  .enhanceWorkflowRow .rowIcon,
+  .enhanceWorkflowRow .enhanceActions {
+    justify-self: initial;
   }
 }

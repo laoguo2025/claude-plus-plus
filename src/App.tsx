@@ -452,8 +452,15 @@ function OverviewPage({
   return (
     <div className="pageGrid overviewPage">
       <div className="mechanismNote">
-        <span>Claude++ 会把 CC Switch 当前映射同步到 Claude Desktop 菜单，并按角色转发请求。</span>
-        <strong>使用期间请保持 Claude++ 运行；映射变化后重启 Claude Desktop 生效。</strong>
+        <span>
+          直连 CC Switch 时，模型其实能跑通，但 Claude Desktop 菜单仍会显示 Haiku、Opus、Sonnet 这些原名，看不到
+          mimo、DeepSeek、Kimi 等映射名。
+        </span>
+        <span>
+          Claude++ 会读取 CC Switch 当前映射，把更容易看懂的名字交给 Claude Desktop 显示；真正发送请求时，再转回 CC Switch 能识别的模型角色。
+        </span>
+        <span>例如菜单显示“Opus - mimo-v2.5-pro”；选中后，Claude++ 会按 Opus 档位转发到实际模型。</span>
+        <strong>使用期间请保持 Claude++ 运行；CC Switch 增/改/删模型或切换服务商后，重启 Claude Desktop 生效。</strong>
       </div>
 
       <section className="panel routePanel">
@@ -690,15 +697,17 @@ function EnhancePage({
             onUninstall={() => uninstallClaudeEnhance(feature.id)}
           />
         ))}
-        <section className="panel enhanceCard restartCard">
-          <div className="enhanceCardTitle">
+        <div className="workflowRow enhanceWorkflowRow restartCard">
+          <div className="rowIcon success">
             <RefreshCw size={17} />
+          </div>
+          <div className="workflowCopy">
             <strong>重启 Claude Desktop</strong>
           </div>
           <button disabled={disabledByMissingClaude} onClick={restartClaudeDesktop}>
             重启
           </button>
-        </section>
+        </div>
       </div>
     </div>
   );
@@ -717,9 +726,11 @@ function EnhanceCard({
 }) {
   const IconComponent = enhanceIcon(feature.id);
   return (
-    <section className={`panel enhanceCard ${feature.enabled ? "enabled" : ""}`}>
-      <div className="enhanceCardTitle">
+    <div className={`workflowRow enhanceWorkflowRow ${feature.enabled ? "enabled" : ""}`}>
+      <div className={`rowIcon ${feature.enabled ? "success" : "warning"}`}>
         <IconComponent size={17} />
+      </div>
+      <div className="workflowCopy">
         <strong>{feature.label}</strong>
       </div>
       <div className="enhanceActions">
@@ -730,7 +741,7 @@ function EnhanceCard({
           取消
         </button>
       </div>
-    </section>
+    </div>
   );
 }
 
