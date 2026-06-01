@@ -613,7 +613,8 @@ select {
 .enhanceCards {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: 12px;
+  gap: 10px 12px;
+  align-content: start;
   min-height: 0;
   overflow: auto;
 }
@@ -622,9 +623,10 @@ select {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  min-height: 82px;
-  padding: 14px;
+  gap: 10px;
+  min-height: 68px;
+  padding: 10px 14px;
+  box-shadow: 0 6px 16px rgba(31, 31, 30, 0.045);
 }
 
 .enhanceCard.enabled {
@@ -635,7 +637,7 @@ select {
 .enhanceCardTitle {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   min-width: 0;
   color: var(--brand-strong);
 }
@@ -655,12 +657,19 @@ select {
 
 .enhanceActions {
   display: flex;
-  gap: 7px;
+  gap: 6px;
   justify-content: flex-end;
+}
+
+.enhanceActions button,
+.restartCard > button {
+  min-height: 30px;
+  padding: 0 10px;
 }
 
 .restartCard {
   grid-column: 1 / -1;
+  min-height: 70px;
 }
 
 .localizationChecklist {
@@ -960,15 +969,13 @@ select {
   .miniTable div,
   .providerStrip,
   .workflowRow,
-  .enhanceCard,
   .themeRow {
     grid-template-columns: 1fr;
   }
 
   .rowIcon,
   .stateBadge,
-  .scopeSelect,
-  .enhanceActions {
+  .scopeSelect {
     justify-self: start;
   }
 }
