@@ -97,7 +97,8 @@ pub fn apply(port: u16, api_key: &str) -> Result<(), String> {
         }
     }
     if !exists {
-        entries.push(json!({ "id": CLAUDE_PLUS_PLUS_ENTRY_ID, "name": CLAUDE_PLUS_PLUS_ENTRY_NAME }));
+        entries
+            .push(json!({ "id": CLAUDE_PLUS_PLUS_ENTRY_ID, "name": CLAUDE_PLUS_PLUS_ENTRY_NAME }));
     }
     meta["appliedId"] = json!(CLAUDE_PLUS_PLUS_ENTRY_ID);
 
@@ -125,7 +126,9 @@ pub fn revert(target_entry_id: Option<&str>) -> Result<(), String> {
                 .and_then(|v| v.as_array())
                 .and_then(|arr| {
                     arr.iter()
-                        .find(|e| e.get("id").and_then(|i| i.as_str()) != Some(CLAUDE_PLUS_PLUS_ENTRY_ID))
+                        .find(|e| {
+                            e.get("id").and_then(|i| i.as_str()) != Some(CLAUDE_PLUS_PLUS_ENTRY_ID)
+                        })
                         .and_then(|e| e.get("id").and_then(|i| i.as_str()).map(|s| s.to_string()))
                 })
         })

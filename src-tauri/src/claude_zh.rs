@@ -220,7 +220,9 @@ mod imp {
             for entry in
                 fs::read_dir(&assets_dir).map_err(|e| format!("读取前端资源目录失败: {e}"))?
             {
-                let path = entry.map_err(|e| format!("读取前端资源项失败: {e}"))?.path();
+                let path = entry
+                    .map_err(|e| format!("读取前端资源项失败: {e}"))?
+                    .path();
                 if path.extension().and_then(|e| e.to_str()) == Some("js") {
                     backup.backup_resource(&path)?;
                 }

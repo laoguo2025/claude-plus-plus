@@ -2,6 +2,7 @@ mod ccswitch_db;
 mod cd_config;
 mod claude_desktop;
 mod claude_enhance;
+mod claude_skills;
 mod claude_zh;
 mod proxy;
 mod server;
@@ -100,6 +101,16 @@ fn uninstall_claude_enhance(feature: String) -> Result<(), String> {
     claude_enhance::uninstall(&feature)
 }
 
+#[tauri::command]
+fn list_claude_skills() -> claude_skills::ClaudeSkillsResponse {
+    claude_skills::list_skills()
+}
+
+#[tauri::command]
+fn trash_claude_skill(id: String) -> Result<(), String> {
+    claude_skills::trash_skill(&id)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt()
@@ -170,7 +181,9 @@ pub fn run() {
             uninstall_claude_zh,
             claude_enhance_status,
             install_claude_enhance,
-            uninstall_claude_enhance
+            uninstall_claude_enhance,
+            list_claude_skills,
+            trash_claude_skill
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

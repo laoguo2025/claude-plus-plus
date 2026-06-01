@@ -77,7 +77,11 @@ pub(crate) fn launch_claude() -> Result<(), String> {
 fn claude_desktop_shortcut() -> Option<PathBuf> {
     let mut candidates = Vec::new();
     if let Some(user_profile) = env::var_os("USERPROFILE") {
-        candidates.push(PathBuf::from(user_profile).join("Desktop").join("Claude.lnk"));
+        candidates.push(
+            PathBuf::from(user_profile)
+                .join("Desktop")
+                .join("Claude.lnk"),
+        );
     }
     if let Some(public) = env::var_os("PUBLIC") {
         candidates.push(PathBuf::from(public).join("Desktop").join("Claude.lnk"));
@@ -88,7 +92,10 @@ fn claude_desktop_shortcut() -> Option<PathBuf> {
 
 #[cfg(target_os = "windows")]
 fn launch_with_explorer(target: &std::ffi::OsStr) -> std::io::Result<()> {
-    hidden_command("explorer.exe").arg(target).spawn().map(|_| ())
+    hidden_command("explorer.exe")
+        .arg(target)
+        .spawn()
+        .map(|_| ())
 }
 
 #[cfg(target_os = "windows")]

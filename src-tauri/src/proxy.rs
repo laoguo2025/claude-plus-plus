@@ -5,13 +5,13 @@
 use crate::ccswitch_db::{self, Mapping};
 use axum::{
     body::Body,
-    extract::State,
+    extract::{Path, State},
     http::{
         header::{CACHE_CONTROL, EXPIRES, PRAGMA},
         HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri,
     },
     response::{IntoResponse, Response},
-    routing::{any, get},
+    routing::{any, get, post},
     Router,
 };
 use std::path::PathBuf;
@@ -66,10 +66,58 @@ impl AppState {
 
 pub fn router(state: AppState) -> Router {
     Router::new()
+        .route("/claude-plus/skills", get(handle_skills))
+        .route("/claude-plus/skills/:id/trash", post(handle_trash_skill))
         .route("/claude-desktop/v1/models", get(handle_models))
         .route("/claude-desktop/v1/messages", any(handle_proxy))
         .route("/claude-desktop/*rest", any(handle_proxy))
         .with_state(state)
+}
+
+async fn handle_skills() -> Response {
+    let mut response = (
+        StatusCode::OK,
+        axum::Json(crate::claude_skills::list_skills()),
+    )
+        .into_response();
+    apply_json_headers(response.headers_mut());
+    response
+}
+
+async fn handle_trash_skill(Path(id): Path<String>) -> Response {
+    match crate::claude_skills::trash_skill(&id) {
+        Ok(()) => {
+            let mut response = (
+                StatusCode::OK,
+                axum::Json(serde_json::json!({ "ok": true })),
+            )
+                .into_response();
+            apply_json_headers(response.headers_mut());
+            response
+        }
+        Err(error) => {
+            let mut response = (
+                StatusCode::BAD_REQUEST,
+                axum::Json(serde_json::json!({ "ok": false, "error": error })),
+            )
+                .into_response();
+            apply_json_headers(response.headers_mut());
+            response
+        }
+    }
+}
+
+fn apply_json_headers(headers: &mut HeaderMap) {
+    headers.insert(
+        CACHE_CONTROL,
+        HeaderValue::from_static("no-store, no-cache, must-revalidate, max-age=0"),
+    );
+    headers.insert(PRAGMA, HeaderValue::from_static("no-cache"));
+    headers.insert(EXPIRES, HeaderValue::from_static("0"));
+    headers.insert(
+        HeaderName::from_static("access-control-allow-origin"),
+        HeaderValue::from_static("*"),
+    );
 }
 
 async fn handle_models(State(state): State<AppState>) -> Response {
@@ -94,18 +142,15 @@ async fn handle_models(State(state): State<AppState>) -> Response {
         "last_id": last
     });
     let mut response = (StatusCode::OK, axum::Json(body)).into_response();
-    let headers = response.headers_mut();
-    headers.insert(
-        CACHE_CONTROL,
-        HeaderValue::from_static("no-store, no-cache, must-revalidate, max-age=0"),
-    );
-    headers.insert(PRAGMA, HeaderValue::from_static("no-cache"));
-    headers.insert(EXPIRES, HeaderValue::from_static("0"));
+    apply_json_headers(response.headers_mut());
     response
 }
 
 fn menu_model_id(mapping: &Mapping) -> String {
-    format!("{MODEL_ID_PREFIX}/{}-{}", mapping.role_kind, mapping.display)
+    format!(
+        "{MODEL_ID_PREFIX}/{}-{}",
+        mapping.role_kind, mapping.display
+    )
 }
 
 fn menu_display_name(mapping: &Mapping) -> String {
@@ -125,7 +170,11 @@ fn display_to_role_from_mappings(mappings: &[Mapping], model: &str) -> Option<St
         .iter()
         .find(|m| menu_model_id(m) == model || menu_display_name(m) == model)
         .or_else(|| mappings.iter().find(|m| m.display == model))
-        .or_else(|| mappings.iter().find(|m| model_matches_role_kind(model, &m.role_kind)))
+        .or_else(|| {
+            mappings
+                .iter()
+                .find(|m| model_matches_role_kind(model, &m.role_kind))
+        })
         .map(|m| m.role.clone())
 }
 
@@ -255,7 +304,12 @@ mod tests {
     #[test]
     fn unknown_model_names_fallback_by_role_kind() {
         let mappings = vec![
-            mapping("mimo-v2.5-pro", "claude-opus-4-7-r2", "opus", "mimo-v2.5-pro"),
+            mapping(
+                "mimo-v2.5-pro",
+                "claude-opus-4-7-r2",
+                "opus",
+                "mimo-v2.5-pro",
+            ),
             mapping("mimo-v2.5", "claude-sonnet-4-6", "sonnet", "mimo-v2.5"),
             mapping("mimo-v2.5", "claude-haiku-4-5", "haiku", "mimo-v2.5"),
         ];
