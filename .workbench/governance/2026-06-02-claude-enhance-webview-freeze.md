@@ -36,7 +36,8 @@
 - 当前仅菜单增强已接入；Markdown 导出与时间线仍未接入真实功能。
 - v3.6 写入现场 Claude Desktop 后截图确认：新增三项侧栏样式与原生菜单行对齐，未再出现 `+`，未再复制“计划任务”的时钟图标；原生“计划任务”自己的时钟图标保留。
 - 逐项真实点击验证：
-  - `第三方API` 打开 Claude Desktop 原生“配置第三方推理”窗口。
+  - `第三方API` 通过 Claude Desktop preload 暴露的 `window["claude.settings"].Custom3pSetup.openSetupWindow()` 打开原生“配置第三方推理”独立窗口，不再在主窗口内跳转 `/setup-desktop-3p`。
   - `插件与技能` 打开 Claude Desktop 原生 `Customize` 页面，包含连接应用、创建 Skills、浏览插件。
   - `MCP与扩展` 打开 Claude Desktop 原生 `Customize` 连接器页。
 - v3.6 重启及点击验证后日志未出现 `Main webview is unresponsive` 或 fatal boundary。
+- v3.7 修正 `第三方API` 的打开方式后，现场点击已弹出 900x720 的 Claude 原生第三方推理配置窗口，日志未出现 `Main webview is unresponsive` 或 fatal boundary。
