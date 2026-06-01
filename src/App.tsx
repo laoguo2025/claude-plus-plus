@@ -452,18 +452,8 @@ function OverviewPage({
   return (
     <div className="pageGrid overviewPage">
       <div className="mechanismNote">
-        <span>
-          直连 CC Switch 时，模型其实能跑通，但 Claude Desktop 的菜单仍会显示 Haiku、Opus、Sonnet 这些原名，看不到你在 CC Switch 里填的
-          mimo、DeepSeek、Kimi 等映射名。
-        </span>
-        <span>
-          Claude++ 的作用就是做中间转接：它先读出 CC Switch 当前怎么映射模型，再把更容易看懂的名字交给 Claude Desktop 显示，真正发送请求时再转回
-          CC Switch 能识别的模型角色。
-        </span>
-        <span>
-          例如菜单里可以显示“Opus - mimo-v2.5-pro”；你选它后，Claude++ 会告诉 CC Switch 这是 Opus 档位，最后实际请求发给 mimo-v2.5-pro。
-        </span>
-        <strong>使用期间请不要退出 Claude++，否则 Claude Desktop 将无法继续通过本工具访问模型。</strong>
+        <span>Claude++ 会把 CC Switch 当前映射同步到 Claude Desktop 菜单，并按角色转发请求。</span>
+        <strong>使用期间请保持 Claude++ 运行；映射变化后重启 Claude Desktop 生效。</strong>
       </div>
 
       <section className="panel routePanel">

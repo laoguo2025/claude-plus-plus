@@ -256,13 +256,13 @@ select {
 }
 
 .overviewPage {
-  grid-template-rows: 96px 176px minmax(0, 1fr);
+  grid-template-rows: 48px 176px minmax(0, 1fr);
 }
 
 .mechanismNote {
   display: grid;
   align-content: start;
-  gap: 4px;
+  gap: 3px;
   overflow: hidden;
   color: var(--accent);
   font-size: 13px;
