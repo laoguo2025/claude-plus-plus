@@ -251,6 +251,7 @@ select {
 }
 
 .screen {
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
   padding: 14px 18px 18px;
@@ -293,6 +294,11 @@ select {
 .aboutPage,
 .diagnosticsPage {
   grid-template-columns: minmax(0, 1.45fr) minmax(230px, 0.75fr);
+}
+
+.diagnosticsPage {
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .panel {
@@ -606,6 +612,78 @@ select {
 .mainPanel {
   display: grid;
   grid-template-rows: auto auto auto 1fr;
+}
+
+.diagnosticsReportPanel,
+.diagnosticsLogPanel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.diagnosticsReport {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  resize: none;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--bg-100);
+  color: var(--text-000);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  padding: 12px;
+}
+
+.logLines {
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--bg-100);
+}
+
+.logLine {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.logLine:last-child {
+  border-bottom: 0;
+}
+
+.logLine span {
+  display: grid;
+  place-items: start end;
+  border-right: 1px solid var(--border-soft);
+  color: var(--text-400);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 8px 10px;
+}
+
+.logLine code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-000);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 8px 10px;
+}
+
+.diagnosticsToolbar {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.diagnosticsToolbar button {
+  min-height: 30px;
+  padding: 0 12px;
 }
 
 .localizationFlow {

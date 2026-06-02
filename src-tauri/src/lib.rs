@@ -4,6 +4,7 @@ mod claude_desktop;
 mod claude_enhance;
 mod claude_skills;
 mod claude_zh;
+mod diagnostics;
 mod proxy;
 mod server;
 
@@ -24,6 +25,12 @@ struct StatusInfo {
     cd_applied: bool,
 }
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DiagnosticsRequest {
+    restart_needed: Option<bool>,
+}
+
 #[tauri::command]
 fn proxy_status(state: tauri::State<ServerHandle>) -> StatusInfo {
     StatusInfo {
@@ -35,13 +42,36 @@ fn proxy_status(state: tauri::State<ServerHandle>) -> StatusInfo {
 
 #[tauri::command]
 fn use_claude_plus_route(state: tauri::State<ServerHandle>) -> Result<(), String> {
+    let _ = diagnostics::append_event("manager.use_claude_plus_route.start", serde_json::json!({}));
     state.start(DEFAULT_PORT, server::default_db_path())?;
-    apply_cd_config()
+    let result = apply_cd_config();
+    let _ = diagnostics::append_event(
+        if result.is_ok() {
+            "manager.use_claude_plus_route.ok"
+        } else {
+            "manager.use_claude_plus_route.failed"
+        },
+        serde_json::json!({
+            "error": result.as_ref().err()
+        }),
+    );
+    result
 }
 
 #[tauri::command]
 fn use_ccs_route() -> Result<(), String> {
-    revert_cd_config()
+    let result = revert_cd_config();
+    let _ = diagnostics::append_event(
+        if result.is_ok() {
+            "manager.use_ccs_route.ok"
+        } else {
+            "manager.use_ccs_route.failed"
+        },
+        serde_json::json!({
+            "error": result.as_ref().err()
+        }),
+    );
+    result
 }
 
 #[tauri::command]
@@ -63,7 +93,18 @@ fn revert_cd_config() -> Result<(), String> {
 
 #[tauri::command]
 fn restart_claude_desktop() -> Result<(), String> {
-    claude_desktop::restart()
+    let result = claude_desktop::restart();
+    let _ = diagnostics::append_event(
+        if result.is_ok() {
+            "manager.restart_claude_desktop.ok"
+        } else {
+            "manager.restart_claude_desktop.failed"
+        },
+        serde_json::json!({
+            "error": result.as_ref().err()
+        }),
+    );
+    result
 }
 
 #[tauri::command]
@@ -109,6 +150,42 @@ fn list_claude_skills() -> claude_skills::ClaudeSkillsResponse {
 #[tauri::command]
 fn trash_claude_skill(id: String) -> Result<(), String> {
     claude_skills::trash_skill(&id)
+}
+
+#[tauri::command]
+fn read_latest_logs(lines: Option<usize>) -> diagnostics::LogsPayload {
+    diagnostics::read_latest_logs(lines.unwrap_or(200))
+}
+
+#[tauri::command]
+fn generate_diagnostics(
+    state: tauri::State<ServerHandle>,
+    request: Option<DiagnosticsRequest>,
+) -> diagnostics::DiagnosticsPayload {
+    let status = proxy_status(state);
+    let mappings = get_mappings()
+        .and_then(|mappings| serde_json::to_value(mappings).map_err(|e| e.to_string()));
+    let payload = diagnostics::report(
+        serde_json::json!({
+            "running": status.running,
+            "port": status.port,
+            "cd_applied": status.cd_applied,
+            "restart_needed": request.and_then(|r| r.restart_needed).unwrap_or(false)
+        }),
+        mappings,
+        serde_json::to_value(claude_zh_status()).unwrap_or_else(|e| {
+            serde_json::json!({
+                "serialization_error": e.to_string()
+            })
+        }),
+        serde_json::to_value(claude_enhance_status()).unwrap_or_else(|e| {
+            serde_json::json!({
+                "serialization_error": e.to_string()
+            })
+        }),
+    );
+    let _ = diagnostics::append_event("manager.generate_diagnostics", serde_json::json!({}));
+    payload
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -183,7 +260,9 @@ pub fn run() {
             install_claude_enhance,
             uninstall_claude_enhance,
             list_claude_skills,
-            trash_claude_skill
+            trash_claude_skill,
+            read_latest_logs,
+            generate_diagnostics
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

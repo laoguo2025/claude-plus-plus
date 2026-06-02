@@ -66,6 +66,14 @@ interface ClaudeEnhanceStatus {
   resources_path: string | null;
   features: ClaudeEnhanceFeature[];
 }
+interface LogsPayload {
+  path: string;
+  text: string;
+  lines: number;
+}
+interface DiagnosticsPayload {
+  report: string;
+}
 
 type Route = "overview" | "localization" | "enhance" | "about" | "diagnostics";
 type Theme = "light" | "dark";
@@ -201,6 +209,36 @@ function previewCommand<T>(cmd: string): T {
   ) {
     return undefined as T;
   }
+  if (cmd === "read_latest_logs") {
+    return {
+      path: "C:\\Users\\Administrator\\.claude-plus-plus\\claude-plus-plus.log",
+      text: [
+        '{"timestamp_ms":1780394324466,"pid":18896,"event":"manager.proxy_status","detail":{"running":true,"port":15722,"cd_applied":true}}',
+        '{"timestamp_ms":1780394329499,"pid":18896,"event":"manager.generate_diagnostics","detail":{}}',
+      ].join("\n"),
+      lines: 200,
+    } as T;
+  }
+  if (cmd === "generate_diagnostics") {
+    return {
+      report: JSON.stringify(
+        {
+          generatedAtMs: Date.now(),
+          version: "0.1.0",
+          overview: {
+            app: "Claude++",
+            status: { running: true, port: 15722, cd_applied: true },
+          },
+          paths: {
+            ccSwitchDb: "C:\\Users\\Administrator\\.cc-switch\\cc-switch.db",
+            diagnosticLog: "C:\\Users\\Administrator\\.claude-plus-plus\\claude-plus-plus.log",
+          },
+        },
+        null,
+        2,
+      ),
+    } as T;
+  }
   return undefined as T;
 }
 
@@ -221,6 +259,8 @@ function App() {
   const [err, setErr] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [restartNeeded, setRestartNeeded] = useState(false);
+  const [logs, setLogs] = useState<LogsPayload | null>(null);
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsPayload | null>(null);
   const lastMappingFingerprint = useRef<string | null>(null);
 
   useEffect(() => {
@@ -373,6 +413,45 @@ function App() {
     }
   };
 
+  const refreshLogs = useCallback(async () => {
+    setErr("");
+    try {
+      setLogs(await callCommand<LogsPayload>("read_latest_logs", { lines: 200 }));
+    } catch (e) {
+      setErr(String(e));
+      setLogs(null);
+    }
+  }, []);
+
+  const refreshDiagnostics = useCallback(async () => {
+    setErr("");
+    try {
+      setDiagnostics(
+        await callCommand<DiagnosticsPayload>("generate_diagnostics", {
+          restartNeeded,
+        }),
+      );
+    } catch (e) {
+      setErr(String(e));
+      setDiagnostics(null);
+    }
+  }, [restartNeeded]);
+
+  useEffect(() => {
+    if (route !== "diagnostics") return;
+    refreshLogs();
+    refreshDiagnostics();
+  }, [route, refreshLogs, refreshDiagnostics]);
+
+  const copyText = async (text: string) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      setErr(String(e));
+    }
+  };
+
   const meta = routeMeta[route];
   const proxyText = status?.running ? `127.0.0.1:${status.port}` : "未运行";
   const routeText = status?.cd_applied ? "Claude++ 路由" : "CCS 路由";
@@ -481,11 +560,11 @@ function App() {
 
           {route === "diagnostics" && (
             <DiagnosticsPage
-              err={err}
-              status={status}
-              pm={pm}
-              zhStatus={zhStatus}
-              restartNeeded={restartNeeded}
+              diagnostics={diagnostics}
+              logs={logs}
+              refreshDiagnostics={refreshDiagnostics}
+              refreshLogs={refreshLogs}
+              copyText={copyText}
             />
           )}
         </section>
@@ -920,53 +999,80 @@ function AboutPage({
 }
 
 function DiagnosticsPage({
-  err,
-  status,
-  pm,
-  zhStatus,
-  restartNeeded,
+  diagnostics,
+  logs,
+  refreshDiagnostics,
+  refreshLogs,
+  copyText,
 }: {
-  err: string;
-  status: StatusInfo | null;
-  pm: ProviderMappings | null;
-  zhStatus: ClaudeZhStatus | null;
-  restartNeeded: boolean;
+  diagnostics: DiagnosticsPayload | null;
+  logs: LogsPayload | null;
+  refreshDiagnostics: () => Promise<void>;
+  refreshLogs: () => Promise<void>;
+  copyText: (text: string) => Promise<void>;
 }) {
-  const lines = [
-    `当前路由: ${status?.cd_applied ? "Claude++ 路由" : "CCS 路由"}`,
-    `Claude++ 转接: ${status?.running ? `运行中 127.0.0.1:${status.port}` : "未运行"}`,
-    `服务商: ${pm?.provider_name ?? "读取失败"}`,
-    `映射数量: ${pm?.mappings.length ?? 0}`,
-    `汉化: ${zhStatus?.installed ? "已安装" : zhStatus?.claude_found ? "未安装" : "未检测到 Claude Desktop"}`,
-    `需要重启 Claude Desktop: ${restartNeeded ? "是" : "否"}`,
-    `最近错误: ${err || "无"}`,
-  ];
+  const logLines = splitLogLines(logs?.text ?? "");
 
   return (
     <div className="pageGrid diagnosticsPage">
-      <section className="panel mainPanel">
+      <section className="panel diagnosticsReportPanel">
         <div className="panelHead">
           <div>
-            <h2>诊断摘要</h2>
-            <p>当前页面基于现有前端状态生成，不读取额外日志文件。</p>
+            <h2>诊断报告</h2>
+            <p>包含路由、模型映射、汉化、增强和本地路径信息。</p>
           </div>
           <Activity size={20} />
         </div>
-        <div className="logBox">
-          {lines.map((line) => (
-            <code key={line}>{line}</code>
-          ))}
+        <textarea
+          className="diagnosticsReport"
+          readOnly
+          spellCheck={false}
+          value={diagnostics?.report ?? "尚未生成诊断报告。"}
+        />
+        <div className="diagnosticsToolbar">
+          <button onClick={() => void refreshDiagnostics()}>重新生成</button>
+          <button
+            disabled={!diagnostics?.report}
+            onClick={() => void copyText(diagnostics?.report ?? "")}
+          >
+            复制报告
+          </button>
         </div>
       </section>
 
-      <section className="panel statusPanel">
-        <KeyValue label="配置来源" value="CC Switch SQLite 当前映射" />
-        <KeyValue label="模型刷新" value="Claude Desktop 重启后生效" />
-        <KeyValue label="日志能力" value="真实日志读取待接入" />
-        <KeyValue label="最近错误" value={err || "无"} />
+      <section className="panel diagnosticsLogPanel">
+        <div className="panelHead">
+          <div>
+            <h2>最近日志</h2>
+            <p>{logs?.path ?? "读取本地 Claude++ 诊断日志。"}</p>
+          </div>
+          <FileText size={20} />
+        </div>
+        <div className="logLines">
+          {logLines.length ? (
+            logLines.map((line, index) => (
+              <div className="logLine" key={`${index}-${line.slice(0, 20)}`}>
+                <span>{index + 1}</span>
+                <code>{line || " "}</code>
+              </div>
+            ))
+          ) : (
+            <div className="emptyInline">暂无日志。</div>
+          )}
+        </div>
+        <div className="diagnosticsToolbar">
+          <button onClick={() => void refreshLogs()}>刷新</button>
+          <button disabled={!logs?.text} onClick={() => void copyText(logs?.text ?? "")}>
+            复制
+          </button>
+        </div>
       </section>
     </div>
   );
+}
+
+function splitLogLines(text: string) {
+  return text.split(/\r?\n/).filter((line) => line.length > 0);
 }
 
 function RouteStatusCard({
