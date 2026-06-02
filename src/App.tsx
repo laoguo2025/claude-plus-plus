@@ -781,6 +781,9 @@ function EnhanceCard({
         <strong>
           <span className="enhanceCategory">{feature.category}</span>
           {feature.label}
+          {feature.id === "conversation_title_i18n" && (
+            <span className="enhanceTokenNotice">会消耗少量 token</span>
+          )}
         </strong>
         <span>{feature.description}</span>
       </div>
