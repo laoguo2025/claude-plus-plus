@@ -10,10 +10,12 @@
 ## Root Cause
 - The translation response extractor only handled Anthropic-style `content[].text`; CC Switch/third-party gateways can return OpenAI-style `choices[].message.content`.
 - The DOM scanner missed plain `div`, `li`, and `role=listitem` sidebar rows.
+- The selected upstream model can emit `thinking` blocks first; with `max_tokens=80`, the response was exhausted before a visible text block, so the proxy returned an empty title.
 
 ## Change
 - Added OpenAI-style response extraction for translated titles.
 - Expanded the sidebar scanner to include plain sidebar list containers while still limiting scope to `aside`/`nav`.
+- Disabled thinking in the title translation request and increased the title response budget.
 - Added regression tests for both response extraction and sidebar list-item scanning.
 
 ## Verification

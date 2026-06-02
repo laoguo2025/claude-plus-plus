@@ -297,7 +297,11 @@ fn select_title_translation_model(mappings: &[Mapping]) -> Option<String> {
 fn build_title_translation_request(title: &str, model: &str) -> serde_json::Value {
     serde_json::json!({
         "model": model,
-        "max_tokens": 80,
+        "max_tokens": 160,
+        "thinking": {
+            "type": "disabled"
+        },
+        "system": "你是短标题翻译器。只输出翻译后的简体中文标题，不输出思考、解释、引号或 Markdown。",
         "messages": [
             {
                 "role": "user",
@@ -505,6 +509,7 @@ mod tests {
         assert!(text.contains("15 个汉字以内"));
         assert!(text.contains("Prepare quarterly roadmap"));
         assert!(text.contains("不要 Markdown"));
+        assert_eq!(body["thinking"]["type"], "disabled");
     }
 
     #[test]
