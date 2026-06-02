@@ -193,8 +193,8 @@ function cpuPct(e,n){return n?((e/n)*100).toFixed(1)+"%":"0%"}
 function cpuMap(e){if(!e)return null;return{ id:cpuN(e.id), input:cpuN(e.inputTokens??e.input_tokens), output:cpuN(e.outputTokens??e.output_tokens), total:cpuN(e.totalTokens??e.total_tokens), cached:cpuN(e.cachedTokens??e.cached_tokens), cacheCreated:cpuN(e.cacheCreationTokens??e.cache_creation_tokens), contextUsed:cpuN(e.contextUsed??e.context_used), contextLimit:cpuN(e.contextLimit??e.context_limit), elapsed:cpuN(e.elapsedMs??e.elapsed_ms), updatedAt:cpuN(e.updatedAtMs??e.updated_at_ms) }}
 function cpuHtml(e){const n=e.cached||0,t=e.input||0,r=e.contextUsed||e.total||0,a=e.contextLimit||0,s=a?cpuPct(r,a):"0%",l=n?cpuPct(n,t||e.total):"0%";return"总计 <strong>"+cpuF(e.total)+"</strong> · 输入 "+cpuF(e.input)+" · 输出 "+cpuF(e.output)+" · 缓存命中 "+cpuF(n)+" · 缓存命中率 "+l+" · 上下文 "+cpuF(r)+(a?"/"+cpuF(a):"")+" ("+s+") · 耗时 "+((e.elapsed||0)/1000).toFixed(1)+"s"}
 function cpuHost(){const e=document.querySelector("textarea,[contenteditable='true']"),n=e?.closest?.("form")||e?.parentElement;if(n?.parentElement)return{parent:n.parentElement,before:n};const t=document.querySelector("main")||document.body;return{parent:t,before:null}}
-function cpuRender(){const e=document.querySelector(".claude-plus-token-usage");if(!window.__claudePlusEnhanceTokenUsageV1){e&&e.remove();return}if(!cpu.last)return;O();let n=e;n||(n=document.createElement("div"),n.className="claude-plus-token-usage");n.innerHTML=cpuHtml(cpu.last);const t=cpuHost();if(n.parentElement!==t.parent)t.parent.insertBefore(n,t.before);else t.before&&n.nextSibling!==t.before&&t.parent.insertBefore(n,t.before)}
-async function cpuPoll(){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}try{const e=window.claudePlusTokenUsage,n=e&&typeof e.get==="function"?await e.get():null,t=cpuMap(n&&n.usage);if(t&&t.id!==cpu.lastId){cpu.lastId=t.id;cpu.last=t;cpuRender()}}catch(e){}}
+function cpuRender(){const e=document.querySelector(".claude-plus-token-usage");if(!window.__claudePlusEnhanceTokenUsageV1){e&&e.remove();return}O();let n=e;n||(n=document.createElement("div"),n.className="claude-plus-token-usage");n.innerHTML=cpu.last?cpuHtml(cpu.last):"Token 使用信息：等待下一次经 Claude++ 代理的响应。";const t=cpuHost();if(n.parentElement!==t.parent)t.parent.insertBefore(n,t.before);else t.before&&n.nextSibling!==t.before&&t.parent.insertBefore(n,t.before)}
+async function cpuPoll(){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}try{const e=window.claudePlusTokenUsage,n=e&&typeof e.get==="function"?await e.get():await fetch("http://127.0.0.1:15722/claude-plus/token-usage",{cache:"no-store"}).then(e=>e.json()).catch(()=>null),t=cpuMap(n&&n.usage);if(t&&t.id!==cpu.lastId){cpu.lastId=t.id;cpu.last=t;cpuRender()}}catch(e){}}
 function cpuTick(){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}cpuRender();if(!cpu.polling){cpu.polling=!0;cpuPoll();setInterval(cpuPoll,1200)}}
 async function s(e){if(e.open==="custom3p"||e.open==="custom3p_connectors"){const n=window["claude.settings"]?.Custom3pSetup?.openSetupWindow||window.claude?.settings?.Custom3pSetup?.openSetupWindow;if(typeof n==="function"){try{e.open==="custom3p_connectors"&&localStorage.setItem("claudePlusCustom3pPane","connectors");await n();return}catch(t){}}return}if(e.open==="skills"){B();return}const n=new URL(e.path,location.origin),t=n.pathname+n.search+n.hash;try{history.pushState(null,"",t);window.dispatchEvent(new PopStateEvent("popstate",{state:history.state}));window.dispatchEvent(new Event("pushstate"));window.dispatchEvent(new Event("locationchange"))}catch(r){location.assign(n.toString())}}
 new MutationObserver(y).observe(document.documentElement,{childList:!0,subtree:!0});
@@ -992,10 +992,11 @@ D();
             assert!(INJECT_SCRIPT.contains("__claudePlusEnhanceTokenUsageV1"));
             assert!(INJECT_SCRIPT.contains("claude-plus-token-usage"));
             assert!(INJECT_SCRIPT.contains("window.claudePlusTokenUsage"));
+            assert!(INJECT_SCRIPT.contains("/claude-plus/token-usage"));
+            assert!(INJECT_SCRIPT.contains("等待下一次经 Claude++ 代理的响应"));
             assert!(INJECT_SCRIPT.contains("cpuPoll"));
             assert!(INJECT_SCRIPT.contains("inputTokens"));
             assert!(INJECT_SCRIPT.contains("cachedTokens"));
-            assert!(!INJECT_SCRIPT.contains("XMLHttpRequest"));
 
             let preload = super::token_usage_preload_bridge_script();
             let main = super::token_usage_main_bridge_script();
