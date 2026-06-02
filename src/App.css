@@ -2,22 +2,32 @@
   --font-ui: "Anthropic Sans", system-ui, "Segoe UI", Roboto, Helvetica, Arial,
     "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-mono: "Anthropic Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
-  --bg-000: #ffffff;
+  --bg-000: #fdfdfc;
   --bg-100: #f8f8f6;
   --bg-200: #f3f2eb;
+  --bg-300: #ede9da;
   --text-000: #121212;
   --text-200: #363632;
   --text-400: #7a7670;
-  --border-soft: rgba(31, 31, 30, 0.12);
-  --border-strong: rgba(31, 31, 30, 0.18);
+  --border-soft: rgba(10, 10, 10, 0.08);
+  --border-strong: rgba(10, 10, 10, 0.12);
   --brand: #dc7d57;
   --brand-strong: #c96a3e;
+  --brand-soft: rgba(220, 125, 87, 0.08);
+  --brand-border: rgba(201, 106, 62, 0.22);
   --accent: #2980d9;
   --success: #578a00;
+  --success-bg: #f2f7e8;
+  --success-border: rgba(87, 138, 0, 0.22);
   --warning: #a86b00;
   --warning-bg: #fbf0d1;
+  --warning-border: rgba(168, 107, 0, 0.24);
   --danger: #cc4242;
-  --danger-bg: #fae3df;
+  --danger-bg: #fbefed;
+  --danger-border: rgba(204, 66, 66, 0.22);
+  --shadow-panel: inset 0 0 0 0 transparent, 0 0 0 1px rgba(10, 10, 10, 0.03),
+    0 4px 24px rgba(10, 10, 10, 0.04);
+  --shadow-pop: 0 10px 30px rgba(10, 10, 10, 0.08);
   font-family: var(--font-ui);
   color: var(--text-000);
   background: var(--bg-100);
@@ -27,17 +37,28 @@
   --bg-000: #2c2c2a;
   --bg-100: #1f1f1e;
   --bg-200: #171716;
+  --bg-300: #0d0d0d;
   --text-000: #f8f8f6;
   --text-200: #c2c0b1;
   --text-400: #969389;
-  --border-soft: rgba(225, 224, 216, 0.12);
-  --border-strong: rgba(225, 224, 216, 0.18);
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --brand-soft: rgba(220, 125, 87, 0.1);
+  --brand-border: rgba(220, 125, 87, 0.26);
   --accent: #3d92db;
   --success: #a3c569;
+  --success-bg: #1f2b15;
+  --success-border: rgba(163, 197, 105, 0.24);
   --warning: #f9b918;
   --warning-bg: #422700;
+  --warning-border: rgba(249, 185, 24, 0.28);
   --danger: #e25656;
-  --danger-bg: #4f1212;
+  --danger-bg: #3a1716;
+  --danger-border: rgba(226, 86, 86, 0.28);
+  --shadow-panel: inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.28);
+  --shadow-pop: inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 18px 42px rgba(0, 0, 0, 0.42);
 }
 
 * {
@@ -86,8 +107,8 @@ button {
 }
 
 button:hover:not(:disabled) {
-  border-color: rgba(201, 106, 62, 0.42);
-  box-shadow: 0 6px 18px rgba(31, 31, 30, 0.08);
+  border-color: var(--brand-border);
+  box-shadow: var(--shadow-pop);
   transform: translateY(-1px);
 }
 
@@ -118,13 +139,13 @@ select {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: var(--bg-100);
+  background: var(--bg-300);
 }
 
 .sidebar {
   min-height: 0;
   border-right: 1px solid var(--border-soft);
-  background: var(--bg-200);
+  background: color-mix(in srgb, var(--bg-200) 94%, transparent);
   padding: 14px 9px;
 }
 
@@ -142,9 +163,15 @@ select {
   width: 36px;
   height: 36px;
   border-radius: 7px;
+  overflow: hidden;
   background: var(--bg-000);
-  color: var(--brand-strong);
-  font-weight: 700;
+  box-shadow: var(--shadow-panel);
+}
+
+.brandMark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .brandTitle {
@@ -184,8 +211,8 @@ select {
 }
 
 .navItem.active {
-  border-color: rgba(201, 106, 62, 0.18);
-  background: rgba(220, 125, 87, 0.12);
+  border-color: var(--brand-border);
+  background: var(--brand-soft);
   color: var(--text-000);
 }
 
@@ -205,7 +232,7 @@ select {
 }
 
 .navItem:focus-visible {
-  border-color: rgba(201, 106, 62, 0.28);
+  border-color: var(--brand-border);
 }
 
 .workspace {
@@ -308,7 +335,7 @@ select {
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--bg-000);
-  box-shadow: 0 8px 22px rgba(31, 31, 30, 0.06);
+  box-shadow: var(--shadow-panel);
   padding: 14px 16px;
 }
 
@@ -378,12 +405,12 @@ select {
 }
 
 .routeStatusCard.active {
-  border-color: rgba(87, 138, 0, 0.28);
-  background: rgba(87, 138, 0, 0.08);
+  border-color: var(--success-border);
+  background: var(--success-bg);
 }
 
 .routeStatusCard.inactive {
-  border-color: rgba(204, 66, 66, 0.28);
+  border-color: var(--danger-border);
   background: var(--danger-bg);
 }
 
@@ -455,14 +482,14 @@ select {
 }
 
 .routeActionCard.on {
-  border-color: rgba(87, 138, 0, 0.36);
-  background: rgba(87, 138, 0, 0.12);
+  border-color: var(--success-border);
+  background: var(--success-bg);
   color: var(--text-000);
 }
 
 .routeActionCard.off {
-  border-color: rgba(204, 66, 66, 0.36);
-  background: rgba(204, 66, 66, 0.12);
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
   color: var(--text-000);
 }
 
@@ -506,9 +533,9 @@ select {
 
 .notice {
   margin-top: 10px;
-  border: 1px solid rgba(41, 128, 217, 0.18);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
   border-radius: 8px;
-  background: rgba(41, 128, 217, 0.07);
+  background: color-mix(in srgb, var(--accent) 9%, var(--bg-000));
   color: var(--accent);
   font-size: 13px;
   line-height: 1.4;
@@ -516,7 +543,7 @@ select {
 }
 
 .notice.warn {
-  border-color: rgba(168, 107, 0, 0.22);
+  border-color: var(--warning-border);
   background: var(--warning-bg);
   color: var(--warning);
 }
@@ -527,7 +554,7 @@ select {
   bottom: 14px;
   z-index: 3;
   max-width: 520px;
-  border: 1px solid rgba(204, 66, 66, 0.2);
+  border: 1px solid var(--danger-border);
   border-radius: 8px;
   background: var(--danger-bg);
   color: var(--danger);
@@ -570,9 +597,9 @@ select {
   gap: 10px;
   align-items: center;
   margin-bottom: 8px;
-  border: 1px solid rgba(220, 125, 87, 0.18);
+  border: 1px solid var(--brand-border);
   border-radius: 8px;
-  background: rgba(220, 125, 87, 0.08);
+  background: var(--brand-soft);
   padding: 8px 10px;
 }
 
@@ -712,8 +739,8 @@ select {
 }
 
 .enhanceWorkflowRow.enabled {
-  border-color: rgba(220, 125, 87, 0.28);
-  background: rgba(220, 125, 87, 0.08);
+  border-color: var(--brand-border);
+  background: var(--brand-soft);
 }
 
 .enhanceActions {
@@ -731,9 +758,9 @@ select {
   display: inline-flex;
   align-items: center;
   margin-right: 8px;
-  border: 1px solid rgba(220, 125, 87, 0.24);
+  border: 1px solid var(--brand-border);
   border-radius: 999px;
-  background: rgba(220, 125, 87, 0.1);
+  background: var(--brand-soft);
   color: var(--brand-strong);
   font-size: 11px;
   font-weight: 600;
@@ -745,10 +772,10 @@ select {
   display: inline-flex;
   align-items: center;
   margin-left: 8px;
-  border: 1px solid rgba(132, 204, 22, 0.24);
+  border: 1px solid var(--success-border);
   border-radius: 999px;
-  background: rgba(132, 204, 22, 0.1);
-  color: #a3e635;
+  background: var(--success-bg);
+  color: var(--success);
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
@@ -771,7 +798,7 @@ select {
 }
 
 .actionNotice {
-  border: 1px solid rgba(168, 107, 0, 0.28);
+  border: 1px solid var(--warning-border);
   border-radius: 8px;
   background: var(--warning-bg);
   color: var(--warning);
@@ -873,7 +900,7 @@ select {
 
 .scopeSelect button.active {
   border-color: var(--brand-strong);
-  background: rgba(220, 125, 87, 0.14);
+  background: var(--brand-soft);
   color: var(--text-000);
 }
 
@@ -979,7 +1006,7 @@ select {
 
 .segmented button.active {
   border-color: var(--brand-strong);
-  background: rgba(220, 125, 87, 0.14);
+  background: var(--brand-soft);
   color: var(--text-000);
 }
 
@@ -1010,9 +1037,9 @@ select {
 }
 
 .badge {
-  border: 1px solid rgba(220, 125, 87, 0.28);
+  border: 1px solid var(--brand-border);
   border-radius: 999px;
-  background: rgba(220, 125, 87, 0.12);
+  background: var(--brand-soft);
   color: var(--brand-strong);
   font-size: 12px;
   font-weight: 600;

@@ -20,6 +20,7 @@ import {
   Sun,
   type LucideProps,
 } from "lucide-react";
+import botLogo from "../src-tauri/icons/icon.png";
 import "./App.css";
 
 interface Mapping {
@@ -465,7 +466,9 @@ function App() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brandMark">C++</div>
+          <div className="brandMark" aria-hidden="true">
+            <img src={botLogo} alt="" />
+          </div>
           <div>
             <div className="brandTitle">Claude++</div>
             <div className="brandSub">管理控制台</div>
