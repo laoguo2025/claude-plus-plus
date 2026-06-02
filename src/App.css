@@ -765,6 +765,7 @@ select {
 .workflowRows {
   display: grid;
   gap: 9px;
+  align-content: start;
   min-height: 0;
   overflow: auto;
 }
