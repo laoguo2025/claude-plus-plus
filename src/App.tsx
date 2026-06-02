@@ -84,6 +84,8 @@ type LocalizationScope = "complete" | "safe";
 type Icon = ComponentType<LucideProps>;
 type CommandArgs = Record<string, unknown>;
 
+const PREVIEW_APP_VERSION = __APP_VERSION__;
+
 const routes: Array<{ id: Route; label: string; icon: Icon }> = [
   { id: "overview", label: "CCS转接", icon: Link2 },
   { id: "localization", label: "一键汉化", icon: Languages },
@@ -119,6 +121,9 @@ async function callCommand<T>(cmd: string, args?: CommandArgs): Promise<T> {
 }
 
 function previewCommand<T>(cmd: string): T {
+  if (cmd === "app_version") {
+    return PREVIEW_APP_VERSION as T;
+  }
   if (cmd === "proxy_status") {
     return { running: true, port: 15722, cd_applied: true } as T;
   }
@@ -173,7 +178,7 @@ function previewCommand<T>(cmd: string): T {
       report: JSON.stringify(
         {
           generatedAtMs: Date.now(),
-          version: "0.1.0",
+          version: PREVIEW_APP_VERSION,
           overview: {
             app: "Claude++",
             status: { running: true, port: 15722, cd_applied: true },
@@ -210,6 +215,7 @@ function App() {
   const [restartNeeded, setRestartNeeded] = useState(false);
   const [logs, setLogs] = useState<LogsPayload | null>(null);
   const [diagnostics, setDiagnostics] = useState<DiagnosticsPayload | null>(null);
+  const [appVersion, setAppVersion] = useState(PREVIEW_APP_VERSION);
   const lastMappingFingerprint = useRef<string | null>(null);
 
   useEffect(() => {
@@ -219,6 +225,11 @@ function App() {
 
   const refresh = useCallback(async () => {
     setErr("");
+    try {
+      setAppVersion(await callCommand<string>("app_version"));
+    } catch (e) {
+      setErr(String(e));
+    }
     try {
       setStatus(await callCommand<StatusInfo>("proxy_status"));
     } catch (e) {
@@ -494,6 +505,7 @@ function App() {
 
           {route === "about" && (
             <AboutPage
+              appVersion={appVersion}
               claudeDesktopVersion={zhStatus?.claude_version ?? (zhStatus?.claude_found ? "待补充" : "未检测到")}
             />
           )}
@@ -895,7 +907,13 @@ function enhanceIcon(id: string): Icon {
   return Plug;
 }
 
-function AboutPage({ claudeDesktopVersion }: { claudeDesktopVersion: string }) {
+function AboutPage({
+  appVersion,
+  claudeDesktopVersion,
+}: {
+  appVersion: string;
+  claudeDesktopVersion: string;
+}) {
   return (
     <div className="pageGrid aboutPage">
       <section className="panel aboutPanel">
@@ -909,7 +927,7 @@ function AboutPage({ claudeDesktopVersion }: { claudeDesktopVersion: string }) {
         </div>
 
         <div className="aboutInfoTable">
-          <AboutInfoRow label="Claude++ 版本" value="1.0.0" />
+          <AboutInfoRow label="Claude++ 版本" value={appVersion} />
           <AboutInfoRow label="Claude Desktop 版本" value={claudeDesktopVersion} />
           <AboutInfoRow
             label="仓库地址"
@@ -923,7 +941,7 @@ function AboutPage({ claudeDesktopVersion }: { claudeDesktopVersion: string }) {
           <div className="releaseCard">
             <div className="releaseCardHead">
               <strong>GitHub Release 更新</strong>
-              <span>当前版本 1.0.0</span>
+              <span>当前版本 {appVersion}</span>
             </div>
             <AboutInfoRow label="状态" value="待补充" />
             <AboutInfoRow label="最新版本" value="待补充" />

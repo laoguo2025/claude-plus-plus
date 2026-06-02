@@ -44,8 +44,19 @@ fn proxy_status(state: tauri::State<ServerHandle>) -> StatusInfo {
 #[tauri::command]
 fn use_claude_plus_route(state: tauri::State<ServerHandle>) -> Result<(), String> {
     let _ = diagnostics::append_event("manager.use_claude_plus_route.start", serde_json::json!({}));
+    let was_running = state.is_running();
     state.start(DEFAULT_PROXY_PORT, server::default_db_path())?;
     let result = apply_cd_config();
+    if result.is_err() && !was_running {
+        if let Err(error) = state.stop() {
+            let _ = diagnostics::append_event(
+                "manager.use_claude_plus_route.stop_proxy_failed",
+                serde_json::json!({
+                    "error": error
+                }),
+            );
+        }
+    }
     let _ = diagnostics::append_event(
         if result.is_ok() {
             "manager.use_claude_plus_route.ok"
@@ -57,6 +68,11 @@ fn use_claude_plus_route(state: tauri::State<ServerHandle>) -> Result<(), String
         }),
     );
     result
+}
+
+#[tauri::command]
+fn app_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
 }
 
 #[tauri::command]
@@ -258,6 +274,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             proxy_status,
             use_claude_plus_route,
+            app_version,
             use_ccs_route,
             get_mappings,
             apply_cd_config,

@@ -1,12 +1,10 @@
 // 在 Claude Desktop 3P 配置库新建独立 Claude++ 条目并切为生效。
 // 不修改 CC Switch 写的条目(切服务商会被覆盖),两条目共存。
-use crate::constants::CLAUDE_STORE_PACKAGE_NAME;
+use crate::constants::{
+    CLAUDE_PLUS_PLUS_ENTRY_ID, CLAUDE_PLUS_PLUS_ENTRY_NAME, CLAUDE_STORE_PACKAGE_NAME,
+};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
-
-/// Claude++ 在配置库里使用的固定条目 UUID(避免重复创建)。
-pub const CLAUDE_PLUS_PLUS_ENTRY_ID: &str = "11111111-1111-4111-8111-ccccccccccc2";
-pub const CLAUDE_PLUS_PLUS_ENTRY_NAME: &str = "Claude++";
 
 /// 运行实例(Windows Store 版)的配置库目录。
 pub fn store_config_library_dir() -> Option<PathBuf> {

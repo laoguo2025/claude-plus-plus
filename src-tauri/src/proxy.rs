@@ -3,6 +3,7 @@
 // POST /claude-desktop/v1/messages -> body.model 显示名->角色ID,转发 :15721,SSE 逐块透传
 // 其它 /claude-desktop/*           -> 含 model 则改写后透传,否则原样透传
 use crate::ccswitch_db::{self, Mapping};
+use crate::constants::UPSTREAM_FALLBACK_URL;
 use crate::time_utils::now_ms;
 use axum::{
     body::Body,
@@ -22,8 +23,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
-/// 上游地址兜底(读不到 CC Switch 配置时用)。正常应从 CC Switch 读取。
-const UPSTREAM_FALLBACK: &str = "http://127.0.0.1:15721/claude-desktop";
 const MODEL_ID_PREFIX: &str = "claude-plus-plus";
 
 #[derive(Clone)]
@@ -47,7 +46,7 @@ impl AppState {
 
     /// 上游网关地址,实时跟随 CC Switch(读 157210.json 的 inferenceGatewayBaseUrl)。
     fn upstream(&self) -> String {
-        crate::server::read_ccswitch_base_url().unwrap_or_else(|| UPSTREAM_FALLBACK.to_string())
+        crate::server::read_ccswitch_base_url().unwrap_or_else(|| UPSTREAM_FALLBACK_URL.to_string())
     }
 
     /// 读 DB 取映射,失败时回退缓存;成功则刷新缓存。
