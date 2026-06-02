@@ -726,7 +726,16 @@ select {
 }
 
 .enhanceFlow {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
   height: 100%;
+  min-height: 0;
+}
+
+.enhanceCardsPanel {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
 }
 

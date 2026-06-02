@@ -820,20 +820,22 @@ function EnhancePage({
 
   return (
     <div className="enhanceFlow">
-      <div className="enhanceCards">
-        <div className="actionNotice enhanceActionNotice">
-          增强脚本开启后，需点击上方重启Claude Desktop按钮，让页面立即生效。
-        </div>
-        {features.map((feature) => (
-          <EnhanceCard
-            key={feature.id}
-            feature={feature}
-            disabled={disabledByMissingClaude || !feature.available}
-            onInstall={() => installClaudeEnhance(feature.id)}
-            onUninstall={() => uninstallClaudeEnhance(feature.id)}
-          />
-        ))}
+      <div className="actionNotice enhanceActionNotice">
+        增强脚本开启后，需点击上方重启Claude Desktop按钮，让页面立即生效。
       </div>
+      <section className="panel enhanceCardsPanel">
+        <div className="enhanceCards">
+          {features.map((feature) => (
+            <EnhanceCard
+              key={feature.id}
+              feature={feature}
+              disabled={disabledByMissingClaude || !feature.available}
+              onInstall={() => installClaudeEnhance(feature.id)}
+              onUninstall={() => uninstallClaudeEnhance(feature.id)}
+            />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
