@@ -21,9 +21,40 @@ use futures_util::{Stream, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 const MODEL_ID_PREFIX: &str = "claude-plus-plus";
+const TITLE_I18N_RATE_LIMIT_WINDOW: Duration = Duration::from_secs(60);
+const TITLE_I18N_RATE_LIMIT_MAX: u32 = 90;
+
+#[derive(Debug)]
+struct RateLimiter {
+    window_started: Instant,
+    count: u32,
+}
+
+impl Default for RateLimiter {
+    fn default() -> Self {
+        Self {
+            window_started: Instant::now(),
+            count: 0,
+        }
+    }
+}
+
+impl RateLimiter {
+    fn allow(&mut self, now: Instant, window: Duration, max: u32) -> bool {
+        if now.duration_since(self.window_started) >= window {
+            self.window_started = now;
+            self.count = 0;
+        }
+        if self.count >= max {
+            return false;
+        }
+        self.count += 1;
+        true
+    }
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -32,6 +63,7 @@ pub struct AppState {
     /// 上次成功读取的映射缓存(读 DB 失败时回退)
     pub cache: Arc<RwLock<Vec<Mapping>>>,
     pub token_usage: Arc<RwLock<Option<TokenUsageSnapshot>>>,
+    title_i18n_rate_limit: Arc<RwLock<RateLimiter>>,
 }
 
 impl AppState {
@@ -41,6 +73,7 @@ impl AppState {
             client: reqwest::Client::new(),
             cache: Arc::new(RwLock::new(Vec::new())),
             token_usage: Arc::new(RwLock::new(None)),
+            title_i18n_rate_limit: Arc::new(RwLock::new(RateLimiter::default())),
         }
     }
 
@@ -122,6 +155,16 @@ async fn handle_conversation_title_i18n(
         }
     };
 
+    if !allow_title_i18n_request(&state) {
+        let mut response = (
+            StatusCode::TOO_MANY_REQUESTS,
+            axum::Json(serde_json::json!({ "ok": false, "error": "title translation rate limit exceeded" })),
+        )
+            .into_response();
+        apply_json_headers(response.headers_mut());
+        return response;
+    }
+
     let Some(model) = select_title_translation_model(&state.mappings()) else {
         let mut response = (
             StatusCode::BAD_GATEWAY,
@@ -185,6 +228,20 @@ async fn handle_conversation_title_i18n(
     };
     apply_json_headers(response.headers_mut());
     response
+}
+
+fn allow_title_i18n_request(state: &AppState) -> bool {
+    state
+        .title_i18n_rate_limit
+        .write()
+        .map(|mut limiter| {
+            limiter.allow(
+                Instant::now(),
+                TITLE_I18N_RATE_LIMIT_WINDOW,
+                TITLE_I18N_RATE_LIMIT_MAX,
+            )
+        })
+        .unwrap_or(false)
 }
 
 async fn handle_skills() -> Response {
@@ -808,6 +865,20 @@ mod tests {
         assert!(!model_matches_role_kind("preopus-4-6", "opus"));
         assert!(model_matches_role_kind("claude-sonnet-4-6", "sonnet"));
         assert!(!model_matches_role_kind("test-sonnet-model", "sonnet"));
+    }
+
+    #[test]
+    fn rate_limiter_resets_after_window() {
+        let start = Instant::now();
+        let mut limiter = RateLimiter {
+            window_started: start,
+            count: 0,
+        };
+
+        assert!(limiter.allow(start, Duration::from_secs(10), 2));
+        assert!(limiter.allow(start + Duration::from_secs(1), Duration::from_secs(10), 2));
+        assert!(!limiter.allow(start + Duration::from_secs(2), Duration::from_secs(10), 2));
+        assert!(limiter.allow(start + Duration::from_secs(10), Duration::from_secs(10), 2));
     }
 
     #[test]
