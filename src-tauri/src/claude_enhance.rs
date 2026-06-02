@@ -23,6 +23,9 @@ mod imp {
     const SKILLS_PRELOAD_BRIDGE_TARGET: &str = ".vite/build/mainView.js";
     const SKILLS_LIST_CHANNEL: &str = "claude-plus:skills:list";
     const SKILLS_TRASH_CHANNEL: &str = "claude-plus:skills:trash";
+    const TITLE_I18N_BRIDGE_MARKER: &str = "__claudePlusTitleI18nBridgeV1";
+    const TITLE_I18N_MAIN_BRIDGE_MARKER: &str = "__claudePlusTitleI18nMainBridgeV1";
+    const TITLE_I18N_CHANNEL: &str = "claude-plus:title-i18n";
     const ASAR_INTEGRITY_BLOCK_SIZE: usize = 4 * 1024 * 1024;
     fn skills_bridge_script() -> String {
         r##";(()=>{const MARK="__claudePlusSkillsBridgeV1";
@@ -66,6 +69,34 @@ ipcMain.handle("__CPP_SKILLS_TRASH__",(e,t)=>trashSkill(String(t||"")));
             .replace("__CPP_SKILLS_LIST__", SKILLS_LIST_CHANNEL)
             .replace("__CPP_SKILLS_TRASH__", SKILLS_TRASH_CHANNEL)
     }
+
+    fn title_i18n_preload_bridge_script() -> String {
+        r##";(()=>{const MARK="__CPP_TITLE_I18N_MARK__";
+if(globalThis[MARK])return;
+Object.defineProperty(globalThis,MARK,{value:!0});
+try{
+const{contextBridge,ipcRenderer}=require("electron");
+contextBridge.exposeInMainWorld("claudePlusTitleI18n",{translate:e=>ipcRenderer.invoke("__CPP_TITLE_I18N__",String(e||""))});
+}catch(e){console.error("[Claude++] title i18n bridge failed",e)}
+})();"##
+            .replace("__CPP_TITLE_I18N_MARK__", TITLE_I18N_BRIDGE_MARKER)
+            .replace("__CPP_TITLE_I18N__", TITLE_I18N_CHANNEL)
+    }
+
+    fn title_i18n_main_bridge_script() -> String {
+        r##";(()=>{const MARK="__CPP_TITLE_I18N_MAIN_MARK__";
+if(globalThis[MARK])return;
+Object.defineProperty(globalThis,MARK,{value:!0});
+try{
+const{ipcMain}=require("electron");
+async function translate(e){const t=String(e||"").replace(/\s+/g," ").trim();if(!t)return"";const r=await fetch("http://127.0.0.1:15722/claude-plus/conversation-title-i18n",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:t})});const n=await r.json().catch(() => ({}));return r.ok&&n&&typeof n.title==="string"?n.title:""}
+ipcMain.removeHandler("__CPP_TITLE_I18N__");
+ipcMain.handle("__CPP_TITLE_I18N__",(e,t)=>translate(t));
+}catch(e){console.error("[Claude++] title i18n main bridge failed",e)}
+})();"##
+            .replace("__CPP_TITLE_I18N_MAIN_MARK__", TITLE_I18N_MAIN_BRIDGE_MARKER)
+            .replace("__CPP_TITLE_I18N__", TITLE_I18N_CHANNEL)
+    }
     const INJECT_SCRIPT: &str = r##";(()=>{const m="__claudePlusEnhanceNavV2";
 if(window[m])return;
 Object.defineProperty(window,m,{value:!0});
@@ -95,8 +126,8 @@ function E(e){return String(e==null?"":e).replace(/\s+/g," ").trim()}
 const H=new Map;
 function I(e){return/[A-Za-z]/.test(e)&&!/[\u4e00-\u9fff]/.test(e)&&e.length>=4&&e.length<=90&&!/^(Claude|Claude\\+\\+|New chat|Recents|Scheduled tasks|Projects|Chats|Search chats|Search projects)$/i.test(e)}
 function J(e){if(!e||e.closest("svg,[aria-hidden='true'],button[aria-label*='more' i],button[aria-label*='更多']"))return null;const n=[];let t;const r=document.createTreeWalker(e,NodeFilter.SHOW_TEXT,{acceptNode:e=>{const n=e.parentElement;if(!n||n.closest("svg,[aria-hidden='true']"))return NodeFilter.FILTER_REJECT;const t=E(e.nodeValue);return I(t)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT}});for(;t=r.nextNode();)n.push(t);return n.sort((e,n)=>E(n.nodeValue).length-E(e.nodeValue).length)[0]||null}
-function K(e){const n=e.getAttribute("href")||e.getAttribute("data-href")||e.getAttribute("data-to")||"",t=e.getAttribute("aria-label")||"",r=E(e.textContent),a=new RegExp("(^|/)chat(s)?(/|\\\\?|#|$)|conversation","i");return a.test(n)||/open .*chat|open .*conversation|select .*chat|rename chat|打开会话|选择.*会话/i.test(t)||(/^[A-Za-z0-9][\\s\\S]{3,90}$/.test(r)&&e.closest("aside,nav,[role=navigation]")&&t.includes(r))}
-async function L(e,n){const t=E(n.nodeValue);if(!I(t)||e.getAttribute("data-claude-plus-original-title")===t)return;if(H.has(t)){const r=H.get(t);r&&(n.nodeValue=r,e.setAttribute("data-claude-plus-original-title",t),e.setAttribute("data-claude-plus-title-i18n",r));return}e.setAttribute("data-claude-plus-original-title",t);try{const r=await fetch("http://127.0.0.1:15722/claude-plus/conversation-title-i18n",{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({title:t})}),a=await r.json();const s=E(a&&a.title);if(r.ok&&s&&s!==t&&/[\u4e00-\u9fff]/.test(s)){H.set(t,s);n.nodeValue=s;e.setAttribute("data-claude-plus-title-i18n",s)}else H.set(t,"")}catch(r){H.set(t,"")}}
+function K(e){const n=e.getAttribute("href")||e.getAttribute("data-href")||e.getAttribute("data-to")||"",t=e.getAttribute("aria-label")||"",r=E(e.textContent),a=new RegExp("(^|/)chat(s)?(/|\\\\?|#|$)|conversation","i"),s=e.closest("aside,nav,[role=navigation]");return a.test(n)||/open .*chat|open .*conversation|select .*chat|rename chat|打开会话|选择.*会话/i.test(t)||(/^[A-Za-z0-9][\\s\\S]{3,90}$/.test(r)&&s&&!/新会话|计划任务|第三方API|技能|MCP|自定义|更多|Code|Drag to pin|已固定|最近使用/.test(r))}
+async function L(e,n){const t=E(n.nodeValue);if(!I(t)||e.getAttribute("data-claude-plus-original-title")===t)return;if(H.has(t)){const r=H.get(t);r&&(n.nodeValue=r,e.setAttribute("data-claude-plus-original-title",t),e.setAttribute("data-claude-plus-title-i18n",r));return}e.setAttribute("data-claude-plus-original-title",t);try{const a=window.claudePlusTitleI18n;if(!a||typeof a.translate!=="function"){H.set(t,"");return}const s=E(await a.translate(t));if(s&&s!==t&&/[\u4e00-\u9fff]/.test(s)){H.set(t,s);n.nodeValue=s;e.setAttribute("data-claude-plus-title-i18n",s)}else H.set(t,"")}catch(r){H.set(t,"")}}
 function M(){if(!window.__claudePlusEnhanceConversationTitleI18nV1)return;document.querySelectorAll("aside a,nav a,aside button,nav button,aside div,nav div,aside li,nav li,aside [role=link],nav [role=link],aside [role=button],nav [role=button],aside [role=listitem],nav [role=listitem]").forEach(e=>{if(!K(e))return;const n=J(e);n&&L(e,n)})}
 function y(){b||q||(q=setTimeout(()=>{q=0,x();M()},250))}
 function z(e){return String(e==null?"":e).replace(/[&<>"']/g,e=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[e]))}
@@ -282,6 +313,9 @@ D();
         if matches!(feature, EnhanceFeatureId::Plugins) {
             update_skills_bridge(&paths.resources, &mut backup, true)?;
         }
+        if matches!(feature, EnhanceFeatureId::ConversationTitleI18n) {
+            update_title_i18n_bridge(&paths.resources, &mut backup, true)?;
+        }
         Ok(())
     }
 
@@ -301,6 +335,9 @@ D();
         update_feature_marker(&paths.resources, &mut backup, feature, false)?;
         if matches!(feature, EnhanceFeatureId::Plugins) {
             update_skills_bridge(&paths.resources, &mut backup, false)?;
+        }
+        if matches!(feature, EnhanceFeatureId::ConversationTitleI18n) {
+            update_title_i18n_bridge(&paths.resources, &mut backup, false)?;
         }
         Ok(())
     }
@@ -483,6 +520,31 @@ D();
         )
     }
 
+    fn update_title_i18n_bridge(
+        resources_path: &Path,
+        backup: &mut BackupContext,
+        enabled: bool,
+    ) -> Result<(), String> {
+        let main_script = title_i18n_main_bridge_script();
+        let preload_script = title_i18n_preload_bridge_script();
+        patch_bridge_file(
+            resources_path,
+            SKILLS_MAIN_BRIDGE_TARGET,
+            &main_script,
+            backup,
+            enabled,
+            remove_title_i18n_bridge,
+        )?;
+        patch_bridge_file(
+            resources_path,
+            SKILLS_PRELOAD_BRIDGE_TARGET,
+            &preload_script,
+            backup,
+            enabled,
+            remove_title_i18n_bridge,
+        )
+    }
+
     fn patch_skills_bridge_file(
         resources_path: &Path,
         file_path: &str,
@@ -490,10 +552,28 @@ D();
         backup: &mut BackupContext,
         enabled: bool,
     ) -> Result<(), String> {
+        patch_bridge_file(
+            resources_path,
+            file_path,
+            script,
+            backup,
+            enabled,
+            remove_skills_bridge,
+        )
+    }
+
+    fn patch_bridge_file(
+        resources_path: &Path,
+        file_path: &str,
+        script: &str,
+        backup: &mut BackupContext,
+        enabled: bool,
+        remover: fn(&str) -> String,
+    ) -> Result<(), String> {
         patch_asar_file(resources_path, file_path, backup, |content| {
             let text =
                 std::str::from_utf8(content).map_err(|e| format!("preload 入口不是 UTF-8: {e}"))?;
-            let mut next = remove_skills_bridge(text);
+            let mut next = remover(text);
             if enabled {
                 next.insert_str(0, script);
             }
@@ -510,6 +590,23 @@ D();
         for marker in [
             ";(()=>{const MARK=\"__claudePlusSkillsBridgeV1\"",
             ";(()=>{const MARK=\"__claudePlusSkillsMainBridgeV1\"",
+        ] {
+            while let Some(start) = next.find(marker) {
+                let Some(relative_end) = next[start..].find("})();") else {
+                    break;
+                };
+                let end = start + relative_end + "})();".len();
+                next.replace_range(start..end, "");
+            }
+        }
+        next
+    }
+
+    fn remove_title_i18n_bridge(text: &str) -> String {
+        let mut next = text.to_string();
+        for marker in [
+            ";(()=>{const MARK=\"__claudePlusTitleI18nBridgeV1\"",
+            ";(()=>{const MARK=\"__claudePlusTitleI18nMainBridgeV1\"",
         ] {
             while let Some(start) = next.find(marker) {
                 let Some(relative_end) = next[start..].find("})();") else {
@@ -601,9 +698,28 @@ D();
         #[test]
         fn conversation_title_i18n_inject_script_calls_local_translate_endpoint() {
             assert!(INJECT_SCRIPT.contains("__claudePlusEnhanceConversationTitleI18nV1"));
-            assert!(INJECT_SCRIPT.contains("/claude-plus/conversation-title-i18n"));
+            assert!(INJECT_SCRIPT.contains("window.claudePlusTitleI18n"));
             assert!(INJECT_SCRIPT.contains("data-claude-plus-original-title"));
             assert!(INJECT_SCRIPT.contains("data-claude-plus-title-i18n"));
+            assert!(
+                super::title_i18n_main_bridge_script()
+                    .contains("/claude-plus/conversation-title-i18n")
+            );
+        }
+
+        #[test]
+        fn conversation_title_i18n_uses_preload_bridge_instead_of_page_fetch() {
+            assert!(INJECT_SCRIPT.contains("window.claudePlusTitleI18n"));
+            assert!(!INJECT_SCRIPT.contains(
+                r#"fetch("http://127.0.0.1:15722/claude-plus/conversation-title-i18n"#
+            ));
+
+            let preload = super::title_i18n_preload_bridge_script();
+            let main = super::title_i18n_main_bridge_script();
+            assert!(preload.contains("contextBridge.exposeInMainWorld"));
+            assert!(preload.contains("claudePlusTitleI18n"));
+            assert!(main.contains("ipcMain.handle"));
+            assert!(main.contains("/claude-plus/conversation-title-i18n"));
         }
 
         #[test]
@@ -676,6 +792,19 @@ D();
             assert!(script.contains("listSkills"));
             assert!(script.contains(SKILLS_LIST_CHANNEL));
             assert!(script.contains(SKILLS_TRASH_CHANNEL));
+        }
+
+        #[test]
+        fn title_i18n_bridge_uses_local_gateway_without_filesystem_access() {
+            let preload = super::title_i18n_preload_bridge_script();
+            let main = super::title_i18n_main_bridge_script();
+
+            assert!(preload.contains("claudePlusTitleI18n"));
+            assert!(preload.contains("ipcRenderer.invoke"));
+            assert!(!preload.contains("require(\"fs\")"));
+            assert!(main.contains("fetch("));
+            assert!(main.contains("127.0.0.1:15722"));
+            assert!(!main.contains("shell.trashItem"));
         }
 
         #[test]
