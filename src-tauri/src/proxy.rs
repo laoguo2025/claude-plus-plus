@@ -14,9 +14,12 @@ use axum::{
     routing::{any, get, post},
     Router,
 };
-use serde::Deserialize;
+use bytes::Bytes;
+use futures_util::{Stream, TryStreamExt};
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 /// 上游地址兜底(读不到 CC Switch 配置时用)。正常应从 CC Switch 读取。
 const UPSTREAM_FALLBACK: &str = "http://127.0.0.1:15721/claude-desktop";
@@ -28,6 +31,7 @@ pub struct AppState {
     pub client: reqwest::Client,
     /// 上次成功读取的映射缓存(读 DB 失败时回退)
     pub cache: Arc<RwLock<Vec<Mapping>>>,
+    pub token_usage: Arc<RwLock<Option<TokenUsageSnapshot>>>,
 }
 
 impl AppState {
@@ -36,6 +40,7 @@ impl AppState {
             db_path,
             client: reqwest::Client::new(),
             cache: Arc::new(RwLock::new(Vec::new())),
+            token_usage: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -65,10 +70,26 @@ impl AppState {
     }
 }
 
+#[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenUsageSnapshot {
+    pub id: u64,
+    pub total_tokens: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cached_tokens: u64,
+    pub cache_creation_tokens: u64,
+    pub context_used: u64,
+    pub context_limit: u64,
+    pub elapsed_ms: u64,
+    pub updated_at_ms: u64,
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/claude-plus/skills", get(handle_skills))
         .route("/claude-plus/skills/:id/trash", post(handle_trash_skill))
+        .route("/claude-plus/token-usage", get(handle_token_usage))
         .route(
             "/claude-plus/conversation-title-i18n",
             post(handle_conversation_title_i18n),
@@ -197,6 +218,24 @@ async fn handle_trash_skill(Path(id): Path<String>) -> Response {
             response
         }
     }
+}
+
+async fn handle_token_usage(State(state): State<AppState>) -> Response {
+    let usage = state
+        .token_usage
+        .read()
+        .ok()
+        .and_then(|usage| usage.clone());
+    let mut response = (
+        StatusCode::OK,
+        axum::Json(serde_json::json!({
+            "ok": usage.is_some(),
+            "usage": usage
+        })),
+    )
+        .into_response();
+    apply_json_headers(response.headers_mut());
+    response
 }
 
 fn apply_json_headers(headers: &mut HeaderMap) {
@@ -335,9 +374,7 @@ fn extract_title_translation(payload: &serde_json::Value) -> Option<String> {
                             .get("message")
                             .and_then(|message| message.get("content"))
                             .and_then(|content| content.as_str())
-                            .or_else(|| {
-                                choice.get("text").and_then(|text| text.as_str())
-                            })
+                            .or_else(|| choice.get("text").and_then(|text| text.as_str()))
                     })
                 })
         })
@@ -434,10 +471,265 @@ async fn handle_proxy(
     }
 
     let stream = resp.bytes_stream();
-    let body = Body::from_stream(stream);
+    let body = Body::from_stream(track_token_usage_stream(
+        stream,
+        state.token_usage.clone(),
+        Instant::now(),
+    ));
     builder.body(body).unwrap_or_else(|_| {
         (StatusCode::INTERNAL_SERVER_ERROR, "build response failed").into_response()
     })
+}
+
+fn track_token_usage_stream<S>(
+    stream: S,
+    store: Arc<RwLock<Option<TokenUsageSnapshot>>>,
+    started_at: Instant,
+) -> impl Stream<Item = Result<Bytes, reqwest::Error>>
+where
+    S: Stream<Item = Result<Bytes, reqwest::Error>>,
+{
+    let mut buffer = String::new();
+    stream.inspect_ok(move |chunk| {
+        let text = String::from_utf8_lossy(chunk);
+        buffer.push_str(&text);
+        if buffer.len() > 256 * 1024 {
+            buffer = buffer
+                .chars()
+                .rev()
+                .take(128 * 1024)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect();
+        }
+        if let Some(mut usage) = extract_token_usage_from_text(&buffer) {
+            usage.elapsed_ms = started_at.elapsed().as_millis() as u64;
+            usage.updated_at_ms = now_ms();
+            usage.id = usage.updated_at_ms;
+            if let Ok(mut stored) = store.write() {
+                *stored = Some(usage);
+            }
+        }
+    })
+}
+
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn extract_token_usage_from_text(text: &str) -> Option<TokenUsageSnapshot> {
+    let mut usage = TokenUsageSnapshot::default();
+    let mut found = false;
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(text) {
+        collect_token_usages(&value, 0, &mut usage, &mut found);
+    }
+    for fragment in sse_json_fragments(text) {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(fragment) {
+            collect_token_usages(&value, 0, &mut usage, &mut found);
+        }
+    }
+    if !found {
+        return None;
+    }
+    usage.total_tokens = usage
+        .total_tokens
+        .max(usage.input_tokens + usage.output_tokens);
+    usage.context_used = usage.context_used.max(usage.total_tokens);
+    Some(usage)
+}
+
+fn sse_json_fragments(text: &str) -> impl Iterator<Item = &str> {
+    text.lines().filter_map(|line| {
+        let line = line.trim();
+        let data = line.strip_prefix("data:")?.trim();
+        (!data.is_empty() && data != "[DONE]").then_some(data)
+    })
+}
+
+fn collect_token_usages(
+    value: &serde_json::Value,
+    depth: usize,
+    aggregate: &mut TokenUsageSnapshot,
+    found: &mut bool,
+) {
+    if depth > 8 {
+        return;
+    }
+    if let Some(usage) = normalize_token_usage(value) {
+        merge_token_usage(aggregate, &usage);
+        *found = true;
+    }
+    match value {
+        serde_json::Value::Array(items) => {
+            for item in items {
+                collect_token_usages(item, depth + 1, aggregate, found);
+            }
+        }
+        serde_json::Value::Object(map) => {
+            for key in [
+                "usage",
+                "token_usage",
+                "tokenUsage",
+                "context_usage",
+                "contextUsage",
+                "last",
+                "lastUsage",
+                "last_token_usage",
+                "lastTokenUsage",
+                "message",
+                "response",
+                "data",
+                "body",
+                "result",
+                "event",
+                "params",
+                "info",
+                "completion",
+                "delta",
+            ] {
+                if let Some(child) = map.get(key) {
+                    collect_token_usages(child, depth + 1, aggregate, found);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn merge_token_usage(aggregate: &mut TokenUsageSnapshot, usage: &TokenUsageSnapshot) {
+    aggregate.total_tokens = aggregate.total_tokens.max(usage.total_tokens);
+    aggregate.input_tokens = aggregate.input_tokens.max(usage.input_tokens);
+    aggregate.output_tokens = aggregate.output_tokens.max(usage.output_tokens);
+    aggregate.cached_tokens = aggregate.cached_tokens.max(usage.cached_tokens);
+    aggregate.cache_creation_tokens = aggregate
+        .cache_creation_tokens
+        .max(usage.cache_creation_tokens);
+    aggregate.context_used = aggregate.context_used.max(usage.context_used);
+    aggregate.context_limit = aggregate.context_limit.max(usage.context_limit);
+}
+
+fn normalize_token_usage(value: &serde_json::Value) -> Option<TokenUsageSnapshot> {
+    let input_tokens = number_field(
+        value,
+        &[
+            "input_tokens",
+            "inputTokens",
+            "prompt_tokens",
+            "promptTokens",
+        ],
+    );
+    let output_tokens = number_field(
+        value,
+        &[
+            "output_tokens",
+            "outputTokens",
+            "completion_tokens",
+            "completionTokens",
+        ],
+    );
+    let total_tokens = number_field(
+        value,
+        &[
+            "total_tokens",
+            "totalTokens",
+            "used_tokens",
+            "usedTokens",
+            "used",
+        ],
+    )
+    .max(input_tokens + output_tokens);
+    let cached_tokens = number_field(
+        value,
+        &[
+            "cached_tokens",
+            "cachedTokens",
+            "cached_input_tokens",
+            "cachedInputTokens",
+            "cache_read_input_tokens",
+            "cacheReadInputTokens",
+        ],
+    )
+    .max(nested_number_field(
+        value,
+        &[
+            ("prompt_tokens_details", "cached_tokens"),
+            ("promptTokensDetails", "cachedTokens"),
+            ("input_tokens_details", "cached_tokens"),
+            ("inputTokensDetails", "cachedTokens"),
+        ],
+    ));
+    let cache_creation_tokens = number_field(
+        value,
+        &["cache_creation_input_tokens", "cacheCreationInputTokens"],
+    );
+    let context_used = number_field(
+        value,
+        &[
+            "context_used",
+            "contextUsed",
+            "used_tokens",
+            "usedTokens",
+            "used",
+        ],
+    )
+    .max(total_tokens);
+    let context_limit = number_field(
+        value,
+        &[
+            "context_limit",
+            "contextLimit",
+            "model_context_window",
+            "modelContextWindow",
+            "context_window",
+            "contextWindow",
+            "limit",
+        ],
+    );
+    if input_tokens == 0
+        && output_tokens == 0
+        && total_tokens == 0
+        && cached_tokens == 0
+        && cache_creation_tokens == 0
+        && context_limit == 0
+    {
+        return None;
+    }
+    Some(TokenUsageSnapshot {
+        id: 0,
+        total_tokens,
+        input_tokens,
+        output_tokens,
+        cached_tokens,
+        cache_creation_tokens,
+        context_used,
+        context_limit,
+        elapsed_ms: 0,
+        updated_at_ms: 0,
+    })
+}
+
+fn number_field(value: &serde_json::Value, keys: &[&str]) -> u64 {
+    keys.iter()
+        .filter_map(|key| value.get(*key).and_then(json_number))
+        .max()
+        .unwrap_or(0)
+}
+
+fn nested_number_field(value: &serde_json::Value, keys: &[(&str, &str)]) -> u64 {
+    keys.iter()
+        .filter_map(|(parent, child)| value.get(*parent)?.get(*child).and_then(json_number))
+        .max()
+        .unwrap_or(0)
+}
+
+fn json_number(value: &serde_json::Value) -> Option<u64> {
+    value
+        .as_u64()
+        .or_else(|| value.as_f64().map(|number| number.max(0.0).round() as u64))
 }
 
 #[cfg(test)]
@@ -528,5 +820,26 @@ mod tests {
             extract_title_translation(&payload),
             Some("扫描 Alma 项目".to_string())
         );
+    }
+
+    #[test]
+    fn extracts_and_merges_token_usage_from_sse() {
+        let text = [
+            "event: message_start",
+            "data: {\"message\":{\"usage\":{\"input_tokens\":100,\"cache_read_input_tokens\":80}}}",
+            "",
+            "event: message_delta",
+            "data: {\"usage\":{\"output_tokens\":25,\"total_tokens\":125,\"context_window\":200000}}",
+            "",
+        ]
+        .join("\n");
+
+        let usage = extract_token_usage_from_text(&text).expect("token usage");
+
+        assert_eq!(usage.input_tokens, 100);
+        assert_eq!(usage.output_tokens, 25);
+        assert_eq!(usage.total_tokens, 125);
+        assert_eq!(usage.cached_tokens, 80);
+        assert_eq!(usage.context_limit, 200000);
     }
 }

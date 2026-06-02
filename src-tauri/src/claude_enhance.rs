@@ -29,6 +29,9 @@ mod imp {
     const TITLE_I18N_BRIDGE_MARKER: &str = "__claudePlusTitleI18nBridgeV1";
     const TITLE_I18N_MAIN_BRIDGE_MARKER: &str = "__claudePlusTitleI18nMainBridgeV1";
     const TITLE_I18N_CHANNEL: &str = "claude-plus:title-i18n";
+    const TOKEN_USAGE_BRIDGE_MARKER: &str = "__claudePlusTokenUsageBridgeV1";
+    const TOKEN_USAGE_MAIN_BRIDGE_MARKER: &str = "__claudePlusTokenUsageMainBridgeV1";
+    const TOKEN_USAGE_CHANNEL: &str = "claude-plus:token-usage";
     const ASAR_INTEGRITY_BLOCK_SIZE: usize = 4 * 1024 * 1024;
     fn skills_bridge_script() -> String {
         r##";(()=>{const MARK="__claudePlusSkillsBridgeV1";
@@ -100,6 +103,34 @@ ipcMain.handle("__CPP_TITLE_I18N__",(e,t)=>translate(t));
             .replace("__CPP_TITLE_I18N_MAIN_MARK__", TITLE_I18N_MAIN_BRIDGE_MARKER)
             .replace("__CPP_TITLE_I18N__", TITLE_I18N_CHANNEL)
     }
+
+    fn token_usage_preload_bridge_script() -> String {
+        r##";(()=>{const MARK="__CPP_TOKEN_USAGE_MARK__";
+if(globalThis[MARK])return;
+Object.defineProperty(globalThis,MARK,{value:!0});
+try{
+const{contextBridge,ipcRenderer}=require("electron");
+contextBridge.exposeInMainWorld("claudePlusTokenUsage",{get:()=>ipcRenderer.invoke("__CPP_TOKEN_USAGE__")});
+}catch(e){console.error("[Claude++] token usage bridge failed",e)}
+})();"##
+            .replace("__CPP_TOKEN_USAGE_MARK__", TOKEN_USAGE_BRIDGE_MARKER)
+            .replace("__CPP_TOKEN_USAGE__", TOKEN_USAGE_CHANNEL)
+    }
+
+    fn token_usage_main_bridge_script() -> String {
+        r##";(()=>{const MARK="__CPP_TOKEN_USAGE_MAIN_MARK__";
+if(globalThis[MARK])return;
+Object.defineProperty(globalThis,MARK,{value:!0});
+try{
+const{ipcMain}=require("electron");
+async function getUsage(){const r=await fetch("http://127.0.0.1:15722/claude-plus/token-usage",{cache:"no-store"});return await r.json().catch(()=>({ok:false}))}
+ipcMain.removeHandler("__CPP_TOKEN_USAGE__");
+ipcMain.handle("__CPP_TOKEN_USAGE__",()=>getUsage());
+}catch(e){console.error("[Claude++] token usage main bridge failed",e)}
+})();"##
+            .replace("__CPP_TOKEN_USAGE_MAIN_MARK__", TOKEN_USAGE_MAIN_BRIDGE_MARKER)
+            .replace("__CPP_TOKEN_USAGE__", TOKEN_USAGE_CHANNEL)
+    }
     const INJECT_SCRIPT: &str = r####";(()=>{const m="__claudePlusEnhanceNavV2";
 if(window[m])return;
 Object.defineProperty(window,m,{value:!0});
@@ -155,21 +186,16 @@ function aa(e){const n=E(e.textContent);return e&&e.nodeType===1&&!e.dataset?.cl
 function ab(e){const n=document.createElement("button");n.type="button";n.className=e?.className||"claude-plus-markdown-menu-item";n.classList.add("claude-plus-markdown-menu-item");n.setAttribute("role",e?.getAttribute("role")||"menuitem");n.setAttribute("tabindex",e?.getAttribute("tabindex")||"0");n.dataset.claudePlusMarkdownMenuItem="1";n.textContent="导出 Markdown";n.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();Q()},!0);n.addEventListener("keydown",e=>{(e.key==="Enter"||e.key===" ")&&(e.preventDefault(),Q())},!0);return n}
 function P(){document.querySelectorAll(".claude-plus-markdown-export").forEach(e=>e.remove());if(!window.__claudePlusEnhanceMarkdownExportV1)return;O();document.querySelectorAll('[role="menu"],[data-radix-menu-content]').forEach(e=>{const n=Array.from(e.querySelectorAll("[data-claude-plus-markdown-menu-item]"));n.slice(1).forEach(e=>e.remove());if(n.length)return;const t=Array.from(e.querySelectorAll('button,[role="menuitem"],[cmdk-item]')).filter(aa);if(t.length<3)return;const r=t.find(e=>/存档|Archive/i.test(E(e.textContent)))||t.find(e=>/删除|Delete/i.test(E(e.textContent)));if(!r)return;const a=ab(r);r.parentElement?r.parentElement.insertBefore(a,r):e.appendChild(a)})}
 function Y(){const e=document.querySelector(".claude-plus-timeline");if(!window.__claudePlusEnhanceTimelineV1){e&&e.remove();return}O();const n=W().filter(e=>e.role==="User").slice(0,40);if(!n.length){e&&e.remove();return}const t=n.map(e=>e.a.slice(0,80)).join("|");if(e&&e.dataset.signature===t)return;e&&e.remove();const r=document.createElement("div");r.className="claude-plus-timeline";r.dataset.signature=t;r.innerHTML='<div class="claude-plus-timeline-track"></div>';n.forEach((e,t)=>{const a=document.createElement("button");a.type="button";a.className="claude-plus-timeline-marker";a.style.top=(n.length===1?50:2+t*(96/(n.length-1)))+"%";a.setAttribute("aria-label","跳转到问题 "+(t+1));const s=document.createElement("span");s.className="claude-plus-timeline-tip";s.textContent=(t+1)+". "+e.a.replace(/\s+/g," ").slice(0,60);a.appendChild(s);a.addEventListener("click",n=>{n.preventDefault();n.stopPropagation();e.node.scrollIntoView({behavior:"smooth",block:"center"});e.node.classList.add("claude-plus-timeline-target");setTimeout(()=>e.node.classList.remove("claude-plus-timeline-target"),1300)},!0);r.appendChild(a)});document.body.appendChild(r)}
-const cpu={patched:!1,last:null,calls:0};
+const cpu={last:null,lastId:0,polling:!1};
 function cpuN(e){const n=Number(e);return Number.isFinite(n)&&n>=0?Math.round(n):0}
-function cpuUsage(e){if(!e||typeof e!=="object")return null;const n=cpuN(e.input_tokens??e.inputTokens??e.prompt_tokens??e.promptTokens),t=cpuN(e.output_tokens??e.outputTokens??e.completion_tokens??e.completionTokens),r=cpuN(e.total_tokens??e.totalTokens??e.used_tokens??e.usedTokens??e.used??n+t),a=cpuN(e.cached_tokens??e.cachedTokens??e.cached_input_tokens??e.cachedInputTokens??e.prompt_tokens_details?.cached_tokens??e.promptTokensDetails?.cachedTokens??e.input_tokens_details?.cached_tokens??e.inputTokensDetails?.cachedTokens),s=cpuN(e.cache_read_input_tokens??e.cacheReadInputTokens),l=cpuN(e.cache_creation_input_tokens??e.cacheCreationInputTokens),o=cpuN(e.context_used??e.contextUsed??e.used_tokens??e.usedTokens??e.used??r),i=cpuN(e.context_limit??e.contextLimit??e.model_context_window??e.modelContextWindow??e.context_window??e.contextWindow??e.limit);return n||t||r||a||s||l||i?{input:n,output:t,total:r||n+t,cached:a||s,cacheCreated:l,contextUsed:o||r||n+t,contextLimit:i}:null}
-function cpuWalk(e,n=0,t=[],r=new WeakSet){if(!e||n>8)return t;if(Array.isArray(e)){e.forEach(e=>cpuWalk(e,n+1,t,r));return t}if(typeof e!=="object")return t;if(r.has(e))return t;r.add(e);for(const n of["usage","token_usage","tokenUsage","context_usage","contextUsage","last","lastUsage","last_token_usage","lastTokenUsage"]){const r=cpuUsage(e[n]);r&&t.push(r)}const a=cpuUsage(e);if(a){t.push(a);return t}for(const a of["response","data","body","message","result","event","params","info","completion","delta"])cpuWalk(e[a],n+1,t,r);return t}
-function cpuSse(e){return String(e||"").split(/\r?\n/).map(e=>e.trim()).filter(e=>e.startsWith("data:")).map(e=>e.slice(5).trim()).filter(e=>e&&e!=="[DONE]")}
-function cpuExtract(e){if(typeof e!=="string")return cpuWalk(e);try{return cpuWalk(JSON.parse(e))}catch(n){}const n=[];for(const t of cpuSse(e))try{cpuWalk(JSON.parse(t),0,n)}catch(r){}return n}
-function cpuBest(e){return e.sort((e,n)=>(n.total||n.contextUsed)-(e.total||e.contextUsed))[0]||null}
 function cpuF(e){return cpuN(e).toLocaleString("en-US")}
 function cpuPct(e,n){return n?((e/n)*100).toFixed(1)+"%":"0%"}
-function cpuHtml(e){const n=e.cached||0,t=e.input||0,r=e.contextUsed||e.total||0,a=e.contextLimit||0,s=a?cpuPct(r,a):"0%",l=n?cpuPct(n,t||e.total):"0%";return"总计 <strong>"+cpuF(e.total)+"</strong> · 输入 "+cpuF(e.input)+" · 输出 "+cpuF(e.output)+" · 缓存命中 "+cpuF(n)+" · 缓存命中率 "+l+" · 上下文 "+cpuF(r)+(a?"/"+cpuF(a):"")+" ("+s+") · 调用 "+cpuF(cpu.calls)+" 次 · 耗时 "+((e.elapsed||0)/1000).toFixed(1)+"s"}
+function cpuMap(e){if(!e)return null;return{ id:cpuN(e.id), input:cpuN(e.inputTokens??e.input_tokens), output:cpuN(e.outputTokens??e.output_tokens), total:cpuN(e.totalTokens??e.total_tokens), cached:cpuN(e.cachedTokens??e.cached_tokens), cacheCreated:cpuN(e.cacheCreationTokens??e.cache_creation_tokens), contextUsed:cpuN(e.contextUsed??e.context_used), contextLimit:cpuN(e.contextLimit??e.context_limit), elapsed:cpuN(e.elapsedMs??e.elapsed_ms), updatedAt:cpuN(e.updatedAtMs??e.updated_at_ms) }}
+function cpuHtml(e){const n=e.cached||0,t=e.input||0,r=e.contextUsed||e.total||0,a=e.contextLimit||0,s=a?cpuPct(r,a):"0%",l=n?cpuPct(n,t||e.total):"0%";return"总计 <strong>"+cpuF(e.total)+"</strong> · 输入 "+cpuF(e.input)+" · 输出 "+cpuF(e.output)+" · 缓存命中 "+cpuF(n)+" · 缓存命中率 "+l+" · 上下文 "+cpuF(r)+(a?"/"+cpuF(a):"")+" ("+s+") · 耗时 "+((e.elapsed||0)/1000).toFixed(1)+"s"}
 function cpuHost(){const e=document.querySelector("textarea,[contenteditable='true']"),n=e?.closest?.("form")||e?.parentElement;if(n?.parentElement)return{parent:n.parentElement,before:n};const t=document.querySelector("main")||document.body;return{parent:t,before:null}}
 function cpuRender(){const e=document.querySelector(".claude-plus-token-usage");if(!window.__claudePlusEnhanceTokenUsageV1){e&&e.remove();return}if(!cpu.last)return;O();let n=e;n||(n=document.createElement("div"),n.className="claude-plus-token-usage");n.innerHTML=cpuHtml(cpu.last);const t=cpuHost();if(n.parentElement!==t.parent)t.parent.insertBefore(n,t.before);else t.before&&n.nextSibling!==t.before&&t.parent.insertBefore(n,t.before)}
-function cpuProcess(e,n){const t=cpuBest(cpuExtract(e));if(!t)return;cpu.calls+=1;t.elapsed=n;cpu.last=t;cpuRender()}
-function cpuPatch(){if(cpu.patched||!window.__claudePlusEnhanceTokenUsageV1)return;cpu.patched=!0;const e=window.fetch;if(typeof e==="function")window.fetch=async function(...n){const t=performance.now(),r=await e.apply(this,n);try{r.clone().text().then(e=>cpuProcess(e,performance.now()-t)).catch(()=>{})}catch(a){}return r};const n=window.XMLHttpRequest&&window.XMLHttpRequest.prototype;if(n){const e=n.open,t=n.send;n.open=function(...n){this.__cpuStart=0;return e.apply(this,n)};n.send=function(...e){this.__cpuStart=performance.now();this.addEventListener("load",()=>{try{typeof this.responseText==="string"&&cpuProcess(this.responseText,performance.now()-(this.__cpuStart||performance.now()))}catch(e){}},{once:!0});return t.apply(this,e)}}}
-function cpuTick(){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}cpuPatch();cpuRender()}
+async function cpuPoll(){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}try{const e=window.claudePlusTokenUsage,n=e&&typeof e.get==="function"?await e.get():null,t=cpuMap(n&&n.usage);if(t&&t.id!==cpu.lastId){cpu.lastId=t.id;cpu.last=t;cpuRender()}}catch(e){}}
+function cpuTick(){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}cpuRender();if(!cpu.polling){cpu.polling=!0;cpuPoll();setInterval(cpuPoll,1200)}}
 async function s(e){if(e.open==="custom3p"||e.open==="custom3p_connectors"){const n=window["claude.settings"]?.Custom3pSetup?.openSetupWindow||window.claude?.settings?.Custom3pSetup?.openSetupWindow;if(typeof n==="function"){try{e.open==="custom3p_connectors"&&localStorage.setItem("claudePlusCustom3pPane","connectors");await n();return}catch(t){}}return}if(e.open==="skills"){B();return}const n=new URL(e.path,location.origin),t=n.pathname+n.search+n.hash;try{history.pushState(null,"",t);window.dispatchEvent(new PopStateEvent("popstate",{state:history.state}));window.dispatchEvent(new Event("pushstate"));window.dispatchEvent(new Event("locationchange"))}catch(r){location.assign(n.toString())}}
 new MutationObserver(y).observe(document.documentElement,{childList:!0,subtree:!0});
 document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{x();M();P();Y();cpuTick()},{once:!0}):(x(),M(),P(),Y(),cpuTick());
@@ -349,6 +375,9 @@ D();
         if matches!(feature, EnhanceFeatureId::ConversationTitleI18n) {
             update_title_i18n_bridge(&paths.resources, &mut backup, true)?;
         }
+        if matches!(feature, EnhanceFeatureId::TokenUsage) {
+            update_token_usage_bridge(&paths.resources, &mut backup, true)?;
+        }
         Ok(())
     }
 
@@ -365,6 +394,9 @@ D();
         }
         if matches!(feature, EnhanceFeatureId::ConversationTitleI18n) {
             update_title_i18n_bridge(&paths.resources, &mut backup, false)?;
+        }
+        if matches!(feature, EnhanceFeatureId::TokenUsage) {
+            update_token_usage_bridge(&paths.resources, &mut backup, false)?;
         }
         Ok(())
     }
@@ -452,6 +484,12 @@ D();
             .find(|(feature, _)| *feature == EnhanceFeatureId::Plugins)
         {
             *enabled = *enabled && skills_bridge_installed(resources_path);
+        }
+        if let Some((_, enabled)) = states
+            .iter_mut()
+            .find(|(feature, _)| *feature == EnhanceFeatureId::TokenUsage)
+        {
+            *enabled = *enabled && token_usage_bridge_installed(resources_path);
         }
         states
     }
@@ -582,6 +620,31 @@ D();
         )
     }
 
+    fn update_token_usage_bridge(
+        resources_path: &Path,
+        backup: &mut BackupContext,
+        enabled: bool,
+    ) -> Result<(), String> {
+        let main_script = token_usage_main_bridge_script();
+        let preload_script = token_usage_preload_bridge_script();
+        patch_bridge_file(
+            resources_path,
+            SKILLS_MAIN_BRIDGE_TARGET,
+            &main_script,
+            backup,
+            enabled,
+            remove_token_usage_bridge,
+        )?;
+        patch_bridge_file(
+            resources_path,
+            SKILLS_PRELOAD_BRIDGE_TARGET,
+            &preload_script,
+            backup,
+            enabled,
+            remove_token_usage_bridge,
+        )
+    }
+
     fn patch_skills_bridge_file(
         resources_path: &Path,
         file_path: &str,
@@ -656,6 +719,23 @@ D();
         next
     }
 
+    fn remove_token_usage_bridge(text: &str) -> String {
+        let mut next = text.to_string();
+        for marker in [
+            ";(()=>{const MARK=\"__claudePlusTokenUsageBridgeV1\"",
+            ";(()=>{const MARK=\"__claudePlusTokenUsageMainBridgeV1\"",
+        ] {
+            while let Some(start) = next.find(marker) {
+                let Some(relative_end) = next[start..].find("})();") else {
+                    break;
+                };
+                let end = start + relative_end + "})();".len();
+                next.replace_range(start..end, "");
+            }
+        }
+        next
+    }
+
     fn skills_bridge_installed(resources_path: &Path) -> bool {
         let preload_installed = read_asar_file(resources_path, SKILLS_PRELOAD_BRIDGE_TARGET)
             .ok()
@@ -666,6 +746,20 @@ D();
             .ok()
             .and_then(|content| String::from_utf8(content).ok())
             .map(|text| text.contains(SKILLS_MAIN_BRIDGE_MARKER))
+            .unwrap_or(false);
+        preload_installed && main_installed
+    }
+
+    fn token_usage_bridge_installed(resources_path: &Path) -> bool {
+        let preload_installed = read_asar_file(resources_path, SKILLS_PRELOAD_BRIDGE_TARGET)
+            .ok()
+            .and_then(|content| String::from_utf8(content).ok())
+            .map(|text| text.contains(TOKEN_USAGE_BRIDGE_MARKER))
+            .unwrap_or(false);
+        let main_installed = read_asar_file(resources_path, SKILLS_MAIN_BRIDGE_TARGET)
+            .ok()
+            .and_then(|content| String::from_utf8(content).ok())
+            .map(|text| text.contains(TOKEN_USAGE_MAIN_BRIDGE_MARKER))
             .unwrap_or(false);
         preload_installed && main_installed
     }
@@ -894,14 +988,20 @@ D();
         }
 
         #[test]
-        fn token_usage_intercepts_network_usage_and_renders_badge() {
+        fn token_usage_polls_local_proxy_usage_and_renders_badge() {
             assert!(INJECT_SCRIPT.contains("__claudePlusEnhanceTokenUsageV1"));
             assert!(INJECT_SCRIPT.contains("claude-plus-token-usage"));
-            assert!(INJECT_SCRIPT.contains("window.fetch"));
-            assert!(INJECT_SCRIPT.contains("XMLHttpRequest"));
-            assert!(INJECT_SCRIPT.contains("input_tokens"));
-            assert!(INJECT_SCRIPT.contains("cached_tokens"));
-            assert!(INJECT_SCRIPT.contains("model_context_window"));
+            assert!(INJECT_SCRIPT.contains("window.claudePlusTokenUsage"));
+            assert!(INJECT_SCRIPT.contains("cpuPoll"));
+            assert!(INJECT_SCRIPT.contains("inputTokens"));
+            assert!(INJECT_SCRIPT.contains("cachedTokens"));
+            assert!(!INJECT_SCRIPT.contains("XMLHttpRequest"));
+
+            let preload = super::token_usage_preload_bridge_script();
+            let main = super::token_usage_main_bridge_script();
+            assert!(preload.contains("claudePlusTokenUsage"));
+            assert!(main.contains("/claude-plus/token-usage"));
+            assert!(main.contains("ipcMain.handle"));
         }
 
         #[test]
