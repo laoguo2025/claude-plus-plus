@@ -28,3 +28,15 @@
 - `cargo test --manifest-path src-tauri\Cargo.toml --lib`：通过，36 passed，3 ignored。
 - Release 打包：通过，已生成 `src-tauri\target\release\claude-plus-plus.exe` 和 `src-tauri\target\release\bundle\nsis\Claude++_0.1.0_x64-setup.exe`。
 - 安装包图标补丁：生成的 `installer.nsi` 中 `INSTALLERICON` 和 `UNINSTALLERICON` 均指向 `src-tauri\icons\icon.ico`，Release 打包通过并重新生成 NSIS 安装包。
+
+## 2026-06-02 配色收敛补丁
+
+用户反馈浅色/深色主题状态色过多，页面视觉混乱。本次仅收敛 `src/App.css`：
+
+- 正常页面主视觉限制为 Cowork 背景层级、文本层级、边框层级和 Clay 品牌橙。
+- 蓝色不再用于顶部说明或大面积提示；成功、警告状态不再铺满卡片背景。
+- 已启用、警告、token 提醒等状态改为细边框、小标签、左侧细标记等小面积表达。
+- CSS 颜色表达从全局 54 个收敛到 32 个；浅色主题 token 从 25 个收敛到 17 个，深色主题 token 从 25 个收敛到 16 个。
+- 浏览器预览检查了浅色/深色 `CCS转接` 与 `页面增强`，页面主视觉已收敛为中性色 + Clay 橙。
+- `npm run build`：通过。
+- Release 打包：第一次因 `src-tauri\target\release\claude-plus-plus.exe` 被运行中进程占用失败；仅停止该 release exe 进程后重跑通过，已重新生成 NSIS 安装包。

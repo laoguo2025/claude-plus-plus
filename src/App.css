@@ -13,18 +13,19 @@
   --border-strong: rgba(10, 10, 10, 0.12);
   --brand: #dc7d57;
   --brand-strong: #c96a3e;
-  --brand-soft: rgba(220, 125, 87, 0.08);
-  --brand-border: rgba(201, 106, 62, 0.22);
-  --accent: #2980d9;
-  --success: #578a00;
-  --success-bg: #f2f7e8;
-  --success-border: rgba(87, 138, 0, 0.22);
-  --warning: #a86b00;
-  --warning-bg: #fbf0d1;
-  --warning-border: rgba(168, 107, 0, 0.24);
-  --danger: #cc4242;
-  --danger-bg: #fbefed;
-  --danger-border: rgba(204, 66, 66, 0.22);
+  --brand-soft: rgba(220, 125, 87, 0.045);
+  --brand-border: rgba(201, 106, 62, 0.18);
+  --accent: var(--brand-strong);
+  --success: var(--brand-strong);
+  --success-bg: var(--bg-100);
+  --success-border: var(--brand-border);
+  --warning: var(--brand-strong);
+  --warning-bg: var(--brand-soft);
+  --warning-border: var(--brand-border);
+  --danger: #9d5148;
+  --danger-bg: var(--bg-100);
+  --danger-border: var(--border-strong);
+  --on-brand: #ffffff;
   --shadow-panel: inset 0 0 0 0 transparent, 0 0 0 1px rgba(10, 10, 10, 0.03),
     0 4px 24px rgba(10, 10, 10, 0.04);
   --shadow-pop: 0 10px 30px rgba(10, 10, 10, 0.08);
@@ -43,18 +44,18 @@
   --text-400: #969389;
   --border-soft: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.12);
-  --brand-soft: rgba(220, 125, 87, 0.1);
-  --brand-border: rgba(220, 125, 87, 0.26);
-  --accent: #3d92db;
-  --success: #a3c569;
-  --success-bg: #1f2b15;
-  --success-border: rgba(163, 197, 105, 0.24);
-  --warning: #f9b918;
-  --warning-bg: #422700;
-  --warning-border: rgba(249, 185, 24, 0.28);
-  --danger: #e25656;
-  --danger-bg: #3a1716;
-  --danger-border: rgba(226, 86, 86, 0.28);
+  --brand-soft: rgba(220, 125, 87, 0.06);
+  --brand-border: rgba(220, 125, 87, 0.2);
+  --accent: var(--brand);
+  --success: var(--brand);
+  --success-bg: var(--bg-100);
+  --success-border: var(--brand-border);
+  --warning: var(--brand);
+  --warning-bg: var(--brand-soft);
+  --warning-border: var(--brand-border);
+  --danger: #d18478;
+  --danger-bg: var(--bg-100);
+  --danger-border: var(--border-strong);
   --shadow-panel: inset 0 0 0 1px rgba(255, 255, 255, 0.04),
     0 8px 24px rgba(0, 0, 0, 0.28);
   --shadow-pop: inset 0 0 0 1px rgba(255, 255, 255, 0.06),
@@ -120,7 +121,7 @@ button:disabled {
 button.primary {
   border-color: var(--brand-strong);
   background: var(--brand-strong);
-  color: #fff;
+  color: var(--on-brand);
 }
 
 select {
@@ -145,7 +146,7 @@ select {
 .sidebar {
   min-height: 0;
   border-right: 1px solid var(--border-soft);
-  background: color-mix(in srgb, var(--bg-200) 94%, transparent);
+  background: var(--bg-200);
   padding: 14px 9px;
 }
 
@@ -300,7 +301,7 @@ select {
   align-content: start;
   gap: 8px;
   overflow: hidden;
-  color: var(--accent);
+  color: var(--text-200);
   font-size: 12.5px;
   line-height: 1.5;
 }
@@ -377,7 +378,7 @@ select {
 .routeHint {
   flex: 1 1 auto;
   min-width: 0;
-  color: var(--accent);
+  color: var(--text-400);
   font-size: 13px;
   line-height: 1.4;
   text-align: right;
@@ -406,12 +407,12 @@ select {
 
 .routeStatusCard.active {
   border-color: var(--success-border);
-  background: var(--success-bg);
+  background: var(--bg-100);
 }
 
 .routeStatusCard.inactive {
-  border-color: var(--danger-border);
-  background: var(--danger-bg);
+  border-color: var(--border-soft);
+  background: var(--bg-100);
 }
 
 .routeStatusCard span,
@@ -461,11 +462,11 @@ select {
 }
 
 .dot.on {
-  background: var(--success);
+  background: var(--brand-strong);
 }
 
 .dot.off {
-  background: var(--danger);
+  background: var(--text-400);
 }
 
 .routeActionCard {
@@ -483,13 +484,13 @@ select {
 
 .routeActionCard.on {
   border-color: var(--success-border);
-  background: var(--success-bg);
+  background: var(--brand-soft);
   color: var(--text-000);
 }
 
 .routeActionCard.off {
-  border-color: var(--danger-border);
-  background: var(--danger-bg);
+  border-color: var(--border-soft);
+  background: var(--bg-100);
   color: var(--text-000);
 }
 
@@ -515,7 +516,7 @@ select {
   place-items: center;
   border: 1px solid var(--border-soft);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.68);
+  background: var(--bg-000);
   color: var(--text-200);
   font-size: 12px;
   font-weight: 600;
@@ -533,10 +534,10 @@ select {
 
 .notice {
   margin-top: 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border: 1px solid var(--brand-border);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 9%, var(--bg-000));
-  color: var(--accent);
+  background: var(--brand-soft);
+  color: var(--text-200);
   font-size: 13px;
   line-height: 1.4;
   padding: 9px 11px;
@@ -545,7 +546,7 @@ select {
 .notice.warn {
   border-color: var(--warning-border);
   background: var(--warning-bg);
-  color: var(--warning);
+  color: var(--brand-strong);
 }
 
 .errorBanner {
@@ -597,9 +598,9 @@ select {
   gap: 10px;
   align-items: center;
   margin-bottom: 8px;
-  border: 1px solid var(--brand-border);
+  border: 1px solid var(--border-soft);
   border-radius: 8px;
-  background: var(--brand-soft);
+  background: var(--bg-100);
   padding: 8px 10px;
 }
 
@@ -740,7 +741,8 @@ select {
 
 .enhanceWorkflowRow.enabled {
   border-color: var(--brand-border);
-  background: var(--brand-soft);
+  background: var(--bg-100);
+  box-shadow: inset 3px 0 0 var(--brand-strong);
 }
 
 .enhanceActions {
@@ -772,10 +774,10 @@ select {
   display: inline-flex;
   align-items: center;
   margin-left: 8px;
-  border: 1px solid var(--success-border);
+  border: 1px solid var(--border-soft);
   border-radius: 999px;
-  background: var(--success-bg);
-  color: var(--success);
+  background: var(--bg-200);
+  color: var(--text-200);
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
@@ -801,7 +803,7 @@ select {
   border: 1px solid var(--warning-border);
   border-radius: 8px;
   background: var(--warning-bg);
-  color: var(--warning);
+  color: var(--brand-strong);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.45;
@@ -829,11 +831,11 @@ select {
 }
 
 .rowIcon.success {
-  color: var(--success);
+  color: var(--brand-strong);
 }
 
 .rowIcon.warning {
-  color: var(--warning);
+  color: var(--brand-strong);
 }
 
 .rowIcon.danger {
@@ -877,11 +879,11 @@ select {
 }
 
 .stateBadge.success {
-  color: var(--success);
+  color: var(--brand-strong);
 }
 
 .stateBadge.warning {
-  color: var(--warning);
+  color: var(--text-200);
 }
 
 .stateBadge.danger {
