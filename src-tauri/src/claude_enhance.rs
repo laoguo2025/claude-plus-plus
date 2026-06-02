@@ -17,14 +17,31 @@ mod imp {
     const NAV_PLUGINS_MARKER: &str = "__claudePlusEnhancePluginsV1";
     const NAV_MCP_MARKER: &str = "__claudePlusEnhanceMcpV1";
     const SKILLS_BRIDGE_MARKER: &str = "__claudePlusSkillsBridgeV1";
-    const SKILLS_BRIDGE_TARGET: &str = ".vite/build/mainView.js";
-    const LEGACY_SKILLS_BRIDGE_TARGET: &str = ".vite/build/index.js";
+    const SKILLS_MAIN_BRIDGE_MARKER: &str = "__claudePlusSkillsMainBridgeV1";
+    const SKILLS_MAIN_BRIDGE_TARGET: &str = ".vite/build/index.js";
+    const SKILLS_PRELOAD_BRIDGE_TARGET: &str = ".vite/build/mainView.js";
+    const SKILLS_LIST_CHANNEL: &str = "claude-plus:skills:list";
+    const SKILLS_TRASH_CHANNEL: &str = "claude-plus:skills:trash";
     const ASAR_INTEGRITY_BLOCK_SIZE: usize = 4 * 1024 * 1024;
-    const SKILLS_BRIDGE_SCRIPT: &str = r##";(()=>{const MARK="__claudePlusSkillsBridgeV1";
+    fn skills_bridge_script() -> String {
+        r##";(()=>{const MARK="__claudePlusSkillsBridgeV1";
 if(globalThis[MARK])return;
 Object.defineProperty(globalThis,MARK,{value:!0});
 try{
-const{contextBridge,shell}=require("electron"),fs=require("fs"),path=require("path"),crypto=require("crypto");
+const{contextBridge,ipcRenderer}=require("electron");
+contextBridge.exposeInMainWorld("claudePlusSkills",{list:()=>ipcRenderer.invoke("__CPP_SKILLS_LIST__"),trash:e=>ipcRenderer.invoke("__CPP_SKILLS_TRASH__",String(e||""))});
+}catch(e){console.error("[Claude++] skills bridge failed",e)}
+})();"##
+            .replace("__CPP_SKILLS_LIST__", SKILLS_LIST_CHANNEL)
+            .replace("__CPP_SKILLS_TRASH__", SKILLS_TRASH_CHANNEL)
+    }
+
+    fn skills_main_bridge_script() -> String {
+        r##";(()=>{const MARK="__claudePlusSkillsMainBridgeV1";
+if(globalThis[MARK])return;
+Object.defineProperty(globalThis,MARK,{value:!0});
+try{
+const{ipcMain,shell}=require("electron"),fs=require("fs"),path=require("path"),crypto=require("crypto");
 const home=process.env.USERPROFILE||process.env.HOME||"",claudeHome=path.join(home,".claude");
 function norm(e){try{return path.resolve(e)}catch{return String(e||"")}}
 function id(e){return crypto.createHash("sha256").update(norm(e).toLowerCase()).digest("hex").slice(0,32)}
@@ -40,9 +57,14 @@ function decodeProjectName(e){const t=e.split("--").filter(Boolean),r=(t[0]||"")
 function projectPaths(){const e=new Set;for(const t of fromClaudeJson())try{fs.existsSync(t)&&fs.statSync(t).isDirectory()&&e.add(norm(t))}catch{};const t=path.join(claudeHome,"projects");walk(t,e);try{for(const r of fs.readdirSync(t,{withFileTypes:!0}))if(r.isDirectory()){const t=decodeProjectName(r.name);t&&fs.existsSync(t)&&e.add(norm(t))}}catch{}return Array.from(e).sort()}
 function listSkills(){const e=[],t=[];const r=path.join(claudeHome,"skills");fs.existsSync(r)&&(t.push(norm(r)),collectRoot(r,"global","全局",null,e));const n=projectPaths();for(const r of n){const n=path.join(r,".claude","skills");fs.existsSync(n)&&(t.push(norm(n)),collectRoot(n,"project","项目",r,e))}e.sort((e,t)=>e.scope.localeCompare(t.scope)||String(e.project_path||"").localeCompare(String(t.project_path||""))||e.name.localeCompare(t.name));return{skills:e,roots:t,project_count:n.length}}
 async function trashSkill(e){const t=listSkills().skills.find(t=>t.id===e);if(!t)throw new Error("未找到该 skill，可能已经被删除或路径已变化");const r=norm(t.path);if(!fs.existsSync(r)||!fs.statSync(r).isDirectory()||!fs.existsSync(path.join(r,"SKILL.md")))throw new Error("目标不是有效 skill 目录");await shell.trashItem(r);return{ok:!0}}
-contextBridge.exposeInMainWorld("claudePlusSkills",{list:()=>Promise.resolve(listSkills()),trash:e=>trashSkill(String(e||""))});
-}catch(e){console.error("[Claude++] skills bridge failed",e)}
-})();"##;
+ipcMain.removeHandler("__CPP_SKILLS_LIST__");ipcMain.removeHandler("__CPP_SKILLS_TRASH__");
+ipcMain.handle("__CPP_SKILLS_LIST__",()=>listSkills());
+ipcMain.handle("__CPP_SKILLS_TRASH__",(e,t)=>trashSkill(String(t||"")));
+}catch(e){console.error("[Claude++] skills main bridge failed",e)}
+})();"##
+            .replace("__CPP_SKILLS_LIST__", SKILLS_LIST_CHANNEL)
+            .replace("__CPP_SKILLS_TRASH__", SKILLS_TRASH_CHANNEL)
+    }
     const INJECT_SCRIPT: &str = r##";(()=>{const m="__claudePlusEnhanceNavV2";
 if(window[m])return;
 Object.defineProperty(window,m,{value:!0});
@@ -420,13 +442,28 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
         backup: &mut BackupContext,
         enabled: bool,
     ) -> Result<(), String> {
-        patch_skills_bridge_file(resources_path, LEGACY_SKILLS_BRIDGE_TARGET, backup, false)?;
-        patch_skills_bridge_file(resources_path, SKILLS_BRIDGE_TARGET, backup, enabled)
+        let main_script = skills_main_bridge_script();
+        let preload_script = skills_bridge_script();
+        patch_skills_bridge_file(
+            resources_path,
+            SKILLS_MAIN_BRIDGE_TARGET,
+            &main_script,
+            backup,
+            enabled,
+        )?;
+        patch_skills_bridge_file(
+            resources_path,
+            SKILLS_PRELOAD_BRIDGE_TARGET,
+            &preload_script,
+            backup,
+            enabled,
+        )
     }
 
     fn patch_skills_bridge_file(
         resources_path: &Path,
         file_path: &str,
+        script: &str,
         backup: &mut BackupContext,
         enabled: bool,
     ) -> Result<(), String> {
@@ -435,7 +472,7 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
                 std::str::from_utf8(content).map_err(|e| format!("preload 入口不是 UTF-8: {e}"))?;
             let mut next = remove_skills_bridge(text);
             if enabled {
-                next.insert_str(0, SKILLS_BRIDGE_SCRIPT);
+                next.insert_str(0, script);
             }
             if next == text {
                 Ok(None)
@@ -447,30 +484,41 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
 
     fn remove_skills_bridge(text: &str) -> String {
         let mut next = text.to_string();
-        while let Some(start) = next.find(";(()=>{const MARK=\"__claudePlusSkillsBridgeV1\"") {
-            let Some(relative_end) = next[start..].find("})();") else {
-                break;
-            };
-            let end = start + relative_end + "})();".len();
-            next.replace_range(start..end, "");
+        for marker in [
+            ";(()=>{const MARK=\"__claudePlusSkillsBridgeV1\"",
+            ";(()=>{const MARK=\"__claudePlusSkillsMainBridgeV1\"",
+        ] {
+            while let Some(start) = next.find(marker) {
+                let Some(relative_end) = next[start..].find("})();") else {
+                    break;
+                };
+                let end = start + relative_end + "})();".len();
+                next.replace_range(start..end, "");
+            }
         }
         next
     }
 
     fn skills_bridge_installed(resources_path: &Path) -> bool {
-        read_asar_file(resources_path, SKILLS_BRIDGE_TARGET)
+        let preload_installed = read_asar_file(resources_path, SKILLS_PRELOAD_BRIDGE_TARGET)
             .ok()
             .and_then(|content| String::from_utf8(content).ok())
             .map(|text| text.contains(SKILLS_BRIDGE_MARKER))
-            .unwrap_or(false)
+            .unwrap_or(false);
+        let main_installed = read_asar_file(resources_path, SKILLS_MAIN_BRIDGE_TARGET)
+            .ok()
+            .and_then(|content| String::from_utf8(content).ok())
+            .map(|text| text.contains(SKILLS_MAIN_BRIDGE_MARKER))
+            .unwrap_or(false);
+        preload_installed && main_installed
     }
 
     #[cfg(test)]
     mod tests {
         use super::{
             feature_payload, feature_states_from_text, remove_skills_bridge, EnhanceFeatureId,
-            INJECT_SCRIPT, NAV_API_MARKER, NAV_MCP_MARKER, NAV_PLUGINS_MARKER,
-            SKILLS_BRIDGE_SCRIPT, SKILLS_BRIDGE_TARGET,
+            INJECT_SCRIPT, NAV_API_MARKER, NAV_MCP_MARKER, NAV_PLUGINS_MARKER, SKILLS_LIST_CHANNEL,
+            SKILLS_MAIN_BRIDGE_TARGET, SKILLS_PRELOAD_BRIDGE_TARGET, SKILLS_TRASH_CHANNEL,
         };
 
         fn state(states: &[(EnhanceFeatureId, bool)], feature: EnhanceFeatureId) -> bool {
@@ -516,21 +564,45 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
 
         #[test]
         fn preload_bridge_exposes_skills_api() {
-            assert!(SKILLS_BRIDGE_SCRIPT.contains("contextBridge.exposeInMainWorld"));
-            assert!(SKILLS_BRIDGE_SCRIPT.contains("claudePlusSkills"));
-            assert!(SKILLS_BRIDGE_SCRIPT.contains("shell.trashItem"));
+            let script = super::skills_bridge_script();
+            assert!(script.contains("contextBridge.exposeInMainWorld"));
+            assert!(script.contains("claudePlusSkills"));
+            assert!(script.contains("ipcRenderer.invoke"));
+            assert!(script.contains(SKILLS_LIST_CHANNEL));
+            assert!(script.contains(SKILLS_TRASH_CHANNEL));
+        }
+
+        #[test]
+        fn main_bridge_handles_skills_filesystem_api() {
+            let script = super::skills_main_bridge_script();
+            assert!(script.contains("ipcMain.handle"));
+            assert!(script.contains("require(\"fs\")"));
+            assert!(script.contains("shell.trashItem"));
+            assert!(script.contains("listSkills"));
+            assert!(script.contains(SKILLS_LIST_CHANNEL));
+            assert!(script.contains(SKILLS_TRASH_CHANNEL));
+        }
+
+        #[test]
+        fn preload_bridge_is_sandbox_safe() {
+            let script = super::skills_bridge_script();
+            assert!(!script.contains("require(\"fs\")"));
+            assert!(!script.contains("require(\"path\")"));
+            assert!(!script.contains("require(\"crypto\")"));
+            assert!(script.contains("ipcRenderer.invoke"));
         }
 
         #[test]
         fn skills_bridge_targets_main_view_preload() {
-            assert_eq!(SKILLS_BRIDGE_TARGET, ".vite/build/mainView.js");
+            assert_eq!(SKILLS_PRELOAD_BRIDGE_TARGET, ".vite/build/mainView.js");
+            assert_eq!(SKILLS_MAIN_BRIDGE_TARGET, ".vite/build/index.js");
         }
 
         #[test]
         fn skills_bridge_is_inserted_before_source_map_comment() {
             let preload = "const ready=true;\n//# sourceMappingURL=mainView.js.map";
             let mut next = remove_skills_bridge(preload);
-            next.insert_str(0, SKILLS_BRIDGE_SCRIPT);
+            next.insert_str(0, &super::skills_bridge_script());
 
             let bridge_index = next.find("__claudePlusSkillsBridgeV1").unwrap();
             let source_map_index = next.find("sourceMappingURL").unwrap();
@@ -542,7 +614,8 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
         fn remove_skills_bridge_cleans_multiple_residues() {
             let text = format!(
                 "{}const ready=true;{}//# sourceMappingURL=mainView.js.map",
-                SKILLS_BRIDGE_SCRIPT, SKILLS_BRIDGE_SCRIPT
+                super::skills_bridge_script(),
+                super::skills_main_bridge_script()
             );
             let cleaned = remove_skills_bridge(&text);
 
@@ -550,6 +623,27 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
                 cleaned,
                 "const ready=true;//# sourceMappingURL=mainView.js.map"
             );
+        }
+
+        #[test]
+        #[ignore = "writes Claude Desktop resources; set CLAUDE_PLUS_VERIFY_INSTALL=1"]
+        fn verify_install_plugins_enhance_writes_skills_bridges() {
+            assert_eq!(
+                std::env::var("CLAUDE_PLUS_VERIFY_INSTALL")
+                    .as_deref()
+                    .map(str::trim),
+                Ok("1")
+            );
+
+            super::install("plugins").expect("install plugins enhance");
+            let status = super::status();
+            let plugins = status
+                .features
+                .iter()
+                .find(|feature| feature.id == "plugins")
+                .expect("plugins feature status");
+
+            assert!(plugins.enabled);
         }
     }
 
