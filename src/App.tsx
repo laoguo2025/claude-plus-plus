@@ -44,6 +44,7 @@ interface ClaudeZhStatus {
   claude_found: boolean;
   installed: boolean;
   backup_available: boolean;
+  claude_version: string | null;
   install_path: string | null;
   resources_path: string | null;
   locale: string | null;
@@ -129,6 +130,7 @@ function previewCommand<T>(cmd: string): T {
       claude_found: true,
       installed: false,
       backup_available: true,
+      claude_version: "未检测到",
       install_path: null,
       resources_path: null,
       locale: "en-US",
@@ -454,13 +456,6 @@ function App() {
   };
 
   const meta = routeMeta[route];
-  const proxyText = status?.running ? `127.0.0.1:${status.port}` : "未运行";
-  const routeText = status?.cd_applied ? "Claude++ 路由" : "CCS 路由";
-  const zhText = zhStatus?.installed
-    ? `已安装 ${zhStatus.language_files.join(", ")}`
-    : zhStatus?.claude_found
-      ? "未安装"
-      : "未检测到 Claude Desktop";
 
   return (
     <div className="shell">
@@ -553,11 +548,7 @@ function App() {
 
           {route === "about" && (
             <AboutPage
-              theme={theme}
-              setTheme={setTheme}
-              proxyText={proxyText}
-              routeText={routeText}
-              zhText={zhText}
+              claudeDesktopVersion={zhStatus?.claude_version ?? (zhStatus?.claude_found ? "待补充" : "未检测到")}
             />
           )}
 
@@ -948,61 +939,45 @@ function enhanceIcon(id: string): Icon {
   return Plug;
 }
 
-function AboutPage({
-  theme,
-  setTheme,
-  proxyText,
-  routeText,
-  zhText,
-}: {
-  theme: Theme;
-  setTheme: (value: Theme) => void;
-  proxyText: string;
-  routeText: string;
-  zhText: string;
-}) {
+function AboutPage({ claudeDesktopVersion }: { claudeDesktopVersion: string }) {
   return (
     <div className="pageGrid aboutPage">
       <section className="panel aboutPanel">
         <div className="panelHead">
           <div>
             <h2>Claude++</h2>
-            <p>本地 Claude Desktop 3P 与 CC Switch 桥接管理工具。</p>
+            <p>本地 Claude Desktop 增强，并优化与 CC Switch 桥接的工具。</p>
+            <p>包含 CCS 转接、一键安装、一键汉化、页面增强、诊断日志等能力</p>
           </div>
           <Info size={20} />
         </div>
 
-        <div className="aboutCopy">
-          <p>Claude Desktop 指向本机 Claude++ 代理，Claude++ 从 CC Switch 读取当前服务商映射并转发请求。</p>
-          <p>当前版本包含 CCS 转接、一键汉化、页面增强、诊断日志等本地能力；暂未接入 GitHub 发布信息。</p>
-        </div>
-
-        <div className="aboutInfoGrid">
-          <KeyValue label="当前版本" value="0.1.0" />
-          <KeyValue label="Claude++ 转接" value={proxyText} />
-          <KeyValue label="当前路由" value={routeText} />
-          <KeyValue label="汉化状态" value={zhText} />
-          <KeyValue label="GitHub 仓库" value="待补充" />
-          <KeyValue label="Release 信息" value="待补充" />
-          <KeyValue label="许可证" value="待补充" />
-          <KeyValue label="维护者" value="待补充" />
-          <KeyValue label="反馈入口" value="待补充" />
-        </div>
-
-        <div className="themeRow">
-          <div>
-            <strong>界面主题</strong>
-            <span>切换右侧工作区的浅色或深色显示。</span>
-          </div>
-          <div className="segmented">
-            <button className={theme === "light" ? "active" : ""} onClick={() => setTheme("light")}>
-              <Sun size={14} />
-              浅色
-            </button>
-            <button className={theme === "dark" ? "active" : ""} onClick={() => setTheme("dark")}>
-              <Moon size={14} />
-              深色
-            </button>
+        <div className="aboutInfoTable">
+          <AboutInfoRow label="Claude++ 版本" value="1.0.0" />
+          <AboutInfoRow label="Claude Desktop 版本" value={claudeDesktopVersion} />
+          <AboutInfoRow
+            label="仓库地址"
+            value="待补充"
+            action={
+              <button disabled title="仓库地址待补充">
+                前往仓库
+              </button>
+            }
+          />
+          <div className="releaseCard">
+            <div className="releaseCardHead">
+              <strong>GitHub Release 更新</strong>
+              <span>当前版本 1.0.0</span>
+            </div>
+            <AboutInfoRow label="状态" value="待补充" />
+            <AboutInfoRow label="最新版本" value="待补充" />
+            <AboutInfoRow label="资源" value="待补充" />
+            <AboutInfoRow label="进度" value="0%" />
+            <textarea className="releaseNotes" readOnly value="Release 信息待补充。" />
+            <div className="releaseActions">
+              <button disabled>检查更新</button>
+              <button disabled>下载并运行安装包</button>
+            </div>
           </div>
         </div>
       </section>
@@ -1164,11 +1139,12 @@ function ccsRoleLabel(roleKind: string) {
   return roleKind || "未知";
 }
 
-function KeyValue({ label, value }: { label: string; value: string }) {
+function AboutInfoRow({ label, value, action }: { label: string; value: string; action?: ReactNode }) {
   return (
-    <div className="keyValue">
+    <div className="aboutInfoRow">
       <span>{label}</span>
       <strong>{value}</strong>
+      {action && <div className="aboutInfoAction">{action}</div>}
     </div>
   );
 }

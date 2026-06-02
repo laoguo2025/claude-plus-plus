@@ -939,8 +939,7 @@ select {
   font-weight: 500;
 }
 
-.toggleRow,
-.themeRow {
+.toggleRow {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
   gap: 10px;
@@ -962,14 +961,12 @@ select {
   display: block;
 }
 
-.toggleRow strong,
-.themeRow strong {
+.toggleRow strong {
   font-size: 13px;
   font-weight: 500;
 }
 
-.toggleRow small,
-.themeRow span {
+.toggleRow small {
   margin-top: 2px;
   color: var(--text-400);
   font-size: 12px;
@@ -1003,46 +1000,90 @@ select {
   padding-bottom: 9px;
 }
 
-.aboutCopy {
+.aboutInfoTable {
   display: grid;
-  gap: 8px;
-}
-
-.aboutCopy p {
-  margin: 0;
-  color: var(--text-200);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.aboutInfoGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 16px;
-}
-
-.aboutInfoGrid .keyValue {
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--bg-100);
-  padding: 10px 12px;
+  overflow: hidden;
 }
 
-.themeRow {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-.segmented {
+.aboutInfoRow {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  grid-template-columns: minmax(150px, 0.34fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 44px;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 9px 12px;
 }
 
-.segmented button.active {
-  border-color: var(--brand-strong);
-  background: var(--brand-soft);
+.aboutInfoRow span,
+.releaseCardHead span {
+  color: var(--text-400);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.aboutInfoRow strong,
+.releaseCardHead strong {
+  min-width: 0;
+  overflow: hidden;
   color: var(--text-000);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aboutInfoAction {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.releaseCard {
+  display: grid;
+  gap: 0;
+  padding: 12px;
+}
+
+.releaseCardHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+}
+
+.releaseCard .aboutInfoRow {
+  grid-template-columns: minmax(120px, 0.24fr) minmax(0, 1fr);
+  min-height: 40px;
+  padding: 9px 0;
+}
+
+.releaseCard .aboutInfoRow:last-of-type {
+  border-bottom: 0;
+}
+
+.releaseNotes {
+  width: 100%;
+  min-height: 132px;
+  margin-top: 10px;
+  resize: vertical;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--bg-000);
+  color: var(--text-000);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  padding: 10px;
+}
+
+.releaseActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .emptyPage {
@@ -1132,8 +1173,7 @@ select {
   .splitForm,
   .miniTable div,
   .providerStrip,
-  .workflowRow,
-  .themeRow {
+  .workflowRow {
     grid-template-columns: 1fr;
   }
 

@@ -24,6 +24,7 @@ mod imp {
         pub claude_found: bool,
         pub installed: bool,
         pub backup_available: bool,
+        pub claude_version: Option<String>,
         pub install_path: Option<String>,
         pub resources_path: Option<String>,
         pub locale: Option<String>,
@@ -139,6 +140,9 @@ mod imp {
                 .as_ref()
                 .map(|path| latest_backup(path).is_some())
                 .unwrap_or(false),
+            claude_version: paths
+                .as_ref()
+                .and_then(|paths| claude_version(&paths.app, &paths.resources)),
             install_path: paths.as_ref().map(|p| p.app.display().to_string()),
             resources_path: resources_path.as_ref().map(|p| p.display().to_string()),
             locale: read_current_locale(),
@@ -356,6 +360,69 @@ mod imp {
         for candidate in [app.join("app").join("resources"), app.join("resources")] {
             if candidate.is_dir() {
                 return Some(candidate);
+            }
+        }
+        None
+    }
+
+    fn claude_version(app: &Path, resources_path: &Path) -> Option<String> {
+        read_package_json_version(resources_path)
+            .or_else(|| read_package_json_version(&app.join("app").join("resources")))
+            .or_else(|| read_asar_package_version(resources_path))
+            .or_else(|| exe_product_version(app))
+    }
+
+    fn read_package_json_version(resources_path: &Path) -> Option<String> {
+        let text = fs::read_to_string(resources_path.join("app").join("package.json")).ok()?;
+        let value: Value = serde_json::from_str(&text).ok()?;
+        value
+            .get("version")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|version| !version.is_empty())
+            .map(ToOwned::to_owned)
+    }
+
+    fn read_asar_package_version(resources_path: &Path) -> Option<String> {
+        let data = fs::read(resources_path.join("app.asar")).ok()?;
+        let parsed = read_asar_header(&data, Path::new("app.asar")).ok()?;
+        let header: Value = serde_json::from_str(&parsed.header_string).ok()?;
+        let entry = get_asar_entry(&header, "package.json")?;
+        let offset = entry_value_to_usize(entry.get("offset"), "offset").ok()?;
+        let size = entry_value_to_usize(entry.get("size"), "size").ok()?;
+        let content_offset = 8 + parsed.header_size + offset;
+        let content_end = content_offset + size;
+        let content = data.get(content_offset..content_end)?;
+        let value: Value = serde_json::from_slice(content).ok()?;
+        value
+            .get("version")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|version| !version.is_empty())
+            .map(ToOwned::to_owned)
+    }
+
+    fn exe_product_version(app: &Path) -> Option<String> {
+        let exe = [app.join("Claude.exe"), app.join("claude.exe")]
+            .into_iter()
+            .find(|path| path.is_file())?;
+        let exe_path = exe.display().to_string().replace('\'', "''");
+        let script = format!(
+            "(Get-Item -LiteralPath '{exe_path}' -ErrorAction SilentlyContinue).VersionInfo.ProductVersion"
+        );
+        for shell in ["pwsh.exe", "powershell.exe"] {
+            let Ok(output) = hidden_command(shell)
+                .args(["-NoProfile", "-Command", &script])
+                .output()
+            else {
+                continue;
+            };
+            if !output.status.success() {
+                continue;
+            }
+            let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !version.is_empty() {
+                return Some(version);
             }
         }
         None
@@ -876,6 +943,14 @@ mod imp {
             }
         }
         Ok(node)
+    }
+
+    fn get_asar_entry<'a>(header: &'a Value, file_path: &str) -> Option<&'a Value> {
+        let mut node = header;
+        for part in file_path.split('/') {
+            node = node.get("files")?.get(part)?;
+        }
+        Some(node)
     }
 
     fn entry_value_to_usize(value: Option<&Value>, name: &str) -> Result<usize, String> {
@@ -1403,6 +1478,7 @@ mod imp {
         pub claude_found: bool,
         pub installed: bool,
         pub backup_available: bool,
+        pub claude_version: Option<String>,
         pub install_path: Option<String>,
         pub resources_path: Option<String>,
         pub locale: Option<String>,
@@ -1415,6 +1491,7 @@ mod imp {
             claude_found: false,
             installed: false,
             backup_available: false,
+            claude_version: None,
             install_path: None,
             resources_path: None,
             locale: None,
