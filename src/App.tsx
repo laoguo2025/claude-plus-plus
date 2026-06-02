@@ -693,11 +693,11 @@ function LocalizationPage({
 
   return (
     <div className="localizationFlow">
+      <div className="actionNotice localizationActionNotice">
+        汉化写入后，需点击上方重启Claude Desktop按钮，让新语言资源立即生效。
+      </div>
       <section className="panel localizationChecklist">
         <div className="workflowRows">
-          <div className="actionNotice">
-            汉化写入后，需点击上方重启Claude Desktop按钮，让新语言资源立即生效。
-          </div>
           <WorkflowRow
             ok={!!zhStatus?.installed}
             title="检测汉化程度"
