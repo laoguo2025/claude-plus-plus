@@ -336,7 +336,7 @@ D();
             },
             EnhanceFeature {
                 id: "conversation_title_i18n",
-                category: "对话栏增强",
+                category: "对话增强",
                 label: "对话列表中文化",
                 description: "把 Claude Desktop 对话列表里的英文标题自动翻译为中文显示。",
                 enabled: is_enabled(enabled, EnhanceFeatureId::ConversationTitleI18n),
@@ -345,8 +345,8 @@ D();
             },
             EnhanceFeature {
                 id: "markdown",
-                category: "对话栏增强",
-                label: "导出对话为 Markdown",
+                category: "对话增强",
+                label: "对话导出Markdown",
                 description: "在对话页面增加 Markdown 导出入口，把当前对话保存为 Markdown 文件。",
                 enabled: is_enabled(enabled, EnhanceFeatureId::Markdown),
                 available: true,
@@ -354,8 +354,8 @@ D();
             },
             EnhanceFeature {
                 id: "timeline",
-                category: "状态增强",
-                label: "显示对话时间线",
+                category: "对话增强",
+                label: "对话时间线",
                 description: "在对话页面显示问题时间线，方便快速定位上下文进度。",
                 enabled: is_enabled(enabled, EnhanceFeatureId::Timeline),
                 available: true,
@@ -592,7 +592,7 @@ D();
                 .expect("markdown feature");
 
             assert!(title_i18n < markdown);
-            assert_eq!(list[title_i18n].category, "对话栏增强");
+            assert_eq!(list[title_i18n].category, "对话增强");
             assert_eq!(list[title_i18n].label, "对话列表中文化");
             assert!(list[title_i18n].description.contains("自动翻译为中文"));
             assert!(list[title_i18n].available);
