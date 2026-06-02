@@ -177,7 +177,7 @@ function previewCommand<T>(cmd: string): T {
           description: "在对话页面增加 Markdown 导出入口，把当前对话保存为 Markdown 文件。",
           enabled: false,
           available: true,
-          note: "待接入导出逻辑",
+          note: "导出已加载内容",
         },
         {
           id: "timeline",
@@ -186,7 +186,7 @@ function previewCommand<T>(cmd: string): T {
           description: "在对话页面显示问题时间线，方便快速定位上下文进度。",
           enabled: false,
           available: true,
-          note: "待接入时间线逻辑",
+          note: "已加载问题定位",
         },
       ],
     } as T;
@@ -841,7 +841,7 @@ function previewEnhanceFeatures(): ClaudeEnhanceFeature[] {
       description: "在对话页面增加 Markdown 导出入口，把当前对话保存为 Markdown 文件。",
       enabled: false,
       available: true,
-      note: "待接入导出逻辑",
+      note: "导出已加载内容",
     },
     {
       id: "timeline",
@@ -850,7 +850,7 @@ function previewEnhanceFeatures(): ClaudeEnhanceFeature[] {
       description: "在对话页面显示问题时间线，方便快速定位上下文进度。",
       enabled: false,
       available: true,
-      note: "待接入时间线逻辑",
+      note: "已加载问题定位",
     },
   ];
 }
