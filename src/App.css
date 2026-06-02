@@ -788,10 +788,10 @@ select {
   display: inline-flex;
   align-items: center;
   margin-left: 8px;
-  border: 1px solid var(--border-soft);
+  border: 1px solid var(--brand-border);
   border-radius: 999px;
-  background: var(--bg-200);
-  color: var(--text-200);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
