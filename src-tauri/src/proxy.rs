@@ -14,6 +14,7 @@ use axum::{
     routing::{any, get, post},
     Router,
 };
+use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
@@ -68,10 +69,101 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/claude-plus/skills", get(handle_skills))
         .route("/claude-plus/skills/:id/trash", post(handle_trash_skill))
+        .route(
+            "/claude-plus/conversation-title-i18n",
+            post(handle_conversation_title_i18n),
+        )
         .route("/claude-desktop/v1/models", get(handle_models))
         .route("/claude-desktop/v1/messages", any(handle_proxy))
         .route("/claude-desktop/*rest", any(handle_proxy))
         .with_state(state)
+}
+
+#[derive(Deserialize)]
+struct TitleI18nRequest {
+    title: String,
+}
+
+async fn handle_conversation_title_i18n(
+    State(state): State<AppState>,
+    body: axum::body::Bytes,
+) -> Response {
+    let title = match parse_title_i18n_request(&body) {
+        Some(title) => title,
+        None => {
+            let mut response = (
+                StatusCode::BAD_REQUEST,
+                axum::Json(serde_json::json!({ "ok": false, "error": "title is required" })),
+            )
+                .into_response();
+            apply_json_headers(response.headers_mut());
+            return response;
+        }
+    };
+
+    let Some(model) = select_title_translation_model(&state.mappings()) else {
+        let mut response = (
+            StatusCode::BAD_GATEWAY,
+            axum::Json(serde_json::json!({ "ok": false, "error": "no model mapping available" })),
+        )
+            .into_response();
+        apply_json_headers(response.headers_mut());
+        return response;
+    };
+
+    let Some(api_key) = crate::server::read_ccswitch_api_key() else {
+        let mut response = (
+            StatusCode::BAD_GATEWAY,
+            axum::Json(serde_json::json!({ "ok": false, "error": "api key not found" })),
+        )
+            .into_response();
+        apply_json_headers(response.headers_mut());
+        return response;
+    };
+
+    let upstream_url = format!("{}/v1/messages", state.upstream().trim_end_matches('/'));
+    let request_body = build_title_translation_request(&title, &model);
+    let response = match state
+        .client
+        .post(upstream_url)
+        .bearer_auth(api_key)
+        .json(&request_body)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(error) => {
+            let mut response = (
+                StatusCode::BAD_GATEWAY,
+                axum::Json(serde_json::json!({ "ok": false, "error": error.to_string() })),
+            )
+                .into_response();
+            apply_json_headers(response.headers_mut());
+            return response;
+        }
+    };
+
+    let status = response.status();
+    let payload = response
+        .json::<serde_json::Value>()
+        .await
+        .unwrap_or_default();
+    let translated = extract_title_translation(&payload);
+    let mut response = if status.is_success() {
+        (
+            StatusCode::OK,
+            axum::Json(serde_json::json!({ "ok": translated.is_some(), "title": translated.unwrap_or_default() })),
+        )
+            .into_response()
+    } else {
+        (
+            StatusCode::BAD_GATEWAY,
+            axum::Json(serde_json::json!({ "ok": false, "error": "upstream translation failed" })),
+        )
+            .into_response()
+    };
+    apply_json_headers(response.headers_mut());
+    response
 }
 
 async fn handle_skills() -> Response {
@@ -182,6 +274,67 @@ fn model_matches_role_kind(model: &str, role_kind: &str) -> bool {
     let model = model.to_ascii_lowercase();
     let role_kind = role_kind.to_ascii_lowercase();
     !role_kind.is_empty() && model.contains(&role_kind)
+}
+
+fn parse_title_i18n_request(body: &[u8]) -> Option<String> {
+    let request = serde_json::from_slice::<TitleI18nRequest>(body).ok()?;
+    let title = request
+        .title
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    (!title.is_empty() && title.len() <= 120).then_some(title)
+}
+
+fn select_title_translation_model(mappings: &[Mapping]) -> Option<String> {
+    mappings
+        .iter()
+        .find(|mapping| mapping.role_kind.eq_ignore_ascii_case("sonnet"))
+        .or_else(|| mappings.first())
+        .map(|mapping| mapping.role.clone())
+}
+
+fn build_title_translation_request(title: &str, model: &str) -> serde_json::Value {
+    serde_json::json!({
+        "model": model,
+        "max_tokens": 80,
+        "messages": [
+            {
+                "role": "user",
+                "content": format!(
+                    "请把下面这个英文对话标题翻译成简体中文，保留专有名词，15 个汉字以内。只输出标题，不要解释，不要 Markdown。\n\n{}",
+                    title
+                )
+            }
+        ]
+    })
+}
+
+fn extract_title_translation(payload: &serde_json::Value) -> Option<String> {
+    let text = payload
+        .get("content")
+        .and_then(|content| content.as_array())
+        .and_then(|items| {
+            items.iter().find_map(|item| {
+                item.get("text")
+                    .and_then(|text| text.as_str())
+                    .or_else(|| item.get("content").and_then(|text| text.as_str()))
+            })
+        })
+        .or_else(|| payload.get("title").and_then(|title| title.as_str()))?;
+    let cleaned = text
+        .trim()
+        .trim_matches('"')
+        .trim_matches('“')
+        .trim_matches('”')
+        .trim()
+        .to_string();
+    (!cleaned.is_empty()
+        && cleaned.chars().count() <= 40
+        && cleaned
+            .chars()
+            .any(|ch| ('\u{4e00}'..='\u{9fff}').contains(&ch)))
+    .then_some(cleaned)
 }
 
 async fn handle_proxy(
@@ -322,5 +475,18 @@ mod tests {
             display_to_role_from_mappings(&mappings, "claude-haiku-4-5-20251001"),
             Some("claude-haiku-4-5".to_string())
         );
+    }
+
+    #[test]
+    fn title_translation_request_forces_short_simplified_chinese_title() {
+        let body =
+            build_title_translation_request("Prepare quarterly roadmap", "claude-sonnet-4-6");
+
+        assert_eq!(body["model"], "claude-sonnet-4-6");
+        let text = body["messages"][0]["content"].as_str().unwrap();
+        assert!(text.contains("简体中文"));
+        assert!(text.contains("15 个汉字以内"));
+        assert!(text.contains("Prepare quarterly roadmap"));
+        assert!(text.contains("不要 Markdown"));
     }
 }

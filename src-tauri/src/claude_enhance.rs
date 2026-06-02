@@ -16,6 +16,7 @@ mod imp {
     const NAV_API_MARKER: &str = "__claudePlusEnhanceThirdPartyApiV1";
     const NAV_PLUGINS_MARKER: &str = "__claudePlusEnhancePluginsV1";
     const NAV_MCP_MARKER: &str = "__claudePlusEnhanceMcpV1";
+    const CONVERSATION_TITLE_I18N_MARKER: &str = "__claudePlusEnhanceConversationTitleI18nV1";
     const SKILLS_BRIDGE_MARKER: &str = "__claudePlusSkillsBridgeV1";
     const SKILLS_MAIN_BRIDGE_MARKER: &str = "__claudePlusSkillsMainBridgeV1";
     const SKILLS_MAIN_BRIDGE_TARGET: &str = ".vite/build/index.js";
@@ -90,7 +91,14 @@ function j(e){[e,...e.querySelectorAll("a,button,[role=link],[role=button]")].fo
 function u(e,n){const t=e.cloneNode(!0);return a(t),t.dataset.claudePlusEnhance="1",t.dataset.target=n.id,t.dataset.version=v,t.setAttribute("aria-label",n.label),t.setAttribute("title",n.label),n.open?(j(t),t.setAttribute("role","button"),t.setAttribute("tabindex","0")):t.tagName==="A"?t.setAttribute("href",n.path):t.removeAttribute("href"),t.tagName==="BUTTON"&&t.setAttribute("type","button"),g(t,n.label),r(t,n),t.addEventListener("click",e=>{e.preventDefault(),e.stopImmediatePropagation(),e.stopPropagation(),s(n)},!0),t.addEventListener("keydown",e=>{n.open&&(e.key==="Enter"||e.key===" ")&&(e.preventDefault(),e.stopImmediatePropagation(),s(n))},!0),t}
 function h(e){const n=i(e).find(c);if(!n)return!1;const t=n.parentElement||n.parentNode;if(!t||!t.children)return!1;const r=p(),a=Array.from(t.children).filter(e=>d(e)||e.classList?.contains("claude-plus-enhance-nav")),l=r.map(e=>e.id).join("|"),g=a.map(e=>e.dataset.target||"").join("|");if(a.length&&g===l&&a.every(e=>e.dataset.version===v))return!1;b=!0;a.forEach(e=>e.remove());r.slice().reverse().forEach(e=>{t.insertBefore(u(n,e),n.nextSibling)});return b=!1,!0}
 function x(){if(b)return;const e=document.getElementById("claude-plus-enhance-style");e&&e.remove();let n=!1;return document.querySelectorAll("nav,aside,[role=navigation]").forEach(e=>{n=h(e)||n}),n}
-function y(){b||q||(q=setTimeout(()=>{q=0,x()},250))}
+function E(e){return String(e==null?"":e).replace(/\s+/g," ").trim()}
+const H=new Map;
+function I(e){return/[A-Za-z]/.test(e)&&!/[\u4e00-\u9fff]/.test(e)&&e.length>=4&&e.length<=90&&!/^(Claude|Claude\\+\\+|New chat|Recents|Scheduled tasks|Projects|Chats|Search chats|Search projects)$/i.test(e)}
+function J(e){if(!e||e.closest("svg,[aria-hidden='true'],button[aria-label*='more' i],button[aria-label*='更多']"))return null;const n=[];let t;const r=document.createTreeWalker(e,NodeFilter.SHOW_TEXT,{acceptNode:e=>{const n=e.parentElement;if(!n||n.closest("svg,[aria-hidden='true']"))return NodeFilter.FILTER_REJECT;const t=E(e.nodeValue);return I(t)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT}});for(;t=r.nextNode();)n.push(t);return n.sort((e,n)=>E(n.nodeValue).length-E(e.nodeValue).length)[0]||null}
+function K(e){const n=e.getAttribute("href")||e.getAttribute("data-href")||e.getAttribute("data-to")||"",t=e.getAttribute("aria-label")||"",r=E(e.textContent);return/(^|\\/)chat(s)?(\\/|\\?|#|$)|conversation/i.test(n)||/open .*chat|open .*conversation|select .*chat|rename chat|打开会话|选择.*会话/i.test(t)||(/^[A-Za-z0-9][\\s\\S]{3,90}$/.test(r)&&e.closest("aside,nav,[role=navigation]")&&t.includes(r))}
+async function L(e,n){const t=E(n.nodeValue);if(!I(t)||e.getAttribute("data-claude-plus-original-title")===t)return;if(H.has(t)){const r=H.get(t);r&&(n.nodeValue=r,e.setAttribute("data-claude-plus-original-title",t),e.setAttribute("data-claude-plus-title-i18n",r));return}e.setAttribute("data-claude-plus-original-title",t);try{const r=await fetch("http://127.0.0.1:15722/claude-plus/conversation-title-i18n",{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({title:t})}),a=await r.json();const s=E(a&&a.title);if(r.ok&&s&&s!==t&&/[\u4e00-\u9fff]/.test(s)){H.set(t,s);n.nodeValue=s;e.setAttribute("data-claude-plus-title-i18n",s)}else H.set(t,"")}catch(r){H.set(t,"")}}
+function M(){if(!window.__claudePlusEnhanceConversationTitleI18nV1)return;document.querySelectorAll("aside a,nav a,aside button,nav button,aside [role=link],nav [role=link],aside [role=button],nav [role=button]").forEach(e=>{if(!K(e))return;const n=J(e);n&&L(e,n)})}
+function y(){b||q||(q=setTimeout(()=>{q=0,x();M()},250))}
 function z(e){return String(e==null?"":e).replace(/[&<>"']/g,e=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[e]))}
 function D(){try{if(localStorage.getItem("claudePlusCustom3pPane")!=="connectors")return}catch(e){return}for(let e=0;e<14;e++)setTimeout(()=>{const e=Array.from(document.querySelectorAll("button,a,[role=button],[role=tab],[role=menuitem],nav *,aside *")).find(e=>/连接器与扩展|Connectors|MCP servers/i.test(o(e)));if(e){e.click();try{localStorage.removeItem("claudePlusCustom3pPane")}catch(t){}}},220+e*250)}
 function A(){let e=document.getElementById("claude-plus-skills-modal");if(e)return e.remove();e=document.createElement("div");e.id="claude-plus-skills-modal";e.innerHTML='<div class="cps-backdrop"></div><section class="cps-panel" role="dialog" aria-modal="true" aria-label="技能"><header><strong>技能</strong><button type="button" data-cps-close>关闭</button></header><main><p class="cps-loading">正在读取 skills...</p></main></section>';document.body.appendChild(e);const n=document.createElement("style");n.id="claude-plus-skills-style";n.textContent="#claude-plus-skills-modal{position:fixed;inset:0;z-index:2147483647;color:#f4f1ea;font:13px/1.45 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#claude-plus-skills-modal .cps-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.52)}#claude-plus-skills-modal .cps-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(886px,calc(100vw - 48px));height:min(713px,calc(100vh - 48px));display:grid;grid-template-rows:auto 1fr;background:#171717;border:1px solid #3d3a35;border-radius:10px;box-shadow:0 22px 80px rgba(0,0,0,.48);overflow:hidden}#claude-plus-skills-modal header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px 12px;border-bottom:1px solid #2f2d2a;background:#1f1e1b}#claude-plus-skills-modal header strong{font-size:18px;font-weight:650}#claude-plus-skills-modal button{border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:7px;min-height:30px;padding:0 10px;cursor:pointer}#claude-plus-skills-modal button:hover{border-color:#d97745}#claude-plus-skills-modal button.cps-danger{border-color:#7f2d22;background:#4a1f1a;color:#ffd8cf}#claude-plus-skills-modal button:disabled{opacity:.55;cursor:default}#claude-plus-skills-modal main{overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:18px}#claude-plus-skills-modal .cps-section{display:flex;flex-direction:column;gap:10px}#claude-plus-skills-modal .cps-section-title{font-size:14px;font-weight:650;color:#f4f1ea}#claude-plus-skills-modal .cps-container{display:grid;gap:8px;border:1px solid #34312d;border-radius:8px;background:#1f1f1c;padding:10px}#claude-plus-skills-modal .cps-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:10px 12px;border:1px solid #34312d;border-radius:8px;background:#262521}#claude-plus-skills-modal .cps-main{display:flex;min-width:0;flex-direction:column;gap:4px}#claude-plus-skills-modal .cps-name{font-size:14px;font-weight:650;color:#f4f1ea}#claude-plus-skills-modal .cps-brief{color:#e7e0d4}#claude-plus-skills-modal .cps-file,#claude-plus-skills-modal .cps-empty,#claude-plus-skills-modal .cps-loading,#claude-plus-skills-modal .cps-error{color:#a9a39a}#claude-plus-skills-modal .cps-file{font-size:12px;word-break:break-all}#claude-plus-skills-modal .cps-actions{display:flex;align-items:flex-start;gap:8px}#claude-plus-skills-modal .cps-detail{grid-column:1/-1;border-top:1px solid #34312d;margin-top:4px;padding-top:10px;color:#d8d0c4;display:grid;gap:8px}#claude-plus-skills-modal .cps-detail[hidden]{display:none}#claude-plus-skills-modal .cps-detail strong{display:block;color:#f4f1ea;font-size:12px;margin-bottom:2px}.cps-toast{position:absolute;right:16px;bottom:14px;background:#2b2925;border:1px solid #5a544b;border-radius:8px;padding:8px 10px;color:#f4f1ea}";document.head.appendChild(n);function t(){e.remove();n.remove()}e.querySelector("[data-cps-close]").addEventListener("click",t);e.querySelector(".cps-backdrop").addEventListener("click",t);return e}
@@ -98,7 +106,7 @@ function C(e,n){const t=e.filter(e=>e.scope===n),r=n==="global"?"全局 skills":
 async function B(){const e=A(),n=e.querySelector("main"),t=window.claudePlusSkills;if(!t||typeof t.list!=="function"||typeof t.trash!=="function"){n.innerHTML='<p class="cps-error">本地 skills 桥未安装或尚未生效。</p><p class="cps-path">请在 Claude++ 中重新安装“技能”页面增强，并重启 Claude Desktop。</p>';return}try{const r=await t.list(),a=r.skills||[];n.innerHTML=C(a,"global")+C(a,"project");n.querySelectorAll("[data-cps-detail]").forEach(e=>e.addEventListener("click",()=>{const n=e.closest(".cps-card")?.querySelector(".cps-detail");if(!n)return;const t=n.hasAttribute("hidden");t?n.removeAttribute("hidden"):n.setAttribute("hidden","");e.textContent=t?"收起":"详情"}));n.querySelectorAll("[data-cps-trash]").forEach(r=>r.addEventListener("click",async()=>{const a=r.closest(".cps-card"),s=s=>{let n=e.querySelector(".cps-toast");n||(n=document.createElement("div"),n.className="cps-toast",e.appendChild(n));n.textContent=s;setTimeout(()=>n&&n.remove(),2600)},l=a?.dataset.id,o=a?.querySelector(".cps-name")?.textContent||"该 skill";if(!l)return;if(!confirm("确认删除 skill “"+o+"”？\n\n该操作会把对应 skill 目录移动到回收站。"))return;r.disabled=!0;try{await t.trash(l);a.remove();s("已移动到回收站")}catch(e){r.disabled=!1;s(e.message||String(e))}}))}catch(r){n.innerHTML='<p class="cps-error">读取本地 skills 失败。</p><p class="cps-path">'+z(r.message||String(r))+"</p>"}}
 async function s(e){if(e.open==="custom3p"||e.open==="custom3p_connectors"){const n=window["claude.settings"]?.Custom3pSetup?.openSetupWindow||window.claude?.settings?.Custom3pSetup?.openSetupWindow;if(typeof n==="function"){try{e.open==="custom3p_connectors"&&localStorage.setItem("claudePlusCustom3pPane","connectors");await n();return}catch(t){}}return}if(e.open==="skills"){B();return}const n=new URL(e.path,location.origin),t=n.pathname+n.search+n.hash;try{history.pushState(null,"",t);window.dispatchEvent(new PopStateEvent("popstate",{state:history.state}));window.dispatchEvent(new Event("pushstate"));window.dispatchEvent(new Event("locationchange"))}catch(r){location.assign(n.toString())}}
 new MutationObserver(y).observe(document.documentElement,{childList:!0,subtree:!0});
-document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{once:!0}):x();
+document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{x();M()},{once:!0}):(x(),M());
 D();
 })();"##;
 
@@ -107,6 +115,7 @@ D();
         ThirdPartyApi,
         Plugins,
         Mcp,
+        ConversationTitleI18n,
         Markdown,
         Timeline,
     }
@@ -117,6 +126,7 @@ D();
                 "third_party_api" => Some(Self::ThirdPartyApi),
                 "plugins" => Some(Self::Plugins),
                 "mcp" => Some(Self::Mcp),
+                "conversation_title_i18n" => Some(Self::ConversationTitleI18n),
                 "markdown" => Some(Self::Markdown),
                 "timeline" => Some(Self::Timeline),
                 _ => None,
@@ -128,6 +138,7 @@ D();
                 Self::ThirdPartyApi => NAV_API_MARKER,
                 Self::Plugins => NAV_PLUGINS_MARKER,
                 Self::Mcp => NAV_MCP_MARKER,
+                Self::ConversationTitleI18n => CONVERSATION_TITLE_I18N_MARKER,
                 Self::Markdown => "__claudePlusEnhanceMarkdownExportV1",
                 Self::Timeline => "__claudePlusEnhanceTimelineV1",
             }
@@ -324,6 +335,15 @@ D();
                 note: "侧边栏软入口",
             },
             EnhanceFeature {
+                id: "conversation_title_i18n",
+                category: "对话栏增强",
+                label: "对话列表中文化",
+                description: "把 Claude Desktop 对话列表里的英文标题自动翻译为中文显示。",
+                enabled: is_enabled(enabled, EnhanceFeatureId::ConversationTitleI18n),
+                available: true,
+                note: "本地代理翻译",
+            },
+            EnhanceFeature {
                 id: "markdown",
                 category: "对话栏增强",
                 label: "导出对话为 Markdown",
@@ -368,6 +388,7 @@ D();
             EnhanceFeatureId::ThirdPartyApi,
             EnhanceFeatureId::Plugins,
             EnhanceFeatureId::Mcp,
+            EnhanceFeatureId::ConversationTitleI18n,
             EnhanceFeatureId::Markdown,
             EnhanceFeatureId::Timeline,
         ]
@@ -519,8 +540,9 @@ D();
     mod tests {
         use super::{
             feature_payload, feature_states_from_text, remove_skills_bridge, EnhanceFeatureId,
-            INJECT_SCRIPT, NAV_API_MARKER, NAV_MCP_MARKER, NAV_PLUGINS_MARKER, SKILLS_LIST_CHANNEL,
-            SKILLS_MAIN_BRIDGE_TARGET, SKILLS_PRELOAD_BRIDGE_TARGET, SKILLS_TRASH_CHANNEL,
+            CONVERSATION_TITLE_I18N_MARKER, INJECT_SCRIPT, NAV_API_MARKER, NAV_MCP_MARKER,
+            NAV_PLUGINS_MARKER, SKILLS_LIST_CHANNEL, SKILLS_MAIN_BRIDGE_TARGET,
+            SKILLS_PRELOAD_BRIDGE_TARGET, SKILLS_TRASH_CHANNEL,
         };
 
         fn state(states: &[(EnhanceFeatureId, bool)], feature: EnhanceFeatureId) -> bool {
@@ -552,7 +574,36 @@ D();
             assert!(state(&states, EnhanceFeatureId::ThirdPartyApi));
             assert!(!state(&states, EnhanceFeatureId::Plugins));
             assert!(state(&states, EnhanceFeatureId::Mcp));
+            assert!(!state(&states, EnhanceFeatureId::ConversationTitleI18n));
             assert!(!text.contains(&feature_payload(NAV_PLUGINS_MARKER)));
+            assert!(!text.contains(&feature_payload(CONVERSATION_TITLE_I18N_MARKER)));
+        }
+
+        #[test]
+        fn conversation_title_i18n_feature_is_inserted_before_markdown_export() {
+            let list = super::feature_list(&[]);
+            let title_i18n = list
+                .iter()
+                .position(|feature| feature.id == "conversation_title_i18n")
+                .expect("conversation title i18n feature");
+            let markdown = list
+                .iter()
+                .position(|feature| feature.id == "markdown")
+                .expect("markdown feature");
+
+            assert!(title_i18n < markdown);
+            assert_eq!(list[title_i18n].category, "对话栏增强");
+            assert_eq!(list[title_i18n].label, "对话列表中文化");
+            assert!(list[title_i18n].description.contains("自动翻译为中文"));
+            assert!(list[title_i18n].available);
+        }
+
+        #[test]
+        fn conversation_title_i18n_inject_script_calls_local_translate_endpoint() {
+            assert!(INJECT_SCRIPT.contains("__claudePlusEnhanceConversationTitleI18nV1"));
+            assert!(INJECT_SCRIPT.contains("/claude-plus/conversation-title-i18n"));
+            assert!(INJECT_SCRIPT.contains("data-claude-plus-original-title"));
+            assert!(INJECT_SCRIPT.contains("data-claude-plus-title-i18n"));
         }
 
         #[test]

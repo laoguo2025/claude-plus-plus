@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   CircleAlert,
   Code2,
+  ListRestart,
   FileText,
   Hammer,
   Info,
@@ -159,6 +160,15 @@ function previewCommand<T>(cmd: string): T {
           enabled: false,
           available: true,
           note: "侧边栏软入口",
+        },
+        {
+          id: "conversation_title_i18n",
+          category: "对话栏增强",
+          label: "对话列表中文化",
+          description: "把 Claude Desktop 对话列表里的英文标题自动翻译为中文显示。",
+          enabled: false,
+          available: true,
+          note: "本地代理翻译",
         },
         {
           id: "markdown",
@@ -816,6 +826,15 @@ function previewEnhanceFeatures(): ClaudeEnhanceFeature[] {
       note: "侧边栏软入口",
     },
     {
+      id: "conversation_title_i18n",
+      category: "对话栏增强",
+      label: "对话列表中文化",
+      description: "把 Claude Desktop 对话列表里的英文标题自动翻译为中文显示。",
+      enabled: false,
+      available: true,
+      note: "本地代理翻译",
+    },
+    {
       id: "markdown",
       category: "对话栏增强",
       label: "导出对话为 Markdown",
@@ -840,6 +859,7 @@ function enhanceIcon(id: string): Icon {
   if (id === "third_party_api") return Code2;
   if (id === "plugins") return PackageCheck;
   if (id === "mcp") return Network;
+  if (id === "conversation_title_i18n") return ListRestart;
   if (id === "markdown") return FileText;
   if (id === "timeline") return Activity;
   return Plug;
