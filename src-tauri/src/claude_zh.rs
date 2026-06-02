@@ -343,10 +343,7 @@ mod imp {
         backup: &mut patch::BackupContext,
     ) -> Result<(), String> {
         let assets_dir = resources_path.join("ion-dist").join("assets").join("v1");
-        let regex = Regex::new(
-            r#"\["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID"(?:(?:,"zh-CN")|(?:,"zh-TW")|(?:,"zh-HK"))*\]"#,
-        )
-        .map_err(|e| format!("创建语言白名单匹配器失败: {e}"))?;
+        let regex = language_list_regex()?;
         let replacement = format!(r#"{BASE_LANGUAGE_LIST},"{language}"]"#);
         let mut touched = false;
 
@@ -370,6 +367,19 @@ mod imp {
         } else {
             Err("未能注册中文语言，Claude 前端 bundle 格式可能已经变化".to_string())
         }
+    }
+
+    fn language_list_regex() -> Result<Regex, String> {
+        Regex::new(
+            r#"\["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID"(?:(?:,"zh-CN")|(?:,"zh-TW")|(?:,"zh-HK"))*\]"#,
+        )
+        .map_err(|e| format!("创建语言白名单匹配器失败: {e}"))
+    }
+
+    fn unregister_languages_in_bundle(text: &str) -> Result<String, String> {
+        Ok(language_list_regex()?
+            .replace(text, format!("{BASE_LANGUAGE_LIST}]").as_str())
+            .to_string())
     }
 
     fn patch_language_display_names(
@@ -788,10 +798,7 @@ mod imp {
         for path in patch::js_files(&assets_dir, true)? {
             let text =
                 fs::read_to_string(&path).map_err(|e| format!("读取前端入口文件失败: {e}"))?;
-            let mut updated = text.clone();
-            for lang in LANGS {
-                updated = updated.replace(&format!(r#","{lang}""#), "");
-            }
+            let updated = unregister_languages_in_bundle(&text)?;
             if updated != text {
                 write_utf8(&path, &updated)?;
             }
@@ -893,7 +900,10 @@ mod imp {
 
     #[cfg(test)]
     mod tests {
-        use super::{repair_hardcoded_identifier_pollution, replace_hardcoded_frontend_string};
+        use super::{
+            repair_hardcoded_identifier_pollution, replace_hardcoded_frontend_string,
+            unregister_languages_in_bundle,
+        };
 
         #[test]
         fn hardcoded_frontend_replacements_skip_js_identifiers() {
@@ -940,6 +950,15 @@ mod imp {
             assert!(text.contains(r#"label:"扩展""#));
             assert!(!text.contains("shader来源"));
             assert!(!text.contains("supported扩展"));
+        }
+
+        #[test]
+        fn unregister_languages_only_updates_language_list() {
+            let text = r#"const locales=["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID","zh-CN","zh-TW"];const untouched=["model","zh-CN"];"#;
+            let text = unregister_languages_in_bundle(text).expect("unregister languages");
+
+            assert!(text.contains(r#"const locales=["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID"]"#));
+            assert!(text.contains(r#"const untouched=["model","zh-CN"]"#));
         }
 
         #[test]

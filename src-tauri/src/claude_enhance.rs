@@ -2,7 +2,8 @@
 mod imp {
     use crate::claude_desktop;
     use crate::claude_patch_common as patch;
-    use serde::Serialize;
+    use crate::constants::DEFAULT_PROXY_PORT;
+    use serde::{Deserialize, Serialize};
     use serde_json::Value;
     use std::{fs, path::Path};
 
@@ -27,6 +28,11 @@ mod imp {
     const TOKEN_USAGE_MAIN_BRIDGE_MARKER: &str = "__claudePlusTokenUsageMainBridgeV1";
     const TOKEN_USAGE_CHANNEL: &str = "claude-plus:token-usage";
     const BACKUP_DIR_NAME: &str = ".claude-plus-enhance-backups";
+    const ENHANCE_FEATURES_JSON: &str = include_str!("../../src/shared/enhance-features.json");
+
+    fn local_gateway_url(path: &str) -> String {
+        format!("http://127.0.0.1:{DEFAULT_PROXY_PORT}{path}")
+    }
     fn skills_bridge_script() -> String {
         r##";(()=>{const MARK="__claudePlusSkillsBridgeV1";
 if(globalThis[MARK])return;
@@ -89,13 +95,17 @@ if(globalThis[MARK])return;
 Object.defineProperty(globalThis,MARK,{value:!0});
 try{
 const{ipcMain}=require("electron");
-async function translate(e){const t=String(e||"").replace(/\s+/g," ").trim();if(!t)return"";const r=await fetch("http://127.0.0.1:15722/claude-plus/conversation-title-i18n",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:t})});const n=await r.json().catch(() => ({}));return r.ok&&n&&typeof n.title==="string"?n.title:""}
+async function translate(e){const t=String(e||"").replace(/\s+/g," ").trim();if(!t)return"";const r=await fetch("__CPP_TITLE_I18N_URL__",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:t})});const n=await r.json().catch(() => ({}));return r.ok&&n&&typeof n.title==="string"?n.title:""}
 ipcMain.removeHandler("__CPP_TITLE_I18N__");
 ipcMain.handle("__CPP_TITLE_I18N__",(e,t)=>translate(t));
 }catch(e){console.error("[Claude++] title i18n main bridge failed",e)}
 })();"##
             .replace("__CPP_TITLE_I18N_MAIN_MARK__", TITLE_I18N_MAIN_BRIDGE_MARKER)
             .replace("__CPP_TITLE_I18N__", TITLE_I18N_CHANNEL)
+            .replace(
+                "__CPP_TITLE_I18N_URL__",
+                &local_gateway_url("/claude-plus/conversation-title-i18n"),
+            )
     }
 
     fn token_usage_preload_bridge_script() -> String {
@@ -117,15 +127,26 @@ if(globalThis[MARK])return;
 Object.defineProperty(globalThis,MARK,{value:!0});
 try{
 const{ipcMain}=require("electron");
-async function getUsage(){const r=await fetch("http://127.0.0.1:15722/claude-plus/token-usage",{cache:"no-store"});return await r.json().catch(()=>({ok:false}))}
+async function getUsage(){const r=await fetch("__CPP_TOKEN_USAGE_URL__",{cache:"no-store"});return await r.json().catch(()=>({ok:false}))}
 ipcMain.removeHandler("__CPP_TOKEN_USAGE__");
 ipcMain.handle("__CPP_TOKEN_USAGE__",()=>getUsage());
 }catch(e){console.error("[Claude++] token usage main bridge failed",e)}
 })();"##
             .replace("__CPP_TOKEN_USAGE_MAIN_MARK__", TOKEN_USAGE_MAIN_BRIDGE_MARKER)
             .replace("__CPP_TOKEN_USAGE__", TOKEN_USAGE_CHANNEL)
+            .replace(
+                "__CPP_TOKEN_USAGE_URL__",
+                &local_gateway_url("/claude-plus/token-usage"),
+            )
     }
-    const INJECT_SCRIPT: &str = r####";(()=>{const m="__claudePlusEnhanceNavV2";
+    fn inject_script() -> String {
+        INJECT_SCRIPT_TEMPLATE.replace(
+            "__CPP_TOKEN_USAGE_URL__",
+            &local_gateway_url("/claude-plus/token-usage"),
+        )
+    }
+
+    const INJECT_SCRIPT_TEMPLATE: &str = r####";(()=>{const m="__claudePlusEnhanceNavV2";
 if(window[m])return;
 Object.defineProperty(window,m,{value:!0});
 const v="3.8",n=[
@@ -188,7 +209,7 @@ function cpuMap(e){if(!e)return null;return{ id:cpuN(e.id), input:cpuN(e.inputTo
 function cpuHtml(e){const n=e.cached||0,t=e.input||0,r=e.contextUsed||e.total||0,a=e.contextLimit||0,s=a?cpuPct(r,a):"0%",l=n?cpuPct(n,t||e.total):"0%";return"总计 <strong>"+cpuF(e.total)+"</strong> · 输入 "+cpuF(e.input)+" · 输出 "+cpuF(e.output)+" · 缓存命中 "+cpuF(n)+" · 缓存命中率 "+l+" · 上下文 "+cpuF(r)+(a?"/"+cpuF(a):"")+" ("+s+") · 耗时 "+((e.elapsed||0)/1000).toFixed(1)+"s"}
 function cpuHost(){const e=document.querySelector("textarea,[contenteditable='true']"),n=e?.closest?.("form")||e?.parentElement;if(n?.parentElement)return{parent:n.parentElement,before:n};const t=document.querySelector("main")||document.body;return{parent:t,before:null}}
 function cpuRender(){const e=document.querySelector(".claude-plus-token-usage");if(!window.__claudePlusEnhanceTokenUsageV1){e&&e.remove();return}O();let n=e;n||(n=document.createElement("div"),n.className="claude-plus-token-usage");n.innerHTML=cpu.last?cpuHtml(cpu.last):"Token 使用信息：等待下一次经 Claude++ 代理的响应。";const t=cpuHost();if(n.parentElement!==t.parent)t.parent.insertBefore(n,t.before);else t.before&&n.nextSibling!==t.before&&t.parent.insertBefore(n,t.before)}
-async function cpuPoll(){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}try{const e=window.claudePlusTokenUsage,n=e&&typeof e.get==="function"?await e.get():await fetch("http://127.0.0.1:15722/claude-plus/token-usage",{cache:"no-store"}).then(e=>e.json()).catch(()=>null),t=cpuMap(n&&n.usage);if(t&&t.id!==cpu.lastId){cpu.lastId=t.id;cpu.last=t;cpuRender()}}catch(e){}}
+async function cpuPoll(){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}try{const e=window.claudePlusTokenUsage,n=e&&typeof e.get==="function"?await e.get():await fetch("__CPP_TOKEN_USAGE_URL__",{cache:"no-store"}).then(e=>e.json()).catch(()=>null),t=cpuMap(n&&n.usage);if(t&&t.id!==cpu.lastId){cpu.lastId=t.id;cpu.last=t;cpuRender()}}catch(e){}}
 function cpuTick(){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}cpuRender();if(!cpu.polling){cpu.polling=!0;cpuPoll();setInterval(cpuPoll,1200)}}
 async function s(e){if(e.open==="custom3p"||e.open==="custom3p_connectors"){const n=window["claude.settings"]?.Custom3pSetup?.openSetupWindow||window.claude?.settings?.Custom3pSetup?.openSetupWindow;if(typeof n==="function"){try{e.open==="custom3p_connectors"&&localStorage.setItem("claudePlusCustom3pPane","connectors");await n();return}catch(t){}}return}if(e.open==="skills"){B();return}const n=new URL(e.path,location.origin),t=n.pathname+n.search+n.hash;try{history.pushState(null,"",t);window.dispatchEvent(new PopStateEvent("popstate",{state:history.state}));window.dispatchEvent(new Event("pushstate"));window.dispatchEvent(new Event("locationchange"))}catch(r){location.assign(n.toString())}}
 new MutationObserver(y).observe(document.documentElement,{childList:!0,subtree:!0});
@@ -248,13 +269,23 @@ D();
 
     #[derive(Serialize)]
     pub struct EnhanceFeature {
-        pub id: &'static str,
-        pub category: &'static str,
-        pub label: &'static str,
-        pub description: &'static str,
+        pub id: String,
+        pub category: String,
+        pub label: String,
+        pub description: String,
         pub enabled: bool,
         pub available: bool,
-        pub note: &'static str,
+        pub note: String,
+    }
+
+    #[derive(Deserialize)]
+    struct EnhanceFeatureDefinition {
+        id: String,
+        category: String,
+        label: String,
+        description: String,
+        available: bool,
+        note: String,
     }
 
     pub fn status() -> ClaudeEnhanceStatus {
@@ -322,71 +353,26 @@ D();
     }
 
     fn feature_list(enabled: &[(EnhanceFeatureId, bool)]) -> Vec<EnhanceFeature> {
-        vec![
-            EnhanceFeature {
-                id: "third_party_api",
-                category: "菜单栏增强",
-                label: "第三方API",
-                description: "在 Claude Desktop 左侧菜单栏，增加第三方API快捷入口。",
-                enabled: is_enabled(enabled, EnhanceFeatureId::ThirdPartyApi),
-                available: true,
-                note: "侧边栏软入口",
-            },
-            EnhanceFeature {
-                id: "plugins",
-                category: "菜单栏增强",
-                label: "技能",
-                description: "在 Claude Desktop 左侧菜单栏，增加全局/项目 skills 快捷入口。",
-                enabled: is_enabled(enabled, EnhanceFeatureId::Plugins),
-                available: true,
-                note: "侧边栏软入口",
-            },
-            EnhanceFeature {
-                id: "mcp",
-                category: "菜单栏增强",
-                label: "MCP",
-                description: "在 Claude Desktop 左侧菜单栏，增加 MCP 快捷入口。",
-                enabled: is_enabled(enabled, EnhanceFeatureId::Mcp),
-                available: true,
-                note: "侧边栏软入口",
-            },
-            EnhanceFeature {
-                id: "conversation_title_i18n",
-                category: "对话增强",
-                label: "对话列表中文化",
-                description: "把 Claude Desktop 对话列表里的英文标题自动翻译为中文显示。",
-                enabled: is_enabled(enabled, EnhanceFeatureId::ConversationTitleI18n),
-                available: true,
-                note: "本地代理翻译",
-            },
-            EnhanceFeature {
-                id: "markdown",
-                category: "对话增强",
-                label: "对话导出Markdown",
-                description: "在对话列表“...”内，增加导出 Markdown 文件按钮。",
-                enabled: is_enabled(enabled, EnhanceFeatureId::Markdown),
-                available: true,
-                note: "导出已加载内容",
-            },
-            EnhanceFeature {
-                id: "timeline",
-                category: "对话增强",
-                label: "对话时间线",
-                description: "在对话区域右侧，增加用户发言时间线，方便快速定位上下文。",
-                enabled: is_enabled(enabled, EnhanceFeatureId::Timeline),
-                available: true,
-                note: "已加载问题定位",
-            },
-            EnhanceFeature {
-                id: "token_usage",
-                category: "对话增强",
-                label: "Token使用信息",
-                description: "在对话页面显示本次响应的 Token、缓存、上下文占用与耗时信息。",
-                enabled: is_enabled(enabled, EnhanceFeatureId::TokenUsage),
-                available: true,
-                note: "响应用量统计",
-            },
-        ]
+        feature_definitions()
+            .into_iter()
+            .filter_map(|definition| {
+                let feature = EnhanceFeatureId::parse(&definition.id)?;
+                Some(EnhanceFeature {
+                    id: definition.id,
+                    category: definition.category,
+                    label: definition.label,
+                    description: definition.description,
+                    enabled: is_enabled(enabled, feature),
+                    available: definition.available,
+                    note: definition.note,
+                })
+            })
+            .collect()
+    }
+
+    fn feature_definitions() -> Vec<EnhanceFeatureDefinition> {
+        serde_json::from_str(ENHANCE_FEATURES_JSON)
+            .expect("embedded enhance feature definitions should be valid")
     }
 
     fn is_enabled(enabled: &[(EnhanceFeatureId, bool)], feature: EnhanceFeatureId) -> bool {
@@ -461,7 +447,7 @@ D();
 
     fn ensure_script(mut text: String) -> String {
         if !text.contains(SCRIPT_MARKER) {
-            text.push_str(INJECT_SCRIPT);
+            text.push_str(&inject_script());
         }
         text
     }
@@ -686,13 +672,17 @@ D();
 
     #[cfg(test)]
     mod tests {
+        use std::sync::LazyLock;
+
         use super::{
             feature_payload, feature_states_from_text, remove_skills_bridge, EnhanceFeatureId,
-            CONVERSATION_TITLE_I18N_MARKER, INJECT_SCRIPT, MARKDOWN_EXPORT_MARKER, NAV_API_MARKER,
-            NAV_MCP_MARKER, NAV_PLUGINS_MARKER, SKILLS_LIST_CHANNEL, SKILLS_MAIN_BRIDGE_TARGET,
+            CONVERSATION_TITLE_I18N_MARKER, MARKDOWN_EXPORT_MARKER, NAV_API_MARKER, NAV_MCP_MARKER,
+            NAV_PLUGINS_MARKER, SKILLS_LIST_CHANNEL, SKILLS_MAIN_BRIDGE_TARGET,
             SKILLS_PRELOAD_BRIDGE_TARGET, SKILLS_TRASH_CHANNEL, TIMELINE_MARKER,
             TOKEN_USAGE_MARKER,
         };
+
+        static INJECT_SCRIPT: LazyLock<String> = LazyLock::new(super::inject_script);
 
         fn state(states: &[(EnhanceFeatureId, bool)], feature: EnhanceFeatureId) -> bool {
             states
@@ -703,7 +693,7 @@ D();
 
         #[test]
         fn script_markers_do_not_count_as_enabled_features() {
-            let states = feature_states_from_text(INJECT_SCRIPT);
+            let states = feature_states_from_text(&INJECT_SCRIPT);
 
             assert!(!state(&states, EnhanceFeatureId::ThirdPartyApi));
             assert!(!state(&states, EnhanceFeatureId::Plugins));
@@ -715,7 +705,7 @@ D();
         fn feature_payload_controls_enabled_state() {
             let text = format!(
                 "{}{}{}",
-                INJECT_SCRIPT,
+                &*INJECT_SCRIPT,
                 feature_payload(NAV_API_MARKER),
                 feature_payload(NAV_MCP_MARKER)
             );
@@ -736,7 +726,7 @@ D();
         fn conversation_enhance_payload_controls_markdown_and_timeline_state() {
             let text = format!(
                 "{}{}{}",
-                INJECT_SCRIPT,
+                &*INJECT_SCRIPT,
                 feature_payload(MARKDOWN_EXPORT_MARKER),
                 feature_payload(TIMELINE_MARKER)
             );
@@ -749,7 +739,7 @@ D();
 
         #[test]
         fn token_usage_payload_controls_state() {
-            let text = format!("{}{}", INJECT_SCRIPT, feature_payload(TOKEN_USAGE_MARKER));
+            let text = format!("{}{}", &*INJECT_SCRIPT, feature_payload(TOKEN_USAGE_MARKER));
             let states = feature_states_from_text(&text);
 
             assert!(state(&states, EnhanceFeatureId::TokenUsage));
@@ -789,8 +779,11 @@ D();
         #[test]
         fn conversation_title_i18n_uses_preload_bridge_instead_of_page_fetch() {
             assert!(INJECT_SCRIPT.contains("window.claudePlusTitleI18n"));
-            assert!(!INJECT_SCRIPT
-                .contains(r#"fetch("http://127.0.0.1:15722/claude-plus/conversation-title-i18n"#));
+            let title_i18n_fetch = format!(
+                r#"fetch("{}"#,
+                super::local_gateway_url("/claude-plus/conversation-title-i18n")
+            );
+            assert!(!INJECT_SCRIPT.contains(&title_i18n_fetch));
 
             let preload = super::title_i18n_preload_bridge_script();
             let main = super::title_i18n_main_bridge_script();
@@ -842,7 +835,7 @@ D();
             assert!(INJECT_SCRIPT.contains("window.claudePlusSkills"));
             assert!(INJECT_SCRIPT.contains("width:min(886px,calc(100vw - 48px))"));
             assert!(INJECT_SCRIPT.contains("height:min(713px,calc(100vh - 48px))"));
-            assert!(!INJECT_SCRIPT.contains("127.0.0.1:15722/claude-plus/skills"));
+            assert!(!INJECT_SCRIPT.contains(&super::local_gateway_url("/claude-plus/skills")));
             assert!(!INJECT_SCRIPT.contains("无法连接 Claude++ 本地服务"));
         }
 
@@ -917,11 +910,14 @@ D();
             assert!(INJECT_SCRIPT.contains("cpuPoll"));
             assert!(INJECT_SCRIPT.contains("inputTokens"));
             assert!(INJECT_SCRIPT.contains("cachedTokens"));
+            assert!(INJECT_SCRIPT.contains(&super::local_gateway_url("/claude-plus/token-usage")));
+            assert!(!INJECT_SCRIPT.contains("__CPP_TOKEN_USAGE_URL__"));
 
             let preload = super::token_usage_preload_bridge_script();
             let main = super::token_usage_main_bridge_script();
             assert!(preload.contains("claudePlusTokenUsage"));
-            assert!(main.contains("/claude-plus/token-usage"));
+            assert!(main.contains(&super::local_gateway_url("/claude-plus/token-usage")));
+            assert!(!main.contains("__CPP_TOKEN_USAGE_URL__"));
             assert!(main.contains("ipcMain.handle"));
         }
 
@@ -955,7 +951,10 @@ D();
             assert!(preload.contains("ipcRenderer.invoke"));
             assert!(!preload.contains("require(\"fs\")"));
             assert!(main.contains("fetch("));
-            assert!(main.contains("127.0.0.1:15722"));
+            assert!(main.contains(&super::local_gateway_url(
+                "/claude-plus/conversation-title-i18n"
+            )));
+            assert!(!main.contains("__CPP_TITLE_I18N_URL__"));
             assert!(!main.contains("shell.trashItem"));
         }
 

@@ -2,8 +2,10 @@
 use crate::ccswitch_db;
 use crate::constants::CC_SWITCH_CLAUDE_DESKTOP_ENTRY_ID;
 use crate::proxy::{self, AppState};
+use std::net::{SocketAddr, TcpStream};
 use std::path::PathBuf;
 use std::sync::{mpsc, Arc, Mutex};
+use std::time::Duration;
 use tauri::async_runtime::JoinHandle;
 use tokio::sync::oneshot;
 
@@ -13,16 +15,27 @@ pub struct ProxyServer {
     handle: Option<JoinHandle<()>>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct ServerHandle(pub Arc<Mutex<Option<ProxyServer>>>);
 
 impl ServerHandle {
-    pub fn is_running(&self) -> bool {
-        self.0.lock().map(|g| g.is_some()).unwrap_or(false)
-    }
-
     pub fn port(&self) -> Option<u16> {
         self.0.lock().ok().and_then(|g| g.as_ref().map(|s| s.port))
+    }
+
+    pub fn is_healthy(&self) -> bool {
+        let Some(port) = self.port() else {
+            return false;
+        };
+        tcp_port_accepts_connections(port)
+    }
+
+    pub fn ensure_running(&self, port: u16, db_path: PathBuf) -> Result<(), String> {
+        if self.port() == Some(port) && tcp_port_accepts_connections(port) {
+            return Ok(());
+        }
+        self.stop()?;
+        self.start(port, db_path)
     }
 
     /// 启动代理。返回 Err 表示启动失败(如端口占用)。
@@ -84,6 +97,11 @@ impl ServerHandle {
         }
         Ok(())
     }
+}
+
+fn tcp_port_accepts_connections(port: u16) -> bool {
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    TcpStream::connect_timeout(&addr, Duration::from_millis(250)).is_ok()
 }
 
 /// 从 CC Switch 当前生效的 Claude Desktop profile 文件读 bearer key。

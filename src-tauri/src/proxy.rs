@@ -26,6 +26,7 @@ use std::time::{Duration, Instant};
 const MODEL_ID_PREFIX: &str = "claude-plus-plus";
 const TITLE_I18N_RATE_LIMIT_WINDOW: Duration = Duration::from_secs(60);
 const TITLE_I18N_RATE_LIMIT_MAX: u32 = 90;
+const TOKEN_USAGE_MAX_PENDING_LINE: usize = 64 * 1024;
 
 #[derive(Debug)]
 struct RateLimiter {
@@ -560,21 +561,10 @@ fn track_token_usage_stream<S>(
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>>,
 {
-    let mut buffer = String::new();
+    let mut tracker = TokenUsageStreamTracker::default();
     stream.inspect_ok(move |chunk| {
         let text = String::from_utf8_lossy(chunk);
-        buffer.push_str(&text);
-        if buffer.len() > 256 * 1024 {
-            buffer = buffer
-                .chars()
-                .rev()
-                .take(128 * 1024)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect();
-        }
-        if let Some(mut usage) = extract_token_usage_from_text(&buffer) {
+        if let Some(mut usage) = tracker.ingest_text(&text) {
             usage.elapsed_ms = started_at.elapsed().as_millis() as u64;
             usage.updated_at_ms = now_ms();
             usage.id = usage.updated_at_ms;
@@ -585,30 +575,71 @@ where
     })
 }
 
-fn extract_token_usage_from_text(text: &str) -> Option<TokenUsageSnapshot> {
-    let mut usage = TokenUsageSnapshot::default();
-    let mut found = false;
-    for fragment in sse_json_fragments(text) {
-        if let Ok(value) = serde_json::from_str::<serde_json::Value>(fragment) {
-            collect_token_usages(&value, 0, &mut usage, &mut found);
+#[derive(Default)]
+struct TokenUsageStreamTracker {
+    pending_line: String,
+    aggregate: TokenUsageSnapshot,
+    found: bool,
+}
+
+impl TokenUsageStreamTracker {
+    fn ingest_text(&mut self, text: &str) -> Option<TokenUsageSnapshot> {
+        self.pending_line.push_str(text);
+        while let Some(newline) = self.pending_line.find('\n') {
+            let line = self.pending_line[..newline]
+                .trim_end_matches('\r')
+                .to_string();
+            self.pending_line.drain(..=newline);
+            self.ingest_line(&line);
         }
+        if self.pending_line.len() > TOKEN_USAGE_MAX_PENDING_LINE {
+            let keep_from = self.pending_line.len() - TOKEN_USAGE_MAX_PENDING_LINE;
+            self.pending_line.drain(..keep_from);
+        }
+        self.snapshot()
     }
-    if !found {
-        return None;
+
+    #[cfg(test)]
+    fn finish(mut self) -> Option<TokenUsageSnapshot> {
+        if !self.pending_line.is_empty() {
+            let line = std::mem::take(&mut self.pending_line);
+            self.ingest_line(line.trim_end_matches('\r'));
+        }
+        self.snapshot()
     }
+
+    fn ingest_line(&mut self, line: &str) {
+        let line = line.trim();
+        let Some(data) = line.strip_prefix("data:").map(str::trim) else {
+            return;
+        };
+        if data.is_empty() || data == "[DONE]" {
+            return;
+        }
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(data) else {
+            return;
+        };
+        collect_token_usages(&value, 0, &mut self.aggregate, &mut self.found);
+    }
+
+    fn snapshot(&self) -> Option<TokenUsageSnapshot> {
+        self.found.then(|| finalized_token_usage(&self.aggregate))
+    }
+}
+
+#[cfg(test)]
+fn extract_token_usage_from_text(text: &str) -> Option<TokenUsageSnapshot> {
+    let mut tracker = TokenUsageStreamTracker::default();
+    tracker.ingest_text(text).or_else(|| tracker.finish())
+}
+
+fn finalized_token_usage(usage: &TokenUsageSnapshot) -> TokenUsageSnapshot {
+    let mut usage = usage.clone();
     usage.total_tokens = usage
         .total_tokens
         .max(usage.input_tokens + usage.output_tokens);
     usage.context_used = usage.context_used.max(usage.total_tokens);
-    Some(usage)
-}
-
-fn sse_json_fragments(text: &str) -> impl Iterator<Item = &str> {
-    text.lines().filter_map(|line| {
-        let line = line.trim();
-        let data = line.strip_prefix("data:")?.trim();
-        (!data.is_empty() && data != "[DONE]").then_some(data)
-    })
+    usage
 }
 
 fn collect_token_usages(
@@ -932,5 +963,19 @@ mod tests {
         assert_eq!(usage.total_tokens, 125);
         assert_eq!(usage.cached_tokens, 80);
         assert_eq!(usage.context_limit, 200000);
+    }
+
+    #[test]
+    fn token_usage_tracker_handles_split_sse_lines() {
+        let mut tracker = TokenUsageStreamTracker::default();
+
+        assert!(tracker.ingest_text("data: {\"usage\":{\"input_").is_none());
+        let usage = tracker
+            .ingest_text("tokens\":42,\"output_tokens\":8}}\n")
+            .expect("token usage");
+
+        assert_eq!(usage.input_tokens, 42);
+        assert_eq!(usage.output_tokens, 8);
+        assert_eq!(usage.total_tokens, 50);
     }
 }

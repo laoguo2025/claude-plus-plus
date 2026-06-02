@@ -1,0 +1,58 @@
+[
+  {
+    "id": "third_party_api",
+    "category": "菜单栏增强",
+    "label": "第三方API",
+    "description": "在 Claude Desktop 左侧菜单栏，增加第三方API快捷入口。",
+    "available": true,
+    "note": "侧边栏软入口"
+  },
+  {
+    "id": "plugins",
+    "category": "菜单栏增强",
+    "label": "技能",
+    "description": "在 Claude Desktop 左侧菜单栏，增加全局/项目 skills 快捷入口。",
+    "available": true,
+    "note": "侧边栏软入口"
+  },
+  {
+    "id": "mcp",
+    "category": "菜单栏增强",
+    "label": "MCP",
+    "description": "在 Claude Desktop 左侧菜单栏，增加 MCP 快捷入口。",
+    "available": true,
+    "note": "侧边栏软入口"
+  },
+  {
+    "id": "conversation_title_i18n",
+    "category": "对话增强",
+    "label": "对话列表中文化",
+    "description": "把 Claude Desktop 对话列表里的英文标题自动翻译为中文显示。",
+    "available": true,
+    "note": "本地代理翻译"
+  },
+  {
+    "id": "markdown",
+    "category": "对话增强",
+    "label": "对话导出Markdown",
+    "description": "在对话列表“...”内，增加导出 Markdown 文件按钮。",
+    "available": true,
+    "note": "导出已加载内容"
+  },
+  {
+    "id": "timeline",
+    "category": "对话增强",
+    "label": "对话时间线",
+    "description": "在对话区域右侧，增加用户发言时间线，方便快速定位上下文。",
+    "available": true,
+    "note": "已加载问题定位"
+  },
+  {
+    "id": "token_usage",
+    "category": "对话增强",
+    "label": "Token使用信息",
+    "description": "在对话页面显示本次响应的 Token、缓存、上下文占用与耗时信息。",
+    "available": true,
+    "note": "响应用量统计"
+  }
+]
