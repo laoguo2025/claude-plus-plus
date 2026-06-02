@@ -242,6 +242,13 @@ select {
   line-height: 1.35;
 }
 
+.topbarActions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .screen {
   min-height: 0;
   overflow: hidden;
@@ -944,6 +951,12 @@ select {
 
 .iconButton {
   white-space: nowrap;
+}
+
+.iconButton.square {
+  width: 34px;
+  min-width: 34px;
+  padding: 0;
 }
 
 @media (max-width: 720px) {

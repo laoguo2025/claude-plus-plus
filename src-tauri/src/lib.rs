@@ -8,7 +8,11 @@ mod proxy;
 mod server;
 
 use server::ServerHandle;
-use std::time::Duration;
+use std::{
+    env,
+    process::{Command, Stdio},
+    time::Duration,
+};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -64,6 +68,45 @@ fn revert_cd_config() -> Result<(), String> {
 #[tauri::command]
 fn restart_claude_desktop() -> Result<(), String> {
     claude_desktop::restart()
+}
+
+#[tauri::command]
+fn restart_claude_plus(app: tauri::AppHandle) -> Result<(), String> {
+    let exe = env::current_exe().map_err(|e| format!("读取 Claude++ 程序路径失败: {e}"))?;
+    let exe = exe
+        .to_str()
+        .ok_or_else(|| "Claude++ 程序路径不是有效 UTF-8".to_string())?
+        .to_string();
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        Command::new("cmd.exe")
+            .args([
+                "/C",
+                "ping 127.0.0.1 -n 2 >nul && start \"\" \"%CPP_RESTART_EXE%\"",
+            ])
+            .env("CPP_RESTART_EXE", &exe)
+            .creation_flags(0x08000000)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| format!("重启 Claude++ 失败: {e}"))?;
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Command::new(&exe)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| format!("重启 Claude++ 失败: {e}"))?;
+    }
+
+    app.exit(0);
+    Ok(())
 }
 
 #[tauri::command]
@@ -175,6 +218,7 @@ pub fn run() {
             apply_cd_config,
             revert_cd_config,
             restart_claude_desktop,
+            restart_claude_plus,
             claude_zh_status,
             install_claude_zh,
             backup_claude_zh,

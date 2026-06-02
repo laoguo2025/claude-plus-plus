@@ -16,6 +16,7 @@ import {
   Plug,
   Moon,
   RefreshCw,
+  Rocket,
   Sun,
   type LucideProps,
 } from "lucide-react";
@@ -300,6 +301,22 @@ function App() {
     }
   };
 
+  const restartClaudePlus = async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      await callCommand("restart_claude_plus");
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleTheme = () => {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
+  };
+
   const installClaudeZh = async () => {
     setBusy(true);
     setErr("");
@@ -409,10 +426,23 @@ function App() {
           <div>
             <h1>{meta.title}</h1>
           </div>
-          <button className="iconButton" disabled={busy} onClick={refresh} title="刷新">
-            <RefreshCw size={16} />
-            <span>刷新</span>
-          </button>
+          <div className="topbarActions" aria-label="页面操作">
+            <button
+              className="iconButton square"
+              onClick={toggleTheme}
+              title={theme === "dark" ? "切换亮色主题" : "切换暗色主题"}
+              aria-label={theme === "dark" ? "切换亮色主题" : "切换暗色主题"}
+            >
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <button className="iconButton" disabled={busy} onClick={restartClaudePlus} title="重启 Claude++">
+              <Rocket size={16} />
+              <span>重启 Claude++</span>
+            </button>
+            <button className="iconButton square" disabled={busy} onClick={refresh} title="刷新本页" aria-label="刷新本页">
+              <RefreshCw size={16} />
+            </button>
+          </div>
         </header>
 
         <section className="screen">
