@@ -19,6 +19,7 @@ mod imp {
     const CONVERSATION_TITLE_I18N_MARKER: &str = "__claudePlusEnhanceConversationTitleI18nV1";
     const MARKDOWN_EXPORT_MARKER: &str = "__claudePlusEnhanceMarkdownExportV1";
     const TIMELINE_MARKER: &str = "__claudePlusEnhanceTimelineV1";
+    const TOKEN_USAGE_MARKER: &str = "__claudePlusEnhanceTokenUsageV1";
     const SKILLS_BRIDGE_MARKER: &str = "__claudePlusSkillsBridgeV1";
     const SKILLS_MAIN_BRIDGE_MARKER: &str = "__claudePlusSkillsMainBridgeV1";
     const SKILLS_MAIN_BRIDGE_TARGET: &str = ".vite/build/index.js";
@@ -133,13 +134,13 @@ function N(e){return/^(新会话|计划任务|第三方API|技能|MCP|自定义|
 function K(e){const n=e.getAttribute("href")||e.getAttribute("data-href")||e.getAttribute("data-to")||"",t=e.getAttribute("aria-label")||"",r=E(e.textContent),a=new RegExp("(^|/)chat(s)?(/|\\\\?|#|$)|conversation","i"),s=e.closest("aside,nav,[role=navigation]");if(!s||N(r)||e.closest("[data-claude-plus-enhance],#claude-plus-skills-modal")||ac(e))return!1;if(a.test(n)||/open .*chat|open .*conversation|select .*chat|rename chat|打开会话|选择.*会话/i.test(t))return!0;return!!J(e)}
 async function L(e,n){const t=E(n.nodeValue);if(!I(t)||e.getAttribute("data-claude-plus-original-title")===t)return;if(H.has(t)){const r=H.get(t);r&&(n.nodeValue=r,e.setAttribute("data-claude-plus-original-title",t),e.setAttribute("data-claude-plus-title-i18n",r));return}e.setAttribute("data-claude-plus-original-title",t);try{const a=window.claudePlusTitleI18n;if(!a||typeof a.translate!=="function"){H.set(t,"");return}const s=E(await a.translate(t));if(s&&s!==t&&/[\u4e00-\u9fff]/.test(s)){H.set(t,s);n.nodeValue=s;e.setAttribute("data-claude-plus-title-i18n",s)}else H.set(t,"")}catch(r){H.set(t,"")}}
 function M(){if(!window.__claudePlusEnhanceConversationTitleI18nV1)return;document.querySelectorAll("aside a,nav a,aside button,nav button,aside li,nav li,aside [role=link],nav [role=link],aside [role=button],nav [role=button],aside [role=listitem],nav [role=listitem],aside div[role],nav div[role]").forEach(e=>{if(!K(e))return;const n=J(e);n&&L(e,n)})}
-function y(){b||q||(q=setTimeout(()=>{q=0,x();M();P();Y()},250))}
+function y(){b||q||(q=setTimeout(()=>{q=0,x();M();P();Y();cpuTick()},250))}
 function z(e){return String(e==null?"":e).replace(/[&<>"']/g,e=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[e]))}
 function D(){try{if(localStorage.getItem("claudePlusCustom3pPane")!=="connectors")return}catch(e){return}for(let e=0;e<14;e++)setTimeout(()=>{const e=Array.from(document.querySelectorAll("button,a,[role=button],[role=tab],[role=menuitem],nav *,aside *")).find(e=>/连接器与扩展|Connectors|MCP servers/i.test(o(e)));if(e){e.click();try{localStorage.removeItem("claudePlusCustom3pPane")}catch(t){}}},220+e*250)}
 function A(){let e=document.getElementById("claude-plus-skills-modal");if(e)return e.remove();e=document.createElement("div");e.id="claude-plus-skills-modal";e.innerHTML='<div class="cps-backdrop"></div><section class="cps-panel" role="dialog" aria-modal="true" aria-label="技能"><header><strong>技能</strong><button type="button" data-cps-close>关闭</button></header><main><p class="cps-loading">正在读取 skills...</p></main></section>';document.body.appendChild(e);const n=document.createElement("style");n.id="claude-plus-skills-style";n.textContent="#claude-plus-skills-modal{position:fixed;inset:0;z-index:2147483647;color:#f4f1ea;font:13px/1.45 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#claude-plus-skills-modal .cps-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.52)}#claude-plus-skills-modal .cps-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(886px,calc(100vw - 48px));height:min(713px,calc(100vh - 48px));display:grid;grid-template-rows:auto 1fr;background:#171717;border:1px solid #3d3a35;border-radius:10px;box-shadow:0 22px 80px rgba(0,0,0,.48);overflow:hidden}#claude-plus-skills-modal header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px 12px;border-bottom:1px solid #2f2d2a;background:#1f1e1b}#claude-plus-skills-modal header strong{font-size:18px;font-weight:650}#claude-plus-skills-modal button{border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:7px;min-height:30px;padding:0 10px;cursor:pointer}#claude-plus-skills-modal button:hover{border-color:#d97745}#claude-plus-skills-modal button.cps-danger{border-color:#7f2d22;background:#4a1f1a;color:#ffd8cf}#claude-plus-skills-modal button:disabled{opacity:.55;cursor:default}#claude-plus-skills-modal main{overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:18px}#claude-plus-skills-modal .cps-section{display:flex;flex-direction:column;gap:10px}#claude-plus-skills-modal .cps-section-title{font-size:14px;font-weight:650;color:#f4f1ea}#claude-plus-skills-modal .cps-container{display:grid;gap:8px;border:1px solid #34312d;border-radius:8px;background:#1f1f1c;padding:10px}#claude-plus-skills-modal .cps-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:10px 12px;border:1px solid #34312d;border-radius:8px;background:#262521}#claude-plus-skills-modal .cps-main{display:flex;min-width:0;flex-direction:column;gap:4px}#claude-plus-skills-modal .cps-name{font-size:14px;font-weight:650;color:#f4f1ea}#claude-plus-skills-modal .cps-brief{color:#e7e0d4}#claude-plus-skills-modal .cps-file,#claude-plus-skills-modal .cps-empty,#claude-plus-skills-modal .cps-loading,#claude-plus-skills-modal .cps-error{color:#a9a39a}#claude-plus-skills-modal .cps-file{font-size:12px;word-break:break-all}#claude-plus-skills-modal .cps-actions{display:flex;align-items:flex-start;gap:8px}#claude-plus-skills-modal .cps-detail{grid-column:1/-1;border-top:1px solid #34312d;margin-top:4px;padding-top:10px;color:#d8d0c4;display:grid;gap:8px}#claude-plus-skills-modal .cps-detail[hidden]{display:none}#claude-plus-skills-modal .cps-detail strong{display:block;color:#f4f1ea;font-size:12px;margin-bottom:2px}.cps-toast{position:absolute;right:16px;bottom:14px;background:#2b2925;border:1px solid #5a544b;border-radius:8px;padding:8px 10px;color:#f4f1ea}";document.head.appendChild(n);function t(){e.remove();n.remove()}e.querySelector("[data-cps-close]").addEventListener("click",t);e.querySelector(".cps-backdrop").addEventListener("click",t);return e}
 function C(e,n){const t=e.filter(e=>e.scope===n),r=n==="global"?"全局 skills":"项目 skills";return'<section class="cps-section"><div class="cps-section-title">'+r+'</div><div class="cps-container">'+(t.length?t.map(e=>'<article class="cps-card" data-id="'+z(e.id)+'"><div class="cps-main"><div class="cps-name">'+z(e.name)+'</div><div class="cps-brief">'+z(e.summary_zh||e.description||"未提供描述。")+'</div><div class="cps-file">'+z(e.skill_file||e.path)+'</div></div><div class="cps-actions"><button type="button" data-cps-detail>详情</button><button type="button" class="cps-danger" data-cps-trash>删除</button></div><div class="cps-detail" hidden><div><strong>原始描述</strong><div>'+z(e.description||"未提供描述。")+'</div></div><div><strong>文件地址</strong><div class="cps-file">'+z(e.skill_file||e.path)+'</div></div><div><strong>目录地址</strong><div class="cps-file">'+z(e.path)+'</div></div></div></article>').join(""):'<p class="cps-empty">暂无'+r+'。</p>')+"</div></section>"}
 async function B(){const e=A(),n=e.querySelector("main"),t=window.claudePlusSkills;if(!t||typeof t.list!=="function"||typeof t.trash!=="function"){n.innerHTML='<p class="cps-error">本地 skills 桥未安装或尚未生效。</p><p class="cps-path">请在 Claude++ 中重新安装“技能”页面增强，并重启 Claude Desktop。</p>';return}try{const r=await t.list(),a=r.skills||[];n.innerHTML=C(a,"global")+C(a,"project");n.querySelectorAll("[data-cps-detail]").forEach(e=>e.addEventListener("click",()=>{const n=e.closest(".cps-card")?.querySelector(".cps-detail");if(!n)return;const t=n.hasAttribute("hidden");t?n.removeAttribute("hidden"):n.setAttribute("hidden","");e.textContent=t?"收起":"详情"}));n.querySelectorAll("[data-cps-trash]").forEach(r=>r.addEventListener("click",async()=>{const a=r.closest(".cps-card"),s=s=>{let n=e.querySelector(".cps-toast");n||(n=document.createElement("div"),n.className="cps-toast",e.appendChild(n));n.textContent=s;setTimeout(()=>n&&n.remove(),2600)},l=a?.dataset.id,o=a?.querySelector(".cps-name")?.textContent||"该 skill";if(!l)return;if(!confirm("确认删除 skill “"+o+"”？\n\n该操作会把对应 skill 目录移动到回收站。"))return;r.disabled=!0;try{await t.trash(l);a.remove();s("已移动到回收站")}catch(e){r.disabled=!1;s(e.message||String(e))}}))}catch(r){n.innerHTML='<p class="cps-error">读取本地 skills 失败。</p><p class="cps-path">'+z(r.message||String(r))+"</p>"}}
-function O(){let e=document.getElementById("claude-plus-conversation-enhance-style");if(e)return;e=document.createElement("style");e.id="claude-plus-conversation-enhance-style";e.textContent=".claude-plus-markdown-menu-item{color:#f4f1ea!important}.claude-plus-markdown-menu-item:hover{background:rgba(255,255,255,.08)!important}.claude-plus-export-toast{position:fixed;right:22px;top:112px;z-index:2147482001;max-width:min(360px,calc(100vw - 44px));border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:8px;padding:8px 10px;font:13px/1.4 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.24)}.claude-plus-timeline{position:fixed;right:10px;top:18vh;bottom:18vh;width:28px;z-index:2147481999;pointer-events:none}.claude-plus-timeline-track{position:absolute;left:13px;top:0;bottom:0;width:2px;border-radius:999px;background:rgba(214,119,69,.32)}.claude-plus-timeline-marker{position:absolute;left:7px;width:14px;height:14px;border:2px solid #d97745;border-radius:999px;background:#1f1e1b;box-shadow:0 0 0 2px rgba(31,30,27,.9);pointer-events:auto;cursor:pointer}.claude-plus-timeline-marker:hover{background:#d97745}.claude-plus-timeline-tip{position:absolute;right:24px;top:50%;transform:translateY(-50%);display:none;min-width:180px;max-width:min(320px,calc(100vw - 80px));border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:8px;padding:8px 10px;font:12px/1.35 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.24)}.claude-plus-timeline-marker:hover .claude-plus-timeline-tip{display:block}.claude-plus-timeline-target{outline:2px solid #d97745;outline-offset:4px;transition:outline-color .9s ease}";document.head.appendChild(e)}
+function O(){let e=document.getElementById("claude-plus-conversation-enhance-style");if(e)return;e=document.createElement("style");e.id="claude-plus-conversation-enhance-style";e.textContent=".claude-plus-markdown-menu-item{color:#f4f1ea!important}.claude-plus-markdown-menu-item:hover{background:rgba(255,255,255,.08)!important}.claude-plus-export-toast{position:fixed;right:22px;top:112px;z-index:2147482001;max-width:min(360px,calc(100vw - 44px));border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:8px;padding:8px 10px;font:13px/1.4 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.24)}.claude-plus-timeline{position:fixed;right:10px;top:18vh;bottom:18vh;width:28px;z-index:2147481999;pointer-events:none}.claude-plus-timeline-track{position:absolute;left:13px;top:0;bottom:0;width:2px;border-radius:999px;background:rgba(214,119,69,.32)}.claude-plus-timeline-marker{position:absolute;left:7px;width:14px;height:14px;border:2px solid #d97745;border-radius:999px;background:#1f1e1b;box-shadow:0 0 0 2px rgba(31,30,27,.9);pointer-events:auto;cursor:pointer}.claude-plus-timeline-marker:hover{background:#d97745}.claude-plus-timeline-tip{position:absolute;right:24px;top:50%;transform:translateY(-50%);display:none;min-width:180px;max-width:min(320px,calc(100vw - 80px));border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:8px;padding:8px 10px;font:12px/1.35 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.24)}.claude-plus-timeline-marker:hover .claude-plus-timeline-tip{display:block}.claude-plus-timeline-target{outline:2px solid #d97745;outline-offset:4px;transition:outline-color .9s ease}.claude-plus-token-usage{display:block;margin:12px auto;max-width:min(820px,calc(100vw - 64px));border:1px solid #4b4568;background:#171726;color:#f4f1ea;border-radius:7px;padding:8px 10px;font:12px/1.45 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.18);word-break:break-word}.claude-plus-token-usage strong{font-weight:650;color:#fff}.claude-plus-token-usage .cpu-muted{color:#bbb5d0}";document.head.appendChild(e)}
 function S(e){try{return Array.from(document.querySelectorAll(e))}catch(n){return[]}}
 function T(e){const n=e.cloneNode(!0);n.querySelectorAll(".claude-plus-markdown-menu-item,.claude-plus-export-toast,.claude-plus-timeline,button,svg,style,script,textarea,input,nav,aside").forEach(e=>e.remove());return String(n.innerText||n.textContent||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim()}
 function U(e){return e&&e.nodeType===1&&!e.closest(".claude-plus-markdown-menu-item,.claude-plus-export-toast,.claude-plus-timeline,nav,aside")}
@@ -154,9 +155,24 @@ function aa(e){const n=E(e.textContent);return e&&e.nodeType===1&&!e.dataset?.cl
 function ab(e){const n=document.createElement("button");n.type="button";n.className=e?.className||"claude-plus-markdown-menu-item";n.classList.add("claude-plus-markdown-menu-item");n.setAttribute("role",e?.getAttribute("role")||"menuitem");n.setAttribute("tabindex",e?.getAttribute("tabindex")||"0");n.dataset.claudePlusMarkdownMenuItem="1";n.textContent="导出 Markdown";n.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();Q()},!0);n.addEventListener("keydown",e=>{(e.key==="Enter"||e.key===" ")&&(e.preventDefault(),Q())},!0);return n}
 function P(){document.querySelectorAll(".claude-plus-markdown-export").forEach(e=>e.remove());if(!window.__claudePlusEnhanceMarkdownExportV1)return;O();document.querySelectorAll('[role="menu"],[data-radix-menu-content]').forEach(e=>{const n=Array.from(e.querySelectorAll("[data-claude-plus-markdown-menu-item]"));n.slice(1).forEach(e=>e.remove());if(n.length)return;const t=Array.from(e.querySelectorAll('button,[role="menuitem"],[cmdk-item]')).filter(aa);if(t.length<3)return;const r=t.find(e=>/存档|Archive/i.test(E(e.textContent)))||t.find(e=>/删除|Delete/i.test(E(e.textContent)));if(!r)return;const a=ab(r);r.parentElement?r.parentElement.insertBefore(a,r):e.appendChild(a)})}
 function Y(){const e=document.querySelector(".claude-plus-timeline");if(!window.__claudePlusEnhanceTimelineV1){e&&e.remove();return}O();const n=W().filter(e=>e.role==="User").slice(0,40);if(!n.length){e&&e.remove();return}const t=n.map(e=>e.a.slice(0,80)).join("|");if(e&&e.dataset.signature===t)return;e&&e.remove();const r=document.createElement("div");r.className="claude-plus-timeline";r.dataset.signature=t;r.innerHTML='<div class="claude-plus-timeline-track"></div>';n.forEach((e,t)=>{const a=document.createElement("button");a.type="button";a.className="claude-plus-timeline-marker";a.style.top=(n.length===1?50:2+t*(96/(n.length-1)))+"%";a.setAttribute("aria-label","跳转到问题 "+(t+1));const s=document.createElement("span");s.className="claude-plus-timeline-tip";s.textContent=(t+1)+". "+e.a.replace(/\s+/g," ").slice(0,60);a.appendChild(s);a.addEventListener("click",n=>{n.preventDefault();n.stopPropagation();e.node.scrollIntoView({behavior:"smooth",block:"center"});e.node.classList.add("claude-plus-timeline-target");setTimeout(()=>e.node.classList.remove("claude-plus-timeline-target"),1300)},!0);r.appendChild(a)});document.body.appendChild(r)}
+const cpu={patched:!1,last:null,calls:0};
+function cpuN(e){const n=Number(e);return Number.isFinite(n)&&n>=0?Math.round(n):0}
+function cpuUsage(e){if(!e||typeof e!=="object")return null;const n=cpuN(e.input_tokens??e.inputTokens??e.prompt_tokens??e.promptTokens),t=cpuN(e.output_tokens??e.outputTokens??e.completion_tokens??e.completionTokens),r=cpuN(e.total_tokens??e.totalTokens??e.used_tokens??e.usedTokens??e.used??n+t),a=cpuN(e.cached_tokens??e.cachedTokens??e.cached_input_tokens??e.cachedInputTokens??e.prompt_tokens_details?.cached_tokens??e.promptTokensDetails?.cachedTokens??e.input_tokens_details?.cached_tokens??e.inputTokensDetails?.cachedTokens),s=cpuN(e.cache_read_input_tokens??e.cacheReadInputTokens),l=cpuN(e.cache_creation_input_tokens??e.cacheCreationInputTokens),o=cpuN(e.context_used??e.contextUsed??e.used_tokens??e.usedTokens??e.used??r),i=cpuN(e.context_limit??e.contextLimit??e.model_context_window??e.modelContextWindow??e.context_window??e.contextWindow??e.limit);return n||t||r||a||s||l||i?{input:n,output:t,total:r||n+t,cached:a||s,cacheCreated:l,contextUsed:o||r||n+t,contextLimit:i}:null}
+function cpuWalk(e,n=0,t=[],r=new WeakSet){if(!e||n>8)return t;if(Array.isArray(e)){e.forEach(e=>cpuWalk(e,n+1,t,r));return t}if(typeof e!=="object")return t;if(r.has(e))return t;r.add(e);for(const n of["usage","token_usage","tokenUsage","context_usage","contextUsage","last","lastUsage","last_token_usage","lastTokenUsage"]){const r=cpuUsage(e[n]);r&&t.push(r)}const a=cpuUsage(e);if(a){t.push(a);return t}for(const a of["response","data","body","message","result","event","params","info","completion","delta"])cpuWalk(e[a],n+1,t,r);return t}
+function cpuSse(e){return String(e||"").split(/\r?\n/).map(e=>e.trim()).filter(e=>e.startsWith("data:")).map(e=>e.slice(5).trim()).filter(e=>e&&e!=="[DONE]")}
+function cpuExtract(e){if(typeof e!=="string")return cpuWalk(e);try{return cpuWalk(JSON.parse(e))}catch(n){}const n=[];for(const t of cpuSse(e))try{cpuWalk(JSON.parse(t),0,n)}catch(r){}return n}
+function cpuBest(e){return e.sort((e,n)=>(n.total||n.contextUsed)-(e.total||e.contextUsed))[0]||null}
+function cpuF(e){return cpuN(e).toLocaleString("en-US")}
+function cpuPct(e,n){return n?((e/n)*100).toFixed(1)+"%":"0%"}
+function cpuHtml(e){const n=e.cached||0,t=e.input||0,r=e.contextUsed||e.total||0,a=e.contextLimit||0,s=a?cpuPct(r,a):"0%",l=n?cpuPct(n,t||e.total):"0%";return"总计 <strong>"+cpuF(e.total)+"</strong> · 输入 "+cpuF(e.input)+" · 输出 "+cpuF(e.output)+" · 缓存命中 "+cpuF(n)+" · 缓存命中率 "+l+" · 上下文 "+cpuF(r)+(a?"/"+cpuF(a):"")+" ("+s+") · 调用 "+cpuF(cpu.calls)+" 次 · 耗时 "+((e.elapsed||0)/1000).toFixed(1)+"s"}
+function cpuHost(){const e=document.querySelector("textarea,[contenteditable='true']"),n=e?.closest?.("form")||e?.parentElement;if(n?.parentElement)return{parent:n.parentElement,before:n};const t=document.querySelector("main")||document.body;return{parent:t,before:null}}
+function cpuRender(){const e=document.querySelector(".claude-plus-token-usage");if(!window.__claudePlusEnhanceTokenUsageV1){e&&e.remove();return}if(!cpu.last)return;O();let n=e;n||(n=document.createElement("div"),n.className="claude-plus-token-usage");n.innerHTML=cpuHtml(cpu.last);const t=cpuHost();if(n.parentElement!==t.parent)t.parent.insertBefore(n,t.before);else t.before&&n.nextSibling!==t.before&&t.parent.insertBefore(n,t.before)}
+function cpuProcess(e,n){const t=cpuBest(cpuExtract(e));if(!t)return;cpu.calls+=1;t.elapsed=n;cpu.last=t;cpuRender()}
+function cpuPatch(){if(cpu.patched||!window.__claudePlusEnhanceTokenUsageV1)return;cpu.patched=!0;const e=window.fetch;if(typeof e==="function")window.fetch=async function(...n){const t=performance.now(),r=await e.apply(this,n);try{r.clone().text().then(e=>cpuProcess(e,performance.now()-t)).catch(()=>{})}catch(a){}return r};const n=window.XMLHttpRequest&&window.XMLHttpRequest.prototype;if(n){const e=n.open,t=n.send;n.open=function(...n){this.__cpuStart=0;return e.apply(this,n)};n.send=function(...e){this.__cpuStart=performance.now();this.addEventListener("load",()=>{try{typeof this.responseText==="string"&&cpuProcess(this.responseText,performance.now()-(this.__cpuStart||performance.now()))}catch(e){}},{once:!0});return t.apply(this,e)}}}
+function cpuTick(){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}cpuPatch();cpuRender()}
 async function s(e){if(e.open==="custom3p"||e.open==="custom3p_connectors"){const n=window["claude.settings"]?.Custom3pSetup?.openSetupWindow||window.claude?.settings?.Custom3pSetup?.openSetupWindow;if(typeof n==="function"){try{e.open==="custom3p_connectors"&&localStorage.setItem("claudePlusCustom3pPane","connectors");await n();return}catch(t){}}return}if(e.open==="skills"){B();return}const n=new URL(e.path,location.origin),t=n.pathname+n.search+n.hash;try{history.pushState(null,"",t);window.dispatchEvent(new PopStateEvent("popstate",{state:history.state}));window.dispatchEvent(new Event("pushstate"));window.dispatchEvent(new Event("locationchange"))}catch(r){location.assign(n.toString())}}
 new MutationObserver(y).observe(document.documentElement,{childList:!0,subtree:!0});
-document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{x();M();P();Y()},{once:!0}):(x(),M(),P(),Y());
+document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{x();M();P();Y();cpuTick()},{once:!0}):(x(),M(),P(),Y(),cpuTick());
 window.addEventListener("resize",()=>{Y()},{passive:!0});
 D();
 })();"####;
@@ -169,6 +185,7 @@ D();
         ConversationTitleI18n,
         Markdown,
         Timeline,
+        TokenUsage,
     }
 
     impl EnhanceFeatureId {
@@ -180,6 +197,7 @@ D();
                 "conversation_title_i18n" => Some(Self::ConversationTitleI18n),
                 "markdown" => Some(Self::Markdown),
                 "timeline" => Some(Self::Timeline),
+                "token_usage" => Some(Self::TokenUsage),
                 _ => None,
             }
         }
@@ -192,6 +210,7 @@ D();
                 Self::ConversationTitleI18n => CONVERSATION_TITLE_I18N_MARKER,
                 Self::Markdown => MARKDOWN_EXPORT_MARKER,
                 Self::Timeline => TIMELINE_MARKER,
+                Self::TokenUsage => TOKEN_USAGE_MARKER,
             }
         }
     }
@@ -406,6 +425,15 @@ D();
                 available: true,
                 note: "已加载问题定位",
             },
+            EnhanceFeature {
+                id: "token_usage",
+                category: "对话增强",
+                label: "Token使用信息",
+                description: "在对话页面显示本次响应的 Token、缓存、上下文占用与耗时信息。",
+                enabled: is_enabled(enabled, EnhanceFeatureId::TokenUsage),
+                available: true,
+                note: "响应用量统计",
+            },
         ]
     }
 
@@ -436,6 +464,7 @@ D();
             EnhanceFeatureId::ConversationTitleI18n,
             EnhanceFeatureId::Markdown,
             EnhanceFeatureId::Timeline,
+            EnhanceFeatureId::TokenUsage,
         ]
         .into_iter()
         .map(|feature| (feature, text.contains(&feature_payload(feature.marker()))))
@@ -648,6 +677,7 @@ D();
             CONVERSATION_TITLE_I18N_MARKER, INJECT_SCRIPT, MARKDOWN_EXPORT_MARKER, NAV_API_MARKER,
             NAV_MCP_MARKER, NAV_PLUGINS_MARKER, SKILLS_LIST_CHANNEL, SKILLS_MAIN_BRIDGE_TARGET,
             SKILLS_PRELOAD_BRIDGE_TARGET, SKILLS_TRASH_CHANNEL, TIMELINE_MARKER,
+            TOKEN_USAGE_MARKER,
         };
 
         fn state(states: &[(EnhanceFeatureId, bool)], feature: EnhanceFeatureId) -> bool {
@@ -664,6 +694,7 @@ D();
             assert!(!state(&states, EnhanceFeatureId::ThirdPartyApi));
             assert!(!state(&states, EnhanceFeatureId::Plugins));
             assert!(!state(&states, EnhanceFeatureId::Mcp));
+            assert!(!state(&states, EnhanceFeatureId::TokenUsage));
         }
 
         #[test]
@@ -682,6 +713,7 @@ D();
             assert!(!state(&states, EnhanceFeatureId::ConversationTitleI18n));
             assert!(!state(&states, EnhanceFeatureId::Markdown));
             assert!(!state(&states, EnhanceFeatureId::Timeline));
+            assert!(!state(&states, EnhanceFeatureId::TokenUsage));
             assert!(!text.contains(&feature_payload(NAV_PLUGINS_MARKER)));
             assert!(!text.contains(&feature_payload(CONVERSATION_TITLE_I18N_MARKER)));
         }
@@ -699,6 +731,16 @@ D();
             assert!(state(&states, EnhanceFeatureId::Markdown));
             assert!(state(&states, EnhanceFeatureId::Timeline));
             assert!(!state(&states, EnhanceFeatureId::ThirdPartyApi));
+        }
+
+        #[test]
+        fn token_usage_payload_controls_state() {
+            let text = format!("{}{}", INJECT_SCRIPT, feature_payload(TOKEN_USAGE_MARKER));
+            let states = feature_states_from_text(&text);
+
+            assert!(state(&states, EnhanceFeatureId::TokenUsage));
+            assert!(!state(&states, EnhanceFeatureId::Markdown));
+            assert!(!state(&states, EnhanceFeatureId::Timeline));
         }
 
         #[test]
@@ -849,6 +891,17 @@ D();
             assert!(INJECT_SCRIPT.contains("scrollIntoView"));
             assert!(INJECT_SCRIPT.contains("[data-message-author-role]"));
             assert!(!INJECT_SCRIPT.contains("claudePlusTimeline"));
+        }
+
+        #[test]
+        fn token_usage_intercepts_network_usage_and_renders_badge() {
+            assert!(INJECT_SCRIPT.contains("__claudePlusEnhanceTokenUsageV1"));
+            assert!(INJECT_SCRIPT.contains("claude-plus-token-usage"));
+            assert!(INJECT_SCRIPT.contains("window.fetch"));
+            assert!(INJECT_SCRIPT.contains("XMLHttpRequest"));
+            assert!(INJECT_SCRIPT.contains("input_tokens"));
+            assert!(INJECT_SCRIPT.contains("cached_tokens"));
+            assert!(INJECT_SCRIPT.contains("model_context_window"));
         }
 
         #[test]

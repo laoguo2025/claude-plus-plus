@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   CircleAlert,
   Code2,
+  Gauge,
   ListRestart,
   FileText,
   Hammer,
@@ -926,6 +927,15 @@ function previewEnhanceFeatures(): ClaudeEnhanceFeature[] {
       available: true,
       note: "已加载问题定位",
     },
+    {
+      id: "token_usage",
+      category: "对话增强",
+      label: "Token使用信息",
+      description: "在对话页面显示本次响应的 Token、缓存、上下文占用与耗时信息。",
+      enabled: false,
+      available: true,
+      note: "响应用量统计",
+    },
   ];
 }
 
@@ -936,6 +946,7 @@ function enhanceIcon(id: string): Icon {
   if (id === "conversation_title_i18n") return ListRestart;
   if (id === "markdown") return FileText;
   if (id === "timeline") return Activity;
+  if (id === "token_usage") return Gauge;
   return Plug;
 }
 
