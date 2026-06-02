@@ -15,8 +15,8 @@ import {
   PackageCheck,
   Plug,
   Moon,
+  Power,
   RefreshCw,
-  Rocket,
   Sun,
   type LucideProps,
 } from "lucide-react";
@@ -301,18 +301,6 @@ function App() {
     }
   };
 
-  const restartClaudePlus = async () => {
-    setBusy(true);
-    setErr("");
-    try {
-      await callCommand("restart_claude_plus");
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const toggleTheme = () => {
     setTheme((current) => (current === "dark" ? "light" : "dark"));
   };
@@ -435,9 +423,9 @@ function App() {
             >
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
-            <button className="iconButton" disabled={busy} onClick={restartClaudePlus} title="重启 Claude++">
-              <Rocket size={16} />
-              <span>重启 Claude++</span>
+            <button className="iconButton" disabled={busy} onClick={restartClaudeDesktop} title="重启 Claude Desktop">
+              <Power size={16} />
+              <span>重启 Claude Desktop</span>
             </button>
             <button className="iconButton square" disabled={busy} onClick={refresh} title="刷新本页" aria-label="刷新本页">
               <RefreshCw size={16} />
@@ -468,7 +456,6 @@ function App() {
               setZhScope={setZhScope}
               installClaudeZh={installClaudeZh}
               backupClaudeZh={backupClaudeZh}
-              restartClaudeDesktop={restartClaudeDesktop}
               uninstallClaudeZh={uninstallClaudeZh}
             />
           )}
@@ -478,7 +465,6 @@ function App() {
               busy={busy}
               enhanceStatus={enhanceStatus}
               installClaudeEnhance={installClaudeEnhance}
-              restartClaudeDesktop={restartClaudeDesktop}
               uninstallClaudeEnhance={uninstallClaudeEnhance}
             />
           )}
@@ -601,7 +587,6 @@ function LocalizationPage({
   setZhScope,
   installClaudeZh,
   backupClaudeZh,
-  restartClaudeDesktop,
   uninstallClaudeZh,
 }: {
   busy: boolean;
@@ -610,7 +595,6 @@ function LocalizationPage({
   setZhScope: (value: LocalizationScope) => void;
   installClaudeZh: () => Promise<void>;
   backupClaudeZh: () => Promise<void>;
-  restartClaudeDesktop: () => Promise<void>;
   uninstallClaudeZh: () => Promise<void>;
 }) {
   const statusText = zhStatus?.installed
@@ -629,6 +613,9 @@ function LocalizationPage({
     <div className="localizationFlow">
       <section className="panel localizationChecklist">
         <div className="workflowRows">
+          <div className="actionNotice">
+            汉化写入后，需点击上方重启Claude Desktop按钮，让新语言资源立即生效。
+          </div>
           <WorkflowRow
             ok={!!zhStatus?.installed}
             title="检测汉化程度"
@@ -690,16 +677,6 @@ function LocalizationPage({
             }
           />
           <WorkflowRow
-            ok={!!zhStatus?.claude_found}
-            title="重启 Claude Desktop"
-            description="汉化写入后重启 Claude Desktop，让新语言资源立即生效。"
-            action={
-              <button disabled={disabledByMissingClaude} onClick={restartClaudeDesktop}>
-                重启
-              </button>
-            }
-          />
-          <WorkflowRow
             ok={!!zhStatus?.backup_available}
             title="恢复英文"
             description="从最近一次备份恢复 Claude Desktop 资源，并把语言设回 en-US。"
@@ -749,13 +726,11 @@ function EnhancePage({
   busy,
   enhanceStatus,
   installClaudeEnhance,
-  restartClaudeDesktop,
   uninstallClaudeEnhance,
 }: {
   busy: boolean;
   enhanceStatus: ClaudeEnhanceStatus | null;
   installClaudeEnhance: (feature: string) => Promise<void>;
-  restartClaudeDesktop: () => Promise<void>;
   uninstallClaudeEnhance: (feature: string) => Promise<void>;
 }) {
   const disabledByMissingClaude = busy || !enhanceStatus?.supported || !enhanceStatus?.claude_found;
@@ -764,6 +739,9 @@ function EnhancePage({
   return (
     <div className="enhanceFlow">
       <div className="enhanceCards">
+        <div className="actionNotice enhanceActionNotice">
+          增强脚本开启后，需点击上方重启Claude Desktop按钮，让页面立即生效。
+        </div>
         {features.map((feature) => (
           <EnhanceCard
             key={feature.id}
@@ -773,18 +751,6 @@ function EnhancePage({
             onUninstall={() => uninstallClaudeEnhance(feature.id)}
           />
         ))}
-        <div className="workflowRow enhanceWorkflowRow restartCard">
-          <div className="rowIcon success">
-            <RefreshCw size={17} />
-          </div>
-          <div className="workflowCopy">
-            <strong>重启 Claude Desktop</strong>
-            <span>重启 Claude Desktop，让已启用的页面增强立即出现在对应位置。</span>
-          </div>
-          <button disabled={disabledByMissingClaude} onClick={restartClaudeDesktop}>
-            重启
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -1055,21 +1021,29 @@ function MiniMapping({ mappings, emptyText }: { mappings: Mapping[]; emptyText: 
     <div className="miniTable">
       {!!mappings.length && (
         <div className="miniTableHead">
-          <span>Claude 菜单显示名</span>
-          <span>CCS 角色</span>
-          <span>实际模型</span>
+          <span>CCS模型角色</span>
+          <span>Claude模型显示名</span>
+          <span>实际请求模型</span>
         </div>
       )}
       {mappings.map((m) => (
         <div key={m.role}>
-          <strong>{m.display}</strong>
-          <span>{m.role}</span>
+          <strong>{ccsRoleLabel(m.role_kind)}</strong>
+          <span>{m.display}</span>
           <code>{m.model}</code>
         </div>
       ))}
       {!mappings.length && <div className="emptyInline">{emptyText}</div>}
     </div>
   );
+}
+
+function ccsRoleLabel(roleKind: string) {
+  const normalized = roleKind.toLowerCase();
+  if (normalized === "opus") return "Opus";
+  if (normalized === "sonnet") return "Sonnet";
+  if (normalized === "haiku") return "Haiku";
+  return roleKind || "未知";
 }
 
 function KeyValue({ label, value }: { label: string; value: string }) {

@@ -233,6 +233,7 @@ select {
   font-size: 20px;
   font-weight: 400;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .topbar p {
@@ -263,17 +264,17 @@ select {
 }
 
 .overviewPage {
-  grid-template-rows: 116px 176px minmax(0, 1fr);
+  grid-template-rows: 134px 176px minmax(0, 1fr);
 }
 
 .mechanismNote {
   display: grid;
   align-content: start;
-  gap: 5px;
+  gap: 8px;
   overflow: hidden;
   color: var(--accent);
   font-size: 12.5px;
-  line-height: 1.28;
+  line-height: 1.5;
 }
 
 .mechanismNote span,
@@ -643,14 +644,9 @@ select {
   justify-content: flex-end;
 }
 
-.enhanceActions button,
-.restartCard > button {
+.enhanceActions button {
   min-height: 28px;
   padding: 0 10px;
-}
-
-.restartCard {
-  min-height: 72px;
 }
 
 .enhanceCategory {
@@ -693,6 +689,17 @@ select {
   gap: 9px;
   min-height: 0;
   overflow: auto;
+}
+
+.actionNotice {
+  border: 1px solid rgba(168, 107, 0, 0.28);
+  border-radius: 8px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  padding: 10px 12px;
 }
 
 .workflowRow {
@@ -1002,5 +1009,26 @@ select {
   .enhanceWorkflowRow .rowIcon,
   .enhanceWorkflowRow .enhanceActions {
     justify-self: initial;
+  }
+}
+
+@media (max-width: 940px) {
+  .topbar {
+    gap: 10px;
+  }
+
+  .topbarActions {
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .topbarActions .iconButton:not(.square) {
+    width: 34px;
+    min-width: 34px;
+    padding: 0;
+  }
+
+  .topbarActions .iconButton:not(.square) span {
+    display: none;
   }
 }
