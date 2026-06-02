@@ -13,7 +13,7 @@
 
 ## 非变化范围
 
-- 不修改功能入口、路由、页面结构和 Tauri 打包配置。
+- 不修改功能入口、路由和页面结构；补丁中仅为 NSIS 安装器/卸载器补充图标配置。
 - `tauri icon` 生成的移动端图标目录已清理，避免纳入当前 Windows/NSIS 范围。
 
 ## 回滚依据
@@ -27,3 +27,4 @@
 - `git diff --check`：通过，仅出现 Windows 换行提示。
 - `cargo test --manifest-path src-tauri\Cargo.toml --lib`：通过，36 passed，3 ignored。
 - Release 打包：通过，已生成 `src-tauri\target\release\claude-plus-plus.exe` 和 `src-tauri\target\release\bundle\nsis\Claude++_0.1.0_x64-setup.exe`。
+- 安装包图标补丁：生成的 `installer.nsi` 中 `INSTALLERICON` 和 `UNINSTALLERICON` 均指向 `src-tauri\icons\icon.ico`，Release 打包通过并重新生成 NSIS 安装包。
