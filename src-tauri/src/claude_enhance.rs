@@ -95,7 +95,7 @@ function E(e){return String(e==null?"":e).replace(/\s+/g," ").trim()}
 const H=new Map;
 function I(e){return/[A-Za-z]/.test(e)&&!/[\u4e00-\u9fff]/.test(e)&&e.length>=4&&e.length<=90&&!/^(Claude|Claude\\+\\+|New chat|Recents|Scheduled tasks|Projects|Chats|Search chats|Search projects)$/i.test(e)}
 function J(e){if(!e||e.closest("svg,[aria-hidden='true'],button[aria-label*='more' i],button[aria-label*='更多']"))return null;const n=[];let t;const r=document.createTreeWalker(e,NodeFilter.SHOW_TEXT,{acceptNode:e=>{const n=e.parentElement;if(!n||n.closest("svg,[aria-hidden='true']"))return NodeFilter.FILTER_REJECT;const t=E(e.nodeValue);return I(t)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT}});for(;t=r.nextNode();)n.push(t);return n.sort((e,n)=>E(n.nodeValue).length-E(e.nodeValue).length)[0]||null}
-function K(e){const n=e.getAttribute("href")||e.getAttribute("data-href")||e.getAttribute("data-to")||"",t=e.getAttribute("aria-label")||"",r=E(e.textContent);return/(^|\\/)chat(s)?(\\/|\\?|#|$)|conversation/i.test(n)||/open .*chat|open .*conversation|select .*chat|rename chat|打开会话|选择.*会话/i.test(t)||(/^[A-Za-z0-9][\\s\\S]{3,90}$/.test(r)&&e.closest("aside,nav,[role=navigation]")&&t.includes(r))}
+function K(e){const n=e.getAttribute("href")||e.getAttribute("data-href")||e.getAttribute("data-to")||"",t=e.getAttribute("aria-label")||"",r=E(e.textContent),a=new RegExp("(^|/)chat(s)?(/|\\\\?|#|$)|conversation","i");return a.test(n)||/open .*chat|open .*conversation|select .*chat|rename chat|打开会话|选择.*会话/i.test(t)||(/^[A-Za-z0-9][\\s\\S]{3,90}$/.test(r)&&e.closest("aside,nav,[role=navigation]")&&t.includes(r))}
 async function L(e,n){const t=E(n.nodeValue);if(!I(t)||e.getAttribute("data-claude-plus-original-title")===t)return;if(H.has(t)){const r=H.get(t);r&&(n.nodeValue=r,e.setAttribute("data-claude-plus-original-title",t),e.setAttribute("data-claude-plus-title-i18n",r));return}e.setAttribute("data-claude-plus-original-title",t);try{const r=await fetch("http://127.0.0.1:15722/claude-plus/conversation-title-i18n",{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({title:t})}),a=await r.json();const s=E(a&&a.title);if(r.ok&&s&&s!==t&&/[\u4e00-\u9fff]/.test(s)){H.set(t,s);n.nodeValue=s;e.setAttribute("data-claude-plus-title-i18n",s)}else H.set(t,"")}catch(r){H.set(t,"")}}
 function M(){if(!window.__claudePlusEnhanceConversationTitleI18nV1)return;document.querySelectorAll("aside a,nav a,aside button,nav button,aside [role=link],nav [role=link],aside [role=button],nav [role=button]").forEach(e=>{if(!K(e))return;const n=J(e);n&&L(e,n)})}
 function y(){b||q||(q=setTimeout(()=>{q=0,x();M()},250))}
@@ -604,6 +604,13 @@ D();
             assert!(INJECT_SCRIPT.contains("/claude-plus/conversation-title-i18n"));
             assert!(INJECT_SCRIPT.contains("data-claude-plus-original-title"));
             assert!(INJECT_SCRIPT.contains("data-claude-plus-title-i18n"));
+        }
+
+        #[test]
+        fn conversation_title_i18n_avoids_regex_literal_slash_escape_crash() {
+            assert!(!INJECT_SCRIPT.contains(r"/(^|\\/)"));
+            assert!(!INJECT_SCRIPT.contains(r"(\\/|\\?|#|$)"));
+            assert!(INJECT_SCRIPT.contains("new RegExp"));
         }
 
         #[test]
