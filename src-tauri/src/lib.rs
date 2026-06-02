@@ -2,6 +2,7 @@ mod ccswitch_db;
 mod cd_config;
 mod claude_desktop;
 mod claude_enhance;
+mod claude_patch_common;
 mod claude_skills;
 mod claude_zh;
 mod constants;

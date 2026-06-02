@@ -1,16 +1,10 @@
 #[cfg(target_os = "windows")]
 mod imp {
     use crate::claude_desktop;
+    use crate::claude_patch_common as patch;
     use serde::Serialize;
-    use serde_json::{Map, Value};
-    use sha2::{Digest, Sha256};
-    use std::{
-        collections::HashSet,
-        env, fs,
-        path::{Path, PathBuf},
-        process::{Command, Stdio},
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use serde_json::Value;
+    use std::{fs, path::Path};
 
     const SCRIPT_MARKER: &str = "__claudePlusEnhanceNavV2";
     const NAV_API_MARKER: &str = "__claudePlusEnhanceThirdPartyApiV1";
@@ -32,7 +26,7 @@ mod imp {
     const TOKEN_USAGE_BRIDGE_MARKER: &str = "__claudePlusTokenUsageBridgeV1";
     const TOKEN_USAGE_MAIN_BRIDGE_MARKER: &str = "__claudePlusTokenUsageMainBridgeV1";
     const TOKEN_USAGE_CHANNEL: &str = "claude-plus:token-usage";
-    const ASAR_INTEGRITY_BLOCK_SIZE: usize = 4 * 1024 * 1024;
+    const BACKUP_DIR_NAME: &str = ".claude-plus-enhance-backups";
     fn skills_bridge_script() -> String {
         r##";(()=>{const MARK="__claudePlusSkillsBridgeV1";
 if(globalThis[MARK])return;
@@ -263,82 +257,8 @@ D();
         pub note: &'static str,
     }
 
-    struct ClaudePaths {
-        app: PathBuf,
-        resources: PathBuf,
-    }
-
-    struct BackupContext {
-        resources_path: PathBuf,
-        backup_set: Option<PathBuf>,
-        backed_up: HashSet<PathBuf>,
-    }
-
-    impl BackupContext {
-        fn new(resources_path: &Path) -> Self {
-            Self {
-                resources_path: resources_path.to_path_buf(),
-                backup_set: None,
-                backed_up: HashSet::new(),
-            }
-        }
-
-        fn ensure_set(&mut self) -> Result<PathBuf, String> {
-            if let Some(path) = &self.backup_set {
-                return Ok(path.clone());
-            }
-
-            let root = backup_root(&self.resources_path);
-            fs::create_dir_all(&root).map_err(|e| format!("创建增强备份目录失败: {e}"))?;
-            let stamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_err(|e| format!("读取系统时间失败: {e}"))?
-                .as_secs();
-            let mut path = root.join(stamp.to_string());
-            let mut suffix = 0;
-            while path.exists() {
-                suffix += 1;
-                path = root.join(format!("{stamp}-{suffix}"));
-            }
-            fs::create_dir_all(&path).map_err(|e| format!("创建增强备份集失败: {e}"))?;
-            self.backup_set = Some(path.clone());
-            Ok(path)
-        }
-
-        fn backup_resource(&mut self, path: &Path) -> Result<(), String> {
-            if !path.exists() || self.backed_up.contains(path) {
-                return Ok(());
-            }
-
-            let relative = relative_to(path, &self.resources_path)?;
-            let target = self.ensure_set()?.join(relative);
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent).map_err(|e| format!("创建增强备份父目录失败: {e}"))?;
-            }
-            fs::copy(path, &target).map_err(|e| format!("备份增强文件失败: {e}"))?;
-            self.backed_up.insert(path.to_path_buf());
-            Ok(())
-        }
-
-        fn backup_app_file(&mut self, path: &Path) -> Result<(), String> {
-            if !path.exists() || self.backed_up.contains(path) {
-                return Ok(());
-            }
-
-            let app_path = app_path_from_resources(&self.resources_path);
-            let relative = relative_to(path, &app_path)?;
-            let target = self.ensure_set()?.join("_app").join(relative);
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent).map_err(|e| format!("创建增强备份父目录失败: {e}"))?;
-            }
-            fs::copy(path, &target).map_err(|e| format!("备份 Claude 程序文件失败: {e}"))?;
-            self.backed_up.insert(path.to_path_buf());
-            Ok(())
-        }
-    }
-
     pub fn status() -> ClaudeEnhanceStatus {
-        let paths = resolve_claude_paths().ok();
+        let paths = patch::resolve_claude_paths().ok();
         let resources_path = paths.as_ref().map(|p| p.resources.clone());
         let enabled = resources_path
             .as_ref()
@@ -352,7 +272,7 @@ D();
             installed,
             backup_available: resources_path
                 .as_ref()
-                .map(|path| latest_backup(path).is_some())
+                .map(|path| patch::latest_backup(path, BACKUP_DIR_NAME).is_some())
                 .unwrap_or(false),
             install_path: paths.as_ref().map(|p| p.app.display().to_string()),
             resources_path: resources_path.as_ref().map(|p| p.display().to_string()),
@@ -363,11 +283,11 @@ D();
     pub fn install(feature: &str) -> Result<(), String> {
         let feature =
             EnhanceFeatureId::parse(feature).ok_or_else(|| format!("未知页面增强项: {feature}"))?;
-        let paths = resolve_claude_paths()?;
+        let paths = patch::resolve_claude_paths()?;
         claude_desktop::stop_claude_processes()?;
-        enable_write_access(&paths.resources);
+        patch::enable_write_access(&paths.resources, false);
 
-        let mut backup = BackupContext::new(&paths.resources);
+        let mut backup = patch::BackupContext::new(&paths.resources, BACKUP_DIR_NAME);
         update_feature_marker(&paths.resources, &mut backup, feature, true)?;
         if matches!(feature, EnhanceFeatureId::Plugins) {
             update_skills_bridge(&paths.resources, &mut backup, true)?;
@@ -384,10 +304,10 @@ D();
     pub fn uninstall(feature: &str) -> Result<(), String> {
         let feature =
             EnhanceFeatureId::parse(feature).ok_or_else(|| format!("未知页面增强项: {feature}"))?;
-        let paths = resolve_claude_paths()?;
+        let paths = patch::resolve_claude_paths()?;
         claude_desktop::stop_claude_processes()?;
-        enable_write_access(&paths.resources);
-        let mut backup = BackupContext::new(&paths.resources);
+        patch::enable_write_access(&paths.resources, false);
+        let mut backup = patch::BackupContext::new(&paths.resources, BACKUP_DIR_NAME);
         update_feature_marker(&paths.resources, &mut backup, feature, false)?;
         if matches!(feature, EnhanceFeatureId::Plugins) {
             update_skills_bridge(&paths.resources, &mut backup, false)?;
@@ -511,13 +431,13 @@ D();
 
     fn update_feature_marker(
         resources_path: &Path,
-        backup: &mut BackupContext,
+        backup: &mut patch::BackupContext,
         feature: EnhanceFeatureId,
         enabled: bool,
     ) -> Result<(), String> {
         let assets_dir = resources_path.join("ion-dist").join("assets").join("v1");
         let mut patched = false;
-        for path in js_files(&assets_dir, true)? {
+        for path in patch::js_files(&assets_dir, true)? {
             let text =
                 fs::read_to_string(&path).map_err(|e| format!("读取 Claude 前端入口失败: {e}"))?;
             let mut next = remove_old_script(&text);
@@ -574,7 +494,7 @@ D();
 
     fn update_skills_bridge(
         resources_path: &Path,
-        backup: &mut BackupContext,
+        backup: &mut patch::BackupContext,
         enabled: bool,
     ) -> Result<(), String> {
         let main_script = skills_main_bridge_script();
@@ -597,7 +517,7 @@ D();
 
     fn update_title_i18n_bridge(
         resources_path: &Path,
-        backup: &mut BackupContext,
+        backup: &mut patch::BackupContext,
         enabled: bool,
     ) -> Result<(), String> {
         let main_script = title_i18n_main_bridge_script();
@@ -622,7 +542,7 @@ D();
 
     fn update_token_usage_bridge(
         resources_path: &Path,
-        backup: &mut BackupContext,
+        backup: &mut patch::BackupContext,
         enabled: bool,
     ) -> Result<(), String> {
         let main_script = token_usage_main_bridge_script();
@@ -649,7 +569,7 @@ D();
         resources_path: &Path,
         file_path: &str,
         script: &str,
-        backup: &mut BackupContext,
+        backup: &mut patch::BackupContext,
         enabled: bool,
     ) -> Result<(), String> {
         patch_bridge_file(
@@ -666,7 +586,7 @@ D();
         resources_path: &Path,
         file_path: &str,
         script: &str,
-        backup: &mut BackupContext,
+        backup: &mut patch::BackupContext,
         enabled: bool,
         remover: fn(&str) -> String,
     ) -> Result<(), String> {
@@ -1127,7 +1047,7 @@ D();
     fn read_index_bundle(resources_path: &Path) -> Result<String, String> {
         let assets_dir = resources_path.join("ion-dist").join("assets").join("v1");
         let mut output = String::new();
-        for path in js_files(&assets_dir, true)? {
+        for path in patch::js_files(&assets_dir, true)? {
             let text =
                 fs::read_to_string(&path).map_err(|e| format!("读取 Claude 前端入口失败: {e}"))?;
             output.push_str(&text);
@@ -1138,12 +1058,12 @@ D();
     fn read_asar_file(resources_path: &Path, file_path: &str) -> Result<Vec<u8>, String> {
         let asar_path = resources_path.join("app.asar");
         let data = fs::read(&asar_path).map_err(|e| format!("读取 app.asar 失败: {e}"))?;
-        let parsed = read_asar_header(&data, &asar_path)?;
+        let parsed = patch::read_asar_header(&data, &asar_path)?;
         let header: Value = serde_json::from_str(&parsed.header_string)
             .map_err(|e| format!("解析 app.asar 头失败: {e}"))?;
-        let entry = get_asar_entry(&header, file_path)?;
-        let offset = entry_value_to_usize(entry.get("offset"), "offset")?;
-        let size = entry_value_to_usize(entry.get("size"), "size")?;
+        let entry = patch::get_required_asar_entry(&header, file_path)?;
+        let offset = patch::entry_value_to_usize(entry.get("offset"), "offset")?;
+        let size = patch::entry_value_to_usize(entry.get("size"), "size")?;
         let content_offset = 8 + parsed.header_size + offset;
         let content_end = content_offset + size;
         if content_end > data.len() {
@@ -1155,7 +1075,7 @@ D();
     fn patch_asar_file<F>(
         resources_path: &Path,
         file_path: &str,
-        backup: &mut BackupContext,
+        backup: &mut patch::BackupContext,
         patcher: F,
     ) -> Result<(), String>
     where
@@ -1163,12 +1083,12 @@ D();
     {
         let asar_path = resources_path.join("app.asar");
         let mut data = fs::read(&asar_path).map_err(|e| format!("读取 app.asar 失败: {e}"))?;
-        let parsed = read_asar_header(&data, &asar_path)?;
+        let parsed = patch::read_asar_header(&data, &asar_path)?;
         let mut header: Value = serde_json::from_str(&parsed.header_string)
             .map_err(|e| format!("解析 app.asar 头失败: {e}"))?;
-        let entry = get_asar_entry_mut(&mut header, file_path)?;
-        let offset = entry_value_to_usize(entry.get("offset"), "offset")?;
-        let old_size = entry_value_to_usize(entry.get("size"), "size")?;
+        let entry = patch::get_asar_entry_mut(&mut header, file_path)?;
+        let offset = patch::entry_value_to_usize(entry.get("offset"), "offset")?;
+        let old_size = patch::entry_value_to_usize(entry.get("size"), "size")?;
         let content_offset = 8 + parsed.header_size + offset;
         let content_end = content_offset + old_size;
         if content_end > data.len() {
@@ -1177,7 +1097,7 @@ D();
 
         let content = &data[content_offset..content_end];
         let Some(patched_content) = patcher(content)? else {
-            sync_claude_exe_asar_integrity(
+            patch::sync_claude_exe_asar_integrity(
                 resources_path,
                 Some(&parsed.header_string),
                 Some(backup),
@@ -1188,453 +1108,24 @@ D();
         backup.backup_resource(&asar_path)?;
         data.splice(content_offset..content_end, patched_content.iter().copied());
         entry["size"] = Value::Number((patched_content.len() as u64).into());
-        entry["integrity"] = asar_file_integrity(&patched_content);
-        shift_asar_offsets_after(
+        entry["integrity"] = patch::asar_file_integrity(&patched_content);
+        patch::shift_asar_offsets_after(
             &mut header,
             offset,
             patched_content.len() as i64 - old_size as i64,
         )?;
         let header_string =
             serde_json::to_string(&header).map_err(|e| format!("生成 app.asar 头失败: {e}"))?;
-        let encoded_header = encode_asar_header(&header_string);
+        let encoded_header = patch::encode_asar_header(&header_string, None)?;
         let content_start = 8 + parsed.header_size;
         let mut next_data = Vec::with_capacity(encoded_header.len() + data.len() - content_start);
         next_data.extend_from_slice(&encoded_header);
         next_data.extend_from_slice(&data[content_start..]);
         data = next_data;
         fs::write(&asar_path, data).map_err(|e| format!("写入 app.asar 失败: {e}"))?;
-        sync_claude_exe_asar_integrity(resources_path, Some(&header_string), Some(backup))?;
+        patch::sync_claude_exe_asar_integrity(resources_path, Some(&header_string), Some(backup))?;
         Ok(())
     }
-
-    struct AsarHeader {
-        header_size: usize,
-        header_string: String,
-    }
-
-    fn read_asar_header(data: &[u8], path: &Path) -> Result<AsarHeader, String> {
-        if data.len() < 16 {
-            return Err(format!("不支持的 app.asar 头: {}", path.display()));
-        }
-        let size_pickle_payload = read_u32_le(data, 0)? as usize;
-        let header_size = read_u32_le(data, 4)? as usize;
-        if size_pickle_payload != 4 || header_size == 0 || data.len() < 8 + header_size {
-            return Err(format!("不支持的 app.asar size pickle: {}", path.display()));
-        }
-
-        let header_pickle = &data[8..8 + header_size];
-        let header_payload_size = read_u32_le(header_pickle, 0)? as usize;
-        let header_string_size = read_i32_le(header_pickle, 4)? as usize;
-        let expected_payload_size = align4(4 + header_string_size);
-        if header_payload_size != expected_payload_size || header_size != 4 + header_payload_size {
-            return Err(format!(
-                "不支持的 app.asar header pickle: {}",
-                path.display()
-            ));
-        }
-        let header_bytes = &header_pickle[8..8 + header_string_size];
-        let header_string = String::from_utf8(header_bytes.to_vec())
-            .map_err(|e| format!("app.asar 头不是 UTF-8: {e}"))?;
-        Ok(AsarHeader {
-            header_size,
-            header_string,
-        })
-    }
-
-    fn encode_asar_header(header_string: &str) -> Vec<u8> {
-        let header_bytes = header_string.as_bytes();
-        let header_payload_size = align4(4 + header_bytes.len());
-        let header_size = 4 + header_payload_size;
-        let mut header_pickle = vec![0u8; header_size];
-        header_pickle[0..4].copy_from_slice(&(header_payload_size as u32).to_le_bytes());
-        header_pickle[4..8].copy_from_slice(&(header_bytes.len() as i32).to_le_bytes());
-        header_pickle[8..8 + header_bytes.len()].copy_from_slice(header_bytes);
-
-        let mut encoded = vec![0u8; 8 + header_size];
-        encoded[0..4].copy_from_slice(&4u32.to_le_bytes());
-        encoded[4..8].copy_from_slice(&(header_size as u32).to_le_bytes());
-        encoded[8..].copy_from_slice(&header_pickle);
-        encoded
-    }
-
-    fn get_asar_entry<'a>(header: &'a Value, file_path: &str) -> Result<&'a Value, String> {
-        let mut node = header;
-        for part in file_path.split('/') {
-            let files = node
-                .get("files")
-                .and_then(Value::as_object)
-                .ok_or_else(|| format!("app.asar 中未找到 {file_path}"))?;
-            node = files
-                .get(part)
-                .ok_or_else(|| format!("app.asar 中未找到 {file_path}"))?;
-        }
-        for key in ["size", "offset", "integrity"] {
-            if node.get(key).is_none() {
-                return Err(format!("app.asar 目标缺少字段: {key}"));
-            }
-        }
-        Ok(node)
-    }
-
-    fn get_asar_entry_mut<'a>(
-        header: &'a mut Value,
-        file_path: &str,
-    ) -> Result<&'a mut Value, String> {
-        let mut node = header;
-        for part in file_path.split('/') {
-            let files = node
-                .get_mut("files")
-                .and_then(Value::as_object_mut)
-                .ok_or_else(|| format!("app.asar 中未找到 {file_path}"))?;
-            node = files
-                .get_mut(part)
-                .ok_or_else(|| format!("app.asar 中未找到 {file_path}"))?;
-        }
-        for key in ["size", "offset", "integrity"] {
-            if node.get(key).is_none() {
-                return Err(format!("app.asar 目标缺少字段: {key}"));
-            }
-        }
-        Ok(node)
-    }
-
-    fn shift_asar_offsets_after(
-        header: &mut Value,
-        changed_offset: usize,
-        delta: i64,
-    ) -> Result<(), String> {
-        if delta == 0 {
-            return Ok(());
-        }
-        fn visit(node: &mut Value, changed_offset: usize, delta: i64) -> Result<(), String> {
-            if let Some(files) = node.get_mut("files").and_then(Value::as_object_mut) {
-                for child in files.values_mut() {
-                    visit(child, changed_offset, delta)?;
-                }
-                return Ok(());
-            }
-            let Some(offset_value) = node.get_mut("offset") else {
-                return Ok(());
-            };
-            let Some(current) = offset_value
-                .as_u64()
-                .or_else(|| offset_value.as_str().and_then(|s| s.parse::<u64>().ok()))
-            else {
-                return Err("app.asar offset 无效".to_string());
-            };
-            if current as usize > changed_offset {
-                let next = current as i64 + delta;
-                if next < 0 {
-                    return Err("app.asar offset 计算越界".to_string());
-                }
-                *offset_value = match offset_value {
-                    Value::String(_) => Value::String(next.to_string()),
-                    _ => Value::Number((next as u64).into()),
-                };
-            }
-            Ok(())
-        }
-        visit(header, changed_offset, delta)
-    }
-
-    fn entry_value_to_usize(value: Option<&Value>, name: &str) -> Result<usize, String> {
-        match value {
-            Some(Value::Number(n)) => n
-                .as_u64()
-                .and_then(|v| usize::try_from(v).ok())
-                .ok_or_else(|| format!("app.asar {name} 无效")),
-            Some(Value::String(s)) => s
-                .parse::<usize>()
-                .map_err(|_| format!("app.asar {name} 无效")),
-            _ => Err(format!("app.asar {name} 无效")),
-        }
-    }
-
-    fn asar_file_integrity(data: &[u8]) -> Value {
-        let mut blocks = Vec::new();
-        if data.is_empty() {
-            blocks.push(Value::String(sha256_hex(data)));
-        } else {
-            for chunk in data.chunks(ASAR_INTEGRITY_BLOCK_SIZE) {
-                blocks.push(Value::String(sha256_hex(chunk)));
-            }
-        }
-        let mut integrity = Map::new();
-        integrity.insert("algorithm".to_string(), Value::String("SHA256".to_string()));
-        integrity.insert("hash".to_string(), Value::String(sha256_hex(data)));
-        integrity.insert(
-            "blockSize".to_string(),
-            Value::Number((ASAR_INTEGRITY_BLOCK_SIZE as u64).into()),
-        );
-        integrity.insert("blocks".to_string(), Value::Array(blocks));
-        Value::Object(integrity)
-    }
-
-    fn sync_claude_exe_asar_integrity(
-        resources_path: &Path,
-        header_string: Option<&str>,
-        backup: Option<&mut BackupContext>,
-    ) -> Result<(), String> {
-        let asar_path = resources_path.join("app.asar");
-        let header_hash = match header_string {
-            Some(s) => sha256_hex(s.as_bytes()),
-            None => {
-                let data = fs::read(&asar_path).map_err(|e| format!("读取 app.asar 失败: {e}"))?;
-                let parsed = read_asar_header(&data, &asar_path)?;
-                sha256_hex(parsed.header_string.as_bytes())
-            }
-        };
-
-        let app_path = app_path_from_resources(resources_path);
-        let exe_path = [app_path.join("Claude.exe"), app_path.join("claude.exe")]
-            .into_iter()
-            .find(|path| path.is_file())
-            .ok_or_else(|| "未找到 Claude.exe".to_string())?;
-        let mut exe = fs::read(&exe_path).map_err(|e| format!("读取 Claude.exe 失败: {e}"))?;
-        let marker = b"resources\\\\app.asar\",\"alg\":\"SHA256\",\"value\":\"";
-        let matches = find_pattern(&exe, marker);
-        if matches.len() != 1 {
-            return Err("未找到 Claude.exe 内嵌 app.asar 完整性标记".to_string());
-        }
-        let hash_offset = matches[0] + marker.len();
-        if hash_offset + 64 > exe.len() {
-            return Err("Claude.exe 完整性标记边界无效".to_string());
-        }
-        let current = std::str::from_utf8(&exe[hash_offset..hash_offset + 64])
-            .map_err(|e| format!("Claude.exe 完整性哈希不是 UTF-8: {e}"))?;
-        if current == header_hash {
-            return Ok(());
-        }
-        if !current.bytes().all(|b| b.is_ascii_hexdigit()) {
-            return Err("Claude.exe 完整性哈希不是 SHA256 十六进制".to_string());
-        }
-
-        if let Some(backup) = backup {
-            backup.backup_app_file(&exe_path)?;
-        }
-        exe[hash_offset..hash_offset + 64].copy_from_slice(header_hash.as_bytes());
-        fs::write(&exe_path, exe).map_err(|e| format!("写入 Claude.exe 失败: {e}"))?;
-        Ok(())
-    }
-
-    fn resolve_claude_paths() -> Result<ClaudePaths, String> {
-        let app = find_claude_path().ok_or_else(|| "未找到 Claude Desktop 安装目录".to_string())?;
-        let resources = resources_path_for_app(&app)
-            .ok_or_else(|| format!("未找到 Claude resources 目录: {}", app.display()))?;
-        Ok(ClaudePaths { app, resources })
-    }
-
-    fn find_claude_path() -> Option<PathBuf> {
-        let mut candidates = Vec::new();
-        for var in ["ProgramW6432", "ProgramFiles"] {
-            if let Some(root) = env::var_os(var).map(PathBuf::from) {
-                collect_windows_app_candidates(&root.join("WindowsApps"), &mut candidates);
-                candidates.push(root.join("Claude"));
-            }
-        }
-        if let Some(local) = env::var_os("LOCALAPPDATA").map(PathBuf::from) {
-            candidates.push(local.join("Programs").join("Claude"));
-        }
-
-        candidates
-            .into_iter()
-            .filter(|path| resources_path_for_app(path).is_some())
-            .max_by_key(|path| modified_secs(path).unwrap_or(0))
-    }
-
-    fn collect_windows_app_candidates(root: &Path, candidates: &mut Vec<PathBuf>) {
-        let Ok(entries) = fs::read_dir(root) else {
-            collect_windows_app_candidates_with_shell(root, candidates);
-            return;
-        };
-        let before = candidates.len();
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-                continue;
-            };
-            if name.starts_with("Claude_") && path.is_dir() {
-                candidates.push(path);
-            }
-        }
-        if candidates.len() == before {
-            collect_windows_app_candidates_with_shell(root, candidates);
-        }
-    }
-
-    fn collect_windows_app_candidates_with_shell(root: &Path, candidates: &mut Vec<PathBuf>) {
-        let root = root.display().to_string().replace('\'', "''");
-        let script = format!(
-            "Get-ChildItem '{root}\\Claude_*' -Directory -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | ForEach-Object {{ $_.FullName }}"
-        );
-        for shell in ["pwsh.exe", "powershell.exe"] {
-            let Ok(output) = hidden_command(shell)
-                .args(["-NoProfile", "-Command", &script])
-                .output()
-            else {
-                continue;
-            };
-            if !output.status.success() {
-                continue;
-            }
-            for line in String::from_utf8_lossy(&output.stdout).lines() {
-                let path = PathBuf::from(line.trim());
-                if !path.as_os_str().is_empty() && path.is_dir() {
-                    candidates.push(path);
-                }
-            }
-            if !candidates.is_empty() {
-                break;
-            }
-        }
-    }
-
-    fn resources_path_for_app(app: &Path) -> Option<PathBuf> {
-        for candidate in [app.join("app").join("resources"), app.join("resources")] {
-            if candidate.is_dir() {
-                return Some(candidate);
-            }
-        }
-        None
-    }
-
-    fn enable_write_access(resources_path: &Path) {
-        let Some(identity) = current_windows_identity() else {
-            return;
-        };
-        for path in [
-            app_path_from_resources(resources_path),
-            resources_path.to_path_buf(),
-            resources_path.join("ion-dist"),
-            resources_path.join("ion-dist").join("assets"),
-            resources_path.join("ion-dist").join("assets").join("v1"),
-        ] {
-            if path.exists() {
-                let _ = hidden_command("icacls")
-                    .arg(&path)
-                    .args(["/grant", &format!("{identity}:(OI)(CI)F")])
-                    .output();
-            }
-        }
-    }
-
-    fn latest_backup(resources_path: &Path) -> Option<PathBuf> {
-        let root = backup_root(resources_path);
-        let entries = fs::read_dir(root).ok()?;
-        entries
-            .flatten()
-            .map(|entry| entry.path())
-            .filter(|path| path.is_dir())
-            .max_by_key(|path| path.file_name().map(|n| n.to_os_string()))
-    }
-
-    fn js_files(assets_dir: &Path, index_only: bool) -> Result<Vec<PathBuf>, String> {
-        let entries =
-            fs::read_dir(assets_dir).map_err(|e| format!("读取 Claude 前端资源目录失败: {e}"))?;
-        let mut files = Vec::new();
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-                continue;
-            };
-            if path.extension().and_then(|e| e.to_str()) == Some("js")
-                && (!index_only || name.starts_with("index-"))
-            {
-                files.push(path);
-            }
-        }
-        if files.is_empty() {
-            return Err("未找到 Claude 前端 JS bundle".to_string());
-        }
-        Ok(files)
-    }
-
-    fn app_path_from_resources(resources_path: &Path) -> PathBuf {
-        resources_path
-            .parent()
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|| resources_path.to_path_buf())
-    }
-
-    fn backup_root(resources_path: &Path) -> PathBuf {
-        resources_path.join(".claude-plus-enhance-backups")
-    }
-
-    fn relative_to(path: &Path, root: &Path) -> Result<PathBuf, String> {
-        let full = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-        let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-        full.strip_prefix(&root)
-            .map(Path::to_path_buf)
-            .map_err(|_| format!("路径不在预期目录内: {}", path.display()))
-    }
-
-    fn align4(value: usize) -> usize {
-        value + ((4 - (value % 4)) % 4)
-    }
-
-    fn read_u32_le(bytes: &[u8], offset: usize) -> Result<u32, String> {
-        let slice = bytes
-            .get(offset..offset + 4)
-            .ok_or_else(|| "读取 u32 越界".to_string())?;
-        Ok(u32::from_le_bytes(slice.try_into().unwrap()))
-    }
-
-    fn read_i32_le(bytes: &[u8], offset: usize) -> Result<i32, String> {
-        let slice = bytes
-            .get(offset..offset + 4)
-            .ok_or_else(|| "读取 i32 越界".to_string())?;
-        Ok(i32::from_le_bytes(slice.try_into().unwrap()))
-    }
-
-    fn sha256_hex(data: &[u8]) -> String {
-        let digest = Sha256::digest(data);
-        let mut out = String::with_capacity(64);
-        for byte in digest {
-            out.push_str(&format!("{byte:02x}"));
-        }
-        out
-    }
-
-    fn find_pattern(data: &[u8], pattern: &[u8]) -> Vec<usize> {
-        if pattern.is_empty() || data.len() < pattern.len() {
-            return Vec::new();
-        }
-        data.windows(pattern.len())
-            .enumerate()
-            .filter_map(|(index, window)| (window == pattern).then_some(index))
-            .collect()
-    }
-
-    fn modified_secs(path: &Path) -> Option<u64> {
-        path.metadata()
-            .ok()?
-            .modified()
-            .ok()?
-            .duration_since(UNIX_EPOCH)
-            .ok()
-            .map(|d| d.as_secs())
-    }
-
-    fn current_windows_identity() -> Option<String> {
-        let output = hidden_command("whoami").output().ok()?;
-        if !output.status.success() {
-            return None;
-        }
-        let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        (!text.is_empty()).then_some(text)
-    }
-
-    fn hidden_command(program: &str) -> Command {
-        let mut command = Command::new(program);
-        command
-            .creation_flags(0x08000000)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        command
-    }
-
-    use std::os::windows::process::CommandExt;
 }
 
 #[cfg(not(target_os = "windows"))]
