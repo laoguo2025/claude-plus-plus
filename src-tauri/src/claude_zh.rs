@@ -534,11 +534,9 @@ mod imp {
         for path in js_files(&assets_dir, false)? {
             let text =
                 fs::read_to_string(&path).map_err(|e| format!("读取前端 bundle 失败: {e}"))?;
-            let mut updated = text.clone();
+            let mut updated = repair_hardcoded_identifier_pollution(&text);
             for (source, target) in &replacements {
-                if updated.contains(source) {
-                    updated = updated.replace(source, target);
-                }
+                updated = replace_hardcoded_frontend_string(&updated, source, target);
             }
             if updated != text {
                 backup.backup_resource(&path)?;
@@ -546,6 +544,116 @@ mod imp {
             }
         }
         Ok(())
+    }
+
+    fn replace_hardcoded_frontend_string(text: &str, source: &str, target: &str) -> String {
+        if source.is_empty() || !text.contains(source) {
+            return text.to_string();
+        }
+
+        let mut output = String::with_capacity(text.len());
+        let mut cursor = 0;
+        while let Some(relative) = text[cursor..].find(source) {
+            let start = cursor + relative;
+            let end = start + source.len();
+            output.push_str(&text[cursor..start]);
+            if hardcoded_match_has_safe_boundaries(text, source, start, end) {
+                output.push_str(target);
+            } else {
+                output.push_str(source);
+            }
+            cursor = end;
+        }
+        output.push_str(&text[cursor..]);
+        output
+    }
+
+    fn repair_hardcoded_identifier_pollution(text: &str) -> String {
+        let text = replace_hardcoded_identifier_fragment(text, "来源", "Source");
+        replace_hardcoded_identifier_fragment(&text, "扩展", "Extensions")
+    }
+
+    fn replace_hardcoded_identifier_fragment(text: &str, source: &str, target: &str) -> String {
+        if source.is_empty() || !text.contains(source) {
+            return text.to_string();
+        }
+
+        let mut output = String::with_capacity(text.len());
+        let mut cursor = 0;
+        while let Some(relative) = text[cursor..].find(source) {
+            let start = cursor + relative;
+            let end = start + source.len();
+            output.push_str(&text[cursor..start]);
+            if hardcoded_fragment_is_inside_identifier(text, start, end) {
+                output.push_str(target);
+            } else {
+                output.push_str(source);
+            }
+            cursor = end;
+        }
+        output.push_str(&text[cursor..]);
+        output
+    }
+
+    fn hardcoded_fragment_is_inside_identifier(text: &str, start: usize, end: usize) -> bool {
+        previous_byte(text.as_bytes(), start)
+            .map(is_js_ident_continue)
+            .unwrap_or(false)
+            || text
+                .as_bytes()
+                .get(end)
+                .copied()
+                .map(is_js_ident_continue)
+                .unwrap_or(false)
+    }
+
+    fn hardcoded_match_has_safe_boundaries(
+        text: &str,
+        source: &str,
+        start: usize,
+        end: usize,
+    ) -> bool {
+        let starts_with_ident = source
+            .as_bytes()
+            .first()
+            .copied()
+            .map(is_js_ident_continue)
+            .unwrap_or(false);
+        let ends_with_ident = source
+            .as_bytes()
+            .last()
+            .copied()
+            .map(is_js_ident_continue)
+            .unwrap_or(false);
+
+        if starts_with_ident
+            && previous_byte(text.as_bytes(), start)
+                .map(is_js_ident_continue)
+                .unwrap_or(false)
+        {
+            return false;
+        }
+        if ends_with_ident
+            && text
+                .as_bytes()
+                .get(end)
+                .copied()
+                .map(is_js_ident_continue)
+                .unwrap_or(false)
+        {
+            return false;
+        }
+        true
+    }
+
+    fn previous_byte(bytes: &[u8], index: usize) -> Option<u8> {
+        index
+            .checked_sub(1)
+            .and_then(|previous| bytes.get(previous).copied())
+    }
+
+    fn is_js_ident_continue(byte: u8) -> bool {
+        byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'$'
     }
 
     fn patch_hardcoded_main_process_menu_labels(
@@ -1204,6 +1312,85 @@ mod imp {
     }
 
     use std::os::windows::process::CommandExt;
+
+    #[cfg(test)]
+    mod tests {
+        use super::{repair_hardcoded_identifier_pollution, replace_hardcoded_frontend_string};
+
+        #[test]
+        fn hardcoded_frontend_replacements_skip_js_identifiers() {
+            let text = r#"const shaderSource=e.shaderSource;function supportedExtensions(){return true}setSourceBranch("main");"#;
+            let text = replace_hardcoded_frontend_string(text, "Source", "来源");
+            let text = replace_hardcoded_frontend_string(&text, "Extensions", "扩展");
+
+            assert!(text.contains("shaderSource"));
+            assert!(text.contains("supportedExtensions"));
+            assert!(text.contains("setSourceBranch"));
+            assert!(!text.contains("shader来源"));
+            assert!(!text.contains("supported扩展"));
+            assert!(!text.contains("set来源Branch"));
+        }
+
+        #[test]
+        fn hardcoded_frontend_replacements_keep_literal_copy() {
+            let text =
+                r#"{title:"Source",label:"Extensions",description:"Show extension directory"}"#;
+            let text = replace_hardcoded_frontend_string(text, "Source", "来源");
+            let text = replace_hardcoded_frontend_string(&text, "Extensions", "扩展");
+            let text = replace_hardcoded_frontend_string(
+                &text,
+                "Show extension directory",
+                "显示扩展目录",
+            );
+
+            assert!(text.contains(r#"title:"来源""#));
+            assert!(text.contains(r#"label:"扩展""#));
+            assert!(text.contains(r#"description:"显示扩展目录""#));
+        }
+
+        #[test]
+        fn hardcoded_frontend_repair_restores_polluted_identifiers_only() {
+            let text =
+                r#"shader来源 supported扩展 set来源Branch trust来源s title:"来源" label:"扩展""#;
+            let text = repair_hardcoded_identifier_pollution(text);
+
+            assert!(text.contains("shaderSource"));
+            assert!(text.contains("supportedExtensions"));
+            assert!(text.contains("setSourceBranch"));
+            assert!(text.contains("trustSources"));
+            assert!(text.contains(r#"title:"来源""#));
+            assert!(text.contains(r#"label:"扩展""#));
+            assert!(!text.contains("shader来源"));
+            assert!(!text.contains("supported扩展"));
+        }
+
+        #[test]
+        #[ignore = "writes Claude Desktop resources; set CLAUDE_PLUS_VERIFY_INSTALL=1"]
+        fn verify_install_zh_cn_keeps_cowork_identifiers() {
+            if std::env::var("CLAUDE_PLUS_VERIFY_INSTALL").ok().as_deref() != Some("1") {
+                eprintln!("skipping install verification; set CLAUDE_PLUS_VERIFY_INSTALL=1");
+                return;
+            }
+
+            super::install("zh-CN", false).expect("install zh-CN localization");
+            let paths = super::resolve_claude_paths().expect("Claude Desktop paths");
+            let assets_dir = paths.resources.join("ion-dist").join("assets").join("v1");
+            let mut all_text = String::new();
+            for path in super::js_files(&assets_dir, false).expect("frontend JS files") {
+                all_text.push_str(
+                    &std::fs::read_to_string(&path).expect("installed frontend JS should be UTF-8"),
+                );
+                all_text.push('\n');
+            }
+
+            assert!(all_text.contains("shaderSource"));
+            assert!(all_text.contains("supportedExtensions"));
+            assert!(!all_text.contains("shader来源"));
+            assert!(!all_text.contains("supported扩展"));
+            assert!(!all_text.contains("set来源Branch"));
+            assert!(!all_text.contains("trust来源s"));
+        }
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
