@@ -17,7 +17,8 @@ mod imp {
     const NAV_PLUGINS_MARKER: &str = "__claudePlusEnhancePluginsV1";
     const NAV_MCP_MARKER: &str = "__claudePlusEnhanceMcpV1";
     const SKILLS_BRIDGE_MARKER: &str = "__claudePlusSkillsBridgeV1";
-    const ASAR_PATCH_TARGET: &str = ".vite/build/index.js";
+    const SKILLS_BRIDGE_TARGET: &str = ".vite/build/mainView.js";
+    const LEGACY_SKILLS_BRIDGE_TARGET: &str = ".vite/build/index.js";
     const ASAR_INTEGRITY_BLOCK_SIZE: usize = 4 * 1024 * 1024;
     const SKILLS_BRIDGE_SCRIPT: &str = r##";(()=>{const MARK="__claudePlusSkillsBridgeV1";
 if(globalThis[MARK])return;
@@ -69,7 +70,7 @@ function h(e){const n=i(e).find(c);if(!n)return!1;const t=n.parentElement||n.par
 function x(){if(b)return;const e=document.getElementById("claude-plus-enhance-style");e&&e.remove();let n=!1;return document.querySelectorAll("nav,aside,[role=navigation]").forEach(e=>{n=h(e)||n}),n}
 function y(){b||q||(q=setTimeout(()=>{q=0,x()},250))}
 function z(e){return String(e==null?"":e).replace(/[&<>"']/g,e=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[e]))}
-function A(){let e=document.getElementById("claude-plus-skills-modal");if(e)return e.remove();e=document.createElement("div");e.id="claude-plus-skills-modal";e.innerHTML='<div class="cps-backdrop"></div><section class="cps-panel" role="dialog" aria-modal="true" aria-label="技能"><header><strong>技能</strong><button type="button" data-cps-close>关闭</button></header><main><p class="cps-loading">正在读取 skills...</p></main></section>';document.body.appendChild(e);const n=document.createElement("style");n.id="claude-plus-skills-style";n.textContent="#claude-plus-skills-modal{position:fixed;inset:0;z-index:2147483647;color:#f4f1ea;font:13px/1.45 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#claude-plus-skills-modal .cps-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.52)}#claude-plus-skills-modal .cps-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(720px,calc(100vw - 48px));height:min(760px,calc(100vh - 48px));display:grid;grid-template-rows:auto 1fr;background:#171717;border:1px solid #3d3a35;border-radius:10px;box-shadow:0 22px 80px rgba(0,0,0,.48);overflow:hidden}#claude-plus-skills-modal header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px 12px;border-bottom:1px solid #2f2d2a;background:#1f1e1b}#claude-plus-skills-modal header strong{font-size:18px;font-weight:650}#claude-plus-skills-modal button{border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:7px;min-height:30px;padding:0 10px;cursor:pointer}#claude-plus-skills-modal button:hover{border-color:#d97745}#claude-plus-skills-modal button.cps-danger{border-color:#7f2d22;background:#4a1f1a;color:#ffd8cf}#claude-plus-skills-modal button:disabled{opacity:.55;cursor:default}#claude-plus-skills-modal main{overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:18px}#claude-plus-skills-modal .cps-section{display:flex;flex-direction:column;gap:10px}#claude-plus-skills-modal .cps-section-title{font-size:14px;font-weight:650;color:#f4f1ea}#claude-plus-skills-modal .cps-container{display:grid;gap:10px;border:1px solid #34312d;border-radius:8px;background:#1f1f1c;padding:10px}#claude-plus-skills-modal .cps-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;border:1px solid #34312d;border-radius:8px;background:#262521}#claude-plus-skills-modal .cps-title{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:5px}#claude-plus-skills-modal .cps-title strong{font-size:14px}#claude-plus-skills-modal .cps-summary{margin:0 0 6px;color:#e7e0d4}#claude-plus-skills-modal .cps-meta,.cps-path,.cps-empty,.cps-loading,.cps-error{color:#a9a39a}#claude-plus-skills-modal .cps-path{font-size:12px;word-break:break-all}#claude-plus-skills-modal .cps-actions{display:flex;align-items:flex-start}.cps-toast{position:absolute;right:16px;bottom:14px;background:#2b2925;border:1px solid #5a544b;border-radius:8px;padding:8px 10px;color:#f4f1ea}";document.head.appendChild(n);function t(){e.remove();n.remove()}e.querySelector("[data-cps-close]").addEventListener("click",t);e.querySelector(".cps-backdrop").addEventListener("click",t);return e}
+function A(){let e=document.getElementById("claude-plus-skills-modal");if(e)return e.remove();e=document.createElement("div");e.id="claude-plus-skills-modal";e.innerHTML='<div class="cps-backdrop"></div><section class="cps-panel" role="dialog" aria-modal="true" aria-label="技能"><header><strong>技能</strong><button type="button" data-cps-close>关闭</button></header><main><p class="cps-loading">正在读取 skills...</p></main></section>';document.body.appendChild(e);const n=document.createElement("style");n.id="claude-plus-skills-style";n.textContent="#claude-plus-skills-modal{position:fixed;inset:0;z-index:2147483647;color:#f4f1ea;font:13px/1.45 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#claude-plus-skills-modal .cps-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.52)}#claude-plus-skills-modal .cps-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(886px,calc(100vw - 48px));height:min(713px,calc(100vh - 48px));display:grid;grid-template-rows:auto 1fr;background:#171717;border:1px solid #3d3a35;border-radius:10px;box-shadow:0 22px 80px rgba(0,0,0,.48);overflow:hidden}#claude-plus-skills-modal header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px 12px;border-bottom:1px solid #2f2d2a;background:#1f1e1b}#claude-plus-skills-modal header strong{font-size:18px;font-weight:650}#claude-plus-skills-modal button{border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:7px;min-height:30px;padding:0 10px;cursor:pointer}#claude-plus-skills-modal button:hover{border-color:#d97745}#claude-plus-skills-modal button.cps-danger{border-color:#7f2d22;background:#4a1f1a;color:#ffd8cf}#claude-plus-skills-modal button:disabled{opacity:.55;cursor:default}#claude-plus-skills-modal main{overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:18px}#claude-plus-skills-modal .cps-section{display:flex;flex-direction:column;gap:10px}#claude-plus-skills-modal .cps-section-title{font-size:14px;font-weight:650;color:#f4f1ea}#claude-plus-skills-modal .cps-container{display:grid;gap:10px;border:1px solid #34312d;border-radius:8px;background:#1f1f1c;padding:10px}#claude-plus-skills-modal .cps-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;border:1px solid #34312d;border-radius:8px;background:#262521}#claude-plus-skills-modal .cps-title{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:5px}#claude-plus-skills-modal .cps-title strong{font-size:14px}#claude-plus-skills-modal .cps-summary{margin:0 0 6px;color:#e7e0d4}#claude-plus-skills-modal .cps-meta,.cps-path,.cps-empty,.cps-loading,.cps-error{color:#a9a39a}#claude-plus-skills-modal .cps-path{font-size:12px;word-break:break-all}#claude-plus-skills-modal .cps-actions{display:flex;align-items:flex-start}.cps-toast{position:absolute;right:16px;bottom:14px;background:#2b2925;border:1px solid #5a544b;border-radius:8px;padding:8px 10px;color:#f4f1ea}";document.head.appendChild(n);function t(){e.remove();n.remove()}e.querySelector("[data-cps-close]").addEventListener("click",t);e.querySelector(".cps-backdrop").addEventListener("click",t);return e}
 function C(e,n){const t=e.filter(e=>e.scope===n),r=n==="global"?"全局 skills":"项目 skills";return'<section class="cps-section"><div class="cps-section-title">'+r+'</div><div class="cps-container">'+(t.length?t.map(e=>'<article class="cps-card" data-id="'+z(e.id)+'"><div><div class="cps-title"><strong>'+z(e.name)+'</strong></div><p class="cps-summary">'+z(e.summary_zh)+'</p><div class="cps-meta">'+z(e.description||"")+'</div><div class="cps-path">'+z(e.project_path?("项目："+e.project_path):"全局")+'</div><div class="cps-path">'+z(e.path)+'</div></div><div class="cps-actions"><button type="button" class="cps-danger" data-cps-trash>删除</button></div></article>').join(""):'<p class="cps-empty">暂无'+r+'。</p>')+"</div></section>"}
 async function B(){const e=A(),n=e.querySelector("main"),t=window.claudePlusSkills;if(!t||typeof t.list!=="function"||typeof t.trash!=="function"){n.innerHTML='<p class="cps-error">本地 skills 桥未安装或尚未生效。</p><p class="cps-path">请在 Claude++ 中重新安装“技能”页面增强，并重启 Claude Desktop。</p>';return}try{const r=await t.list(),a=r.skills||[];n.innerHTML=C(a,"global")+C(a,"project");n.querySelectorAll("[data-cps-trash]").forEach(r=>r.addEventListener("click",async()=>{const a=r.closest(".cps-card"),s=s=>{let n=e.querySelector(".cps-toast");n||(n=document.createElement("div"),n.className="cps-toast",e.appendChild(n));n.textContent=s;setTimeout(()=>n&&n.remove(),2600)},l=a?.dataset.id,o=a?.querySelector(".cps-title strong")?.textContent||"该 skill";if(!l)return;if(!confirm("确认删除 skill “"+o+"”？\n\n该操作会把对应 skill 目录移动到回收站。"))return;r.disabled=!0;try{await t.trash(l);a.remove();s("已移动到回收站")}catch(e){r.disabled=!1;s(e.message||String(e))}}))}catch(r){n.innerHTML='<p class="cps-error">读取本地 skills 失败。</p><p class="cps-path">'+z(r.message||String(r))+"</p>"}}
 async function s(e){if(e.open==="custom3p"){const n=window["claude.settings"]?.Custom3pSetup?.openSetupWindow||window.claude?.settings?.Custom3pSetup?.openSetupWindow;if(typeof n==="function"){try{await n();return}catch(t){}}return}if(e.open==="skills"){B();return}const n=new URL(e.path,location.origin),t=n.pathname+n.search+n.hash;try{history.pushState(null,"",t);window.dispatchEvent(new PopStateEvent("popstate",{state:history.state}));window.dispatchEvent(new Event("pushstate"));window.dispatchEvent(new Event("locationchange"))}catch(r){location.assign(n.toString())}}
@@ -419,7 +420,17 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
         backup: &mut BackupContext,
         enabled: bool,
     ) -> Result<(), String> {
-        patch_asar_file(resources_path, ASAR_PATCH_TARGET, backup, |content| {
+        patch_skills_bridge_file(resources_path, LEGACY_SKILLS_BRIDGE_TARGET, backup, false)?;
+        patch_skills_bridge_file(resources_path, SKILLS_BRIDGE_TARGET, backup, enabled)
+    }
+
+    fn patch_skills_bridge_file(
+        resources_path: &Path,
+        file_path: &str,
+        backup: &mut BackupContext,
+        enabled: bool,
+    ) -> Result<(), String> {
+        patch_asar_file(resources_path, file_path, backup, |content| {
             let text =
                 std::str::from_utf8(content).map_err(|e| format!("preload 入口不是 UTF-8: {e}"))?;
             let mut next = remove_skills_bridge(text);
@@ -446,7 +457,7 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
     }
 
     fn skills_bridge_installed(resources_path: &Path) -> bool {
-        read_asar_file(resources_path, ASAR_PATCH_TARGET)
+        read_asar_file(resources_path, SKILLS_BRIDGE_TARGET)
             .ok()
             .and_then(|content| String::from_utf8(content).ok())
             .map(|text| text.contains(SKILLS_BRIDGE_MARKER))
@@ -458,6 +469,7 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
         use super::{
             feature_payload, feature_states_from_text, EnhanceFeatureId, INJECT_SCRIPT,
             NAV_API_MARKER, NAV_MCP_MARKER, NAV_PLUGINS_MARKER, SKILLS_BRIDGE_SCRIPT,
+            SKILLS_BRIDGE_TARGET,
         };
 
         fn state(states: &[(EnhanceFeatureId, bool)], feature: EnhanceFeatureId) -> bool {
@@ -495,6 +507,8 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
         #[test]
         fn skills_popup_uses_preload_bridge_not_local_service() {
             assert!(INJECT_SCRIPT.contains("window.claudePlusSkills"));
+            assert!(INJECT_SCRIPT.contains("width:min(886px,calc(100vw - 48px))"));
+            assert!(INJECT_SCRIPT.contains("height:min(713px,calc(100vh - 48px))"));
             assert!(!INJECT_SCRIPT.contains("127.0.0.1:15722/claude-plus/skills"));
             assert!(!INJECT_SCRIPT.contains("无法连接 Claude++ 本地服务"));
         }
@@ -504,6 +518,11 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
             assert!(SKILLS_BRIDGE_SCRIPT.contains("contextBridge.exposeInMainWorld"));
             assert!(SKILLS_BRIDGE_SCRIPT.contains("claudePlusSkills"));
             assert!(SKILLS_BRIDGE_SCRIPT.contains("shell.trashItem"));
+        }
+
+        #[test]
+        fn skills_bridge_targets_main_view_preload() {
+            assert_eq!(SKILLS_BRIDGE_TARGET, ".vite/build/mainView.js");
         }
     }
 
