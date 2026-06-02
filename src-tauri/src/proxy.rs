@@ -17,10 +17,12 @@ use axum::{
     Router,
 };
 use bytes::Bytes;
-use futures_util::{Stream, TryStreamExt};
+use futures_util::Stream;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::{Arc, RwLock};
+use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
 const MODEL_ID_PREFIX: &str = "claude-plus-plus";
@@ -561,18 +563,64 @@ fn track_token_usage_stream<S>(
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>>,
 {
-    let mut tracker = TokenUsageStreamTracker::default();
-    stream.inspect_ok(move |chunk| {
-        let text = String::from_utf8_lossy(chunk);
-        if let Some(mut usage) = tracker.ingest_text(&text) {
-            usage.elapsed_ms = started_at.elapsed().as_millis() as u64;
+    if let Ok(mut stored) = store.write() {
+        *stored = None;
+    }
+    TokenUsageTrackedStream {
+        stream: Box::pin(stream),
+        tracker: TokenUsageStreamTracker::default(),
+        store,
+        started_at,
+        published: false,
+    }
+}
+
+struct TokenUsageTrackedStream<S> {
+    stream: Pin<Box<S>>,
+    tracker: TokenUsageStreamTracker,
+    store: Arc<RwLock<Option<TokenUsageSnapshot>>>,
+    started_at: Instant,
+    published: bool,
+}
+
+impl<S> TokenUsageTrackedStream<S> {
+    fn publish_final_usage(&mut self) {
+        if self.published {
+            return;
+        }
+        self.published = true;
+        let tracker = std::mem::take(&mut self.tracker);
+        if let Some(mut usage) = tracker.finish() {
+            usage.elapsed_ms = self.started_at.elapsed().as_millis() as u64;
             usage.updated_at_ms = now_ms();
             usage.id = usage.updated_at_ms;
-            if let Ok(mut stored) = store.write() {
+            if let Ok(mut stored) = self.store.write() {
                 *stored = Some(usage);
             }
         }
-    })
+    }
+}
+
+impl<S> Stream for TokenUsageTrackedStream<S>
+where
+    S: Stream<Item = Result<Bytes, reqwest::Error>>,
+{
+    type Item = Result<Bytes, reqwest::Error>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        match self.stream.as_mut().poll_next(cx) {
+            Poll::Ready(Some(Ok(chunk))) => {
+                let text = String::from_utf8_lossy(&chunk);
+                self.tracker.ingest_text(&text);
+                Poll::Ready(Some(Ok(chunk)))
+            }
+            Poll::Ready(None) => {
+                self.publish_final_usage();
+                Poll::Ready(None)
+            }
+            other => other,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -599,7 +647,6 @@ impl TokenUsageStreamTracker {
         self.snapshot()
     }
 
-    #[cfg(test)]
     fn finish(mut self) -> Option<TokenUsageSnapshot> {
         if !self.pending_line.is_empty() {
             let line = std::mem::take(&mut self.pending_line);
@@ -635,6 +682,10 @@ fn extract_token_usage_from_text(text: &str) -> Option<TokenUsageSnapshot> {
 
 fn finalized_token_usage(usage: &TokenUsageSnapshot) -> TokenUsageSnapshot {
     let mut usage = usage.clone();
+    usage.cached_tokens = usage.cached_tokens.min(usage.input_tokens);
+    usage.cache_creation_tokens = usage
+        .cache_creation_tokens
+        .min(usage.input_tokens.saturating_sub(usage.cached_tokens));
     usage.total_tokens = usage
         .total_tokens
         .max(usage.input_tokens + usage.output_tokens);
@@ -966,6 +1017,25 @@ mod tests {
     }
 
     #[test]
+    fn token_usage_clamps_cached_tokens_to_input_tokens() {
+        let text = [
+            "event: message_start",
+            "data: {\"usage\":{\"input_tokens\":9573,\"cached_input_tokens\":41920,\"cache_creation_input_tokens\":200}}",
+            "",
+            "event: message_delta",
+            "data: {\"usage\":{\"output_tokens\":25,\"total_tokens\":9598}}",
+            "",
+        ]
+        .join("\n");
+
+        let usage = extract_token_usage_from_text(&text).expect("token usage");
+
+        assert_eq!(usage.input_tokens, 9573);
+        assert_eq!(usage.cached_tokens, 9573);
+        assert_eq!(usage.cache_creation_tokens, 0);
+    }
+
+    #[test]
     fn token_usage_tracker_handles_split_sse_lines() {
         let mut tracker = TokenUsageStreamTracker::default();
 
@@ -974,6 +1044,39 @@ mod tests {
             .ingest_text("tokens\":42,\"output_tokens\":8}}\n")
             .expect("token usage");
 
+        assert_eq!(usage.input_tokens, 42);
+        assert_eq!(usage.output_tokens, 8);
+        assert_eq!(usage.total_tokens, 50);
+    }
+
+    #[tokio::test]
+    async fn token_usage_stream_publishes_only_after_stream_end() {
+        use futures_util::{stream, StreamExt};
+
+        let store = Arc::new(RwLock::new(Some(TokenUsageSnapshot {
+            id: 1,
+            input_tokens: 1,
+            ..TokenUsageSnapshot::default()
+        })));
+        let chunks: Vec<Result<Bytes, reqwest::Error>> = vec![Ok(Bytes::from_static(
+            b"data: {\"usage\":{\"input_tokens\":42,\"output_tokens\":8}}\n",
+        ))];
+        let mut tracked = Box::pin(track_token_usage_stream(
+            stream::iter(chunks),
+            store.clone(),
+            Instant::now(),
+        ));
+
+        assert!(store.read().expect("store").is_none());
+        assert!(tracked.next().await.expect("chunk").is_ok());
+        assert!(store.read().expect("store").is_none());
+        assert!(tracked.next().await.is_none());
+
+        let usage = store
+            .read()
+            .expect("store")
+            .clone()
+            .expect("final token usage");
         assert_eq!(usage.input_tokens, 42);
         assert_eq!(usage.output_tokens, 8);
         assert_eq!(usage.total_tokens, 50);
