@@ -869,6 +869,27 @@ D();
 
             assert!(plugins.enabled);
         }
+
+        #[test]
+        #[ignore = "writes Claude Desktop resources; set CLAUDE_PLUS_VERIFY_INSTALL=1"]
+        fn verify_install_title_i18n_enhance_writes_bridge() {
+            assert_eq!(
+                std::env::var("CLAUDE_PLUS_VERIFY_INSTALL")
+                    .as_deref()
+                    .map(str::trim),
+                Ok("1")
+            );
+
+            super::install("conversation_title_i18n").expect("install title i18n enhance");
+            let status = super::status();
+            let feature = status
+                .features
+                .iter()
+                .find(|feature| feature.id == "conversation_title_i18n")
+                .expect("title i18n feature status");
+
+            assert!(feature.enabled);
+        }
     }
 
     fn read_index_bundle(resources_path: &Path) -> Result<String, String> {
