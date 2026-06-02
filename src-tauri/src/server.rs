@@ -30,8 +30,12 @@ impl ServerHandle {
         tcp_port_accepts_connections(port)
     }
 
+    pub fn is_healthy_on(&self, port: u16) -> bool {
+        self.port() == Some(port) && tcp_port_accepts_connections(port)
+    }
+
     pub fn ensure_running(&self, port: u16, db_path: PathBuf) -> Result<(), String> {
-        if self.port() == Some(port) && tcp_port_accepts_connections(port) {
+        if self.is_healthy_on(port) {
             return Ok(());
         }
         self.stop()?;

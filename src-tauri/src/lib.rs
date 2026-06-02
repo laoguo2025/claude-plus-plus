@@ -9,11 +9,12 @@ mod constants;
 mod diagnostics;
 mod proxy;
 mod server;
+mod settings;
 mod time_utils;
 
-use constants::{CC_SWITCH_CLAUDE_DESKTOP_ENTRY_ID, DEFAULT_PROXY_PORT};
+use constants::CC_SWITCH_CLAUDE_DESKTOP_ENTRY_ID;
 use server::ServerHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -36,9 +37,10 @@ struct DiagnosticsRequest {
 #[tauri::command]
 fn proxy_status(state: tauri::State<ServerHandle>) -> StatusInfo {
     ensure_proxy_if_applied(state.inner());
+    let port = settings::proxy_port();
     StatusInfo {
-        running: state.is_healthy(),
-        port: state.port(),
+        running: state.is_healthy_on(port),
+        port: Some(port),
         cd_applied: cd_config::is_applied(),
     }
 }
@@ -47,7 +49,7 @@ fn proxy_status(state: tauri::State<ServerHandle>) -> StatusInfo {
 fn use_claude_plus_route(state: tauri::State<ServerHandle>) -> Result<(), String> {
     let _ = diagnostics::append_event("manager.use_claude_plus_route.start", serde_json::json!({}));
     let was_running = state.is_healthy();
-    state.ensure_running(DEFAULT_PROXY_PORT, server::default_db_path())?;
+    state.ensure_running(settings::proxy_port(), server::default_db_path())?;
     let result = apply_cd_config();
     if result.is_err() && !was_running {
         if let Err(error) = state.stop() {
@@ -112,7 +114,7 @@ fn get_mappings() -> Result<ccswitch_db::ProviderMappings, String> {
 fn apply_cd_config() -> Result<(), String> {
     let key = server::read_ccswitch_api_key()
         .ok_or_else(|| "无法从 CC Switch 配置读取 API key".to_string())?;
-    cd_config::apply(DEFAULT_PROXY_PORT, &key)
+    cd_config::apply(settings::proxy_port(), &key)
 }
 
 #[tauri::command]
@@ -121,10 +123,11 @@ fn revert_cd_config() -> Result<(), String> {
 }
 
 fn ensure_proxy_if_applied(state: &ServerHandle) {
-    if !cd_config::is_applied() || state.is_healthy() {
+    let port = settings::proxy_port();
+    if !cd_config::is_applied() || state.is_healthy_on(port) {
         return;
     }
-    if let Err(error) = state.ensure_running(DEFAULT_PROXY_PORT, server::default_db_path()) {
+    if let Err(error) = state.ensure_running(port, server::default_db_path()) {
         let _ = diagnostics::append_event(
             "manager.proxy_health_restart_failed",
             serde_json::json!({
@@ -135,7 +138,7 @@ fn ensure_proxy_if_applied(state: &ServerHandle) {
         let _ = diagnostics::append_event(
             "manager.proxy_health_restart_ok",
             serde_json::json!({
-                "port": DEFAULT_PROXY_PORT
+                "port": port
             }),
         );
     }
@@ -250,10 +253,11 @@ pub fn run() {
         .setup(|app| {
             // 启动即自动开代理
             let handle = app.state::<ServerHandle>().inner().clone();
-            if let Err(e) = handle.ensure_running(DEFAULT_PROXY_PORT, server::default_db_path()) {
+            let port = settings::proxy_port();
+            if let Err(e) = handle.ensure_running(port, server::default_db_path()) {
                 tracing::error!("auto start proxy failed: {e}");
             }
-            spawn_mapping_monitor(DEFAULT_PROXY_PORT, handle);
+            spawn_mapping_monitor(handle);
             let show = MenuItem::with_id(app, "show", "Show Claude++", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
@@ -333,9 +337,12 @@ fn show_main_window<R: tauri::Runtime>(manager: &impl Manager<R>) {
     }
 }
 
-fn spawn_mapping_monitor(port: u16, handle: ServerHandle) {
+fn spawn_mapping_monitor(handle: ServerHandle) {
     tauri::async_runtime::spawn(async move {
         let mut last_fingerprint: Option<String> = None;
+        let mut last_refreshed_fingerprint: Option<String> = None;
+        let mut pending_change_since: Option<Instant> = None;
+        let mut pending_fingerprint: Option<String> = None;
         let mut refreshed_on_startup = false;
 
         loop {
@@ -348,14 +355,35 @@ fn spawn_mapping_monitor(port: u16, handle: ServerHandle) {
                         .map(|last| last != &fingerprint)
                         .unwrap_or(false);
 
-                    if (!refreshed_on_startup || changed) && cd_config::is_applied() {
-                        let reason = if changed {
+                    if changed {
+                        if pending_fingerprint.as_ref() != Some(&fingerprint) {
+                            pending_change_since = Some(Instant::now());
+                        }
+                        pending_fingerprint = Some(fingerprint.clone());
+                    }
+
+                    let change_ready = pending_change_since
+                        .map(|since| since.elapsed() >= Duration::from_secs(2))
+                        .unwrap_or(false);
+                    let pending_ready =
+                        change_ready && pending_fingerprint.as_ref() == Some(&fingerprint);
+                    let should_refresh = !refreshed_on_startup || pending_ready;
+                    let already_refreshed =
+                        last_refreshed_fingerprint.as_ref() == Some(&fingerprint);
+
+                    if should_refresh && !already_refreshed && cd_config::is_applied() {
+                        let port = settings::proxy_port();
+                        let reason = if pending_ready {
                             "routing config changed"
                         } else {
                             "startup"
                         };
-                        refresh_cd_config(port, reason);
-                        refreshed_on_startup = true;
+                        if refresh_cd_config(port, reason) {
+                            last_refreshed_fingerprint = Some(fingerprint.clone());
+                            pending_change_since = None;
+                            pending_fingerprint = None;
+                            refreshed_on_startup = true;
+                        }
                     }
 
                     last_fingerprint = Some(fingerprint);
@@ -379,17 +407,41 @@ fn mapping_monitor_fingerprint(pm: &ccswitch_db::ProviderMappings) -> String {
     .to_string()
 }
 
-fn refresh_cd_config(port: u16, reason: &str) {
+fn refresh_cd_config(port: u16, reason: &str) -> bool {
     let Some(key) = server::read_ccswitch_api_key() else {
         tracing::warn!("skip Claude Desktop config entry refresh ({reason}): API key not found");
-        return;
+        let _ = diagnostics::append_event(
+            "manager.mapping_refresh_skipped",
+            serde_json::json!({
+                "reason": reason,
+                "error": "api key not found"
+            }),
+        );
+        return false;
     };
 
     if let Err(e) = cd_config::apply(port, &key) {
         tracing::warn!("Claude Desktop config entry refresh failed ({reason}): {e}");
+        let _ = diagnostics::append_event(
+            "manager.mapping_refresh_failed",
+            serde_json::json!({
+                "reason": reason,
+                "port": port,
+                "error": e
+            }),
+        );
+        false
     } else {
         tracing::info!(
             "Claude Desktop config entry refreshed ({reason}); restart Claude Desktop to refresh model picker"
         );
+        let _ = diagnostics::append_event(
+            "manager.mapping_refresh_ok",
+            serde_json::json!({
+                "reason": reason,
+                "port": port
+            }),
+        );
+        true
     }
 }

@@ -2,7 +2,7 @@
 mod imp {
     use crate::claude_desktop;
     use crate::claude_patch_common as patch;
-    use crate::constants::DEFAULT_PROXY_PORT;
+    use crate::settings;
     use serde::{Deserialize, Serialize};
     use serde_json::Value;
     use std::{fs, path::Path};
@@ -31,7 +31,7 @@ mod imp {
     const ENHANCE_FEATURES_JSON: &str = include_str!("../../src/shared/enhance-features.json");
 
     fn local_gateway_url(path: &str) -> String {
-        format!("http://127.0.0.1:{DEFAULT_PROXY_PORT}{path}")
+        format!("http://127.0.0.1:{}{path}", settings::proxy_port())
     }
     fn skills_bridge_script() -> String {
         r##";(()=>{const MARK="__claudePlusSkillsBridgeV1";
@@ -1041,6 +1041,27 @@ D();
 
             assert!(feature.enabled);
         }
+
+        #[test]
+        #[ignore = "writes Claude Desktop resources; set CLAUDE_PLUS_VERIFY_INSTALL=1"]
+        fn verify_install_token_usage_enhance_writes_bridge() {
+            assert_eq!(
+                std::env::var("CLAUDE_PLUS_VERIFY_INSTALL")
+                    .as_deref()
+                    .map(str::trim),
+                Ok("1")
+            );
+
+            super::install("token_usage").expect("install token usage enhance");
+            let status = super::status();
+            let feature = status
+                .features
+                .iter()
+                .find(|feature| feature.id == "token_usage")
+                .expect("token usage feature status");
+
+            assert!(feature.enabled);
+        }
     }
 
     fn read_index_bundle(resources_path: &Path) -> Result<String, String> {
@@ -1144,13 +1165,13 @@ mod imp {
 
     #[derive(Serialize)]
     pub struct EnhanceFeature {
-        pub id: &'static str,
-        pub label: &'static str,
-        pub category: &'static str,
-        pub description: &'static str,
+        pub id: String,
+        pub label: String,
+        pub category: String,
+        pub description: String,
         pub enabled: bool,
         pub available: bool,
-        pub note: &'static str,
+        pub note: String,
     }
 
     pub fn status() -> ClaudeEnhanceStatus {

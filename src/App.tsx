@@ -86,6 +86,19 @@ type Icon = ComponentType<LucideProps>;
 type CommandArgs = Record<string, unknown>;
 
 const PREVIEW_APP_VERSION = __APP_VERSION__;
+const PREVIEW_PROXY_PORT = 15722;
+const PREVIEW_STATUS: StatusInfo = { running: true, port: PREVIEW_PROXY_PORT, cd_applied: true };
+const PREVIEW_ZH_STATUS: ClaudeZhStatus = {
+  supported: true,
+  claude_found: true,
+  installed: false,
+  backup_available: true,
+  claude_version: "未检测到",
+  install_path: null,
+  resources_path: null,
+  locale: "en-US",
+  language_files: [],
+};
 
 const routes: Array<{ id: Route; label: string; icon: Icon }> = [
   { id: "overview", label: "CCS转接", icon: Link2 },
@@ -126,28 +139,18 @@ function previewCommand<T>(cmd: string): T {
     return PREVIEW_APP_VERSION as T;
   }
   if (cmd === "proxy_status") {
-    return { running: true, port: 15722, cd_applied: true } as T;
+    return PREVIEW_STATUS as T;
   }
   if (cmd === "get_mappings") {
     throw new Error("浏览器预览无法读取 CC Switch 数据库；请在 Claude++ EXE 中查看真实服务商和模型映射。");
   }
   if (cmd === "claude_zh_status") {
-    return {
-      supported: true,
-      claude_found: true,
-      installed: false,
-      backup_available: true,
-      claude_version: "未检测到",
-      install_path: null,
-      resources_path: null,
-      locale: "en-US",
-      language_files: [],
-    } as T;
+    return PREVIEW_ZH_STATUS as T;
   }
   if (cmd === "claude_enhance_status") {
     return {
-      supported: true,
-      claude_found: true,
+      supported: PREVIEW_ZH_STATUS.supported,
+      claude_found: PREVIEW_ZH_STATUS.claude_found,
       installed: false,
       backup_available: true,
       install_path: null,
@@ -164,34 +167,38 @@ function previewCommand<T>(cmd: string): T {
   ) {
     return undefined as T;
   }
-  if (cmd === "read_latest_logs") {
+  if (cmd === "read_latest_logs" || cmd === "generate_diagnostics") {
+    const report = JSON.stringify(
+      {
+        generatedAtMs: Date.now(),
+        version: PREVIEW_APP_VERSION,
+        overview: {
+          app: "Claude++",
+          status: PREVIEW_STATUS,
+        },
+        paths: {
+          ccSwitchDb: "C:\\Users\\Administrator\\.cc-switch\\cc-switch.db",
+          diagnosticLog: "C:\\Users\\Administrator\\.claude-plus-plus\\claude-plus-plus.log",
+        },
+      },
+      null,
+      2,
+    );
+    if (cmd === "generate_diagnostics") {
+      return { report } as T;
+    }
     return {
       path: "C:\\Users\\Administrator\\.claude-plus-plus\\claude-plus-plus.log",
       text: [
-        '{"timestamp_ms":1780394324466,"pid":18896,"event":"manager.proxy_status","detail":{"running":true,"port":15722,"cd_applied":true}}',
+        JSON.stringify({
+          timestamp_ms: Date.now(),
+          pid: 18896,
+          event: "manager.proxy_status",
+          detail: PREVIEW_STATUS,
+        }),
         '{"timestamp_ms":1780394329499,"pid":18896,"event":"manager.generate_diagnostics","detail":{}}',
       ].join("\n"),
       lines: 200,
-    } as T;
-  }
-  if (cmd === "generate_diagnostics") {
-    return {
-      report: JSON.stringify(
-        {
-          generatedAtMs: Date.now(),
-          version: PREVIEW_APP_VERSION,
-          overview: {
-            app: "Claude++",
-            status: { running: true, port: 15722, cd_applied: true },
-          },
-          paths: {
-            ccSwitchDb: "C:\\Users\\Administrator\\.cc-switch\\cc-switch.db",
-            diagnosticLog: "C:\\Users\\Administrator\\.claude-plus-plus\\claude-plus-plus.log",
-          },
-        },
-        null,
-        2,
-      ),
     } as T;
   }
   return undefined as T;
