@@ -435,7 +435,7 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
                 std::str::from_utf8(content).map_err(|e| format!("preload 入口不是 UTF-8: {e}"))?;
             let mut next = remove_skills_bridge(text);
             if enabled {
-                next.push_str(SKILLS_BRIDGE_SCRIPT);
+                next.insert_str(0, SKILLS_BRIDGE_SCRIPT);
             }
             if next == text {
                 Ok(None)
@@ -446,14 +446,15 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
     }
 
     fn remove_skills_bridge(text: &str) -> String {
-        let Some(start) = text.find(";(()=>{const MARK=\"__claudePlusSkillsBridgeV1\"") else {
-            return text.to_string();
-        };
-        let Some(relative_end) = text[start..].find("})();") else {
-            return text.to_string();
-        };
-        let end = start + relative_end + "})();".len();
-        format!("{}{}", &text[..start], &text[end..])
+        let mut next = text.to_string();
+        while let Some(start) = next.find(";(()=>{const MARK=\"__claudePlusSkillsBridgeV1\"") {
+            let Some(relative_end) = next[start..].find("})();") else {
+                break;
+            };
+            let end = start + relative_end + "})();".len();
+            next.replace_range(start..end, "");
+        }
+        next
     }
 
     fn skills_bridge_installed(resources_path: &Path) -> bool {
@@ -467,9 +468,9 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
     #[cfg(test)]
     mod tests {
         use super::{
-            feature_payload, feature_states_from_text, EnhanceFeatureId, INJECT_SCRIPT,
-            NAV_API_MARKER, NAV_MCP_MARKER, NAV_PLUGINS_MARKER, SKILLS_BRIDGE_SCRIPT,
-            SKILLS_BRIDGE_TARGET,
+            feature_payload, feature_states_from_text, remove_skills_bridge, EnhanceFeatureId,
+            INJECT_SCRIPT, NAV_API_MARKER, NAV_MCP_MARKER, NAV_PLUGINS_MARKER,
+            SKILLS_BRIDGE_SCRIPT, SKILLS_BRIDGE_TARGET,
         };
 
         fn state(states: &[(EnhanceFeatureId, bool)], feature: EnhanceFeatureId) -> bool {
@@ -523,6 +524,32 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
         #[test]
         fn skills_bridge_targets_main_view_preload() {
             assert_eq!(SKILLS_BRIDGE_TARGET, ".vite/build/mainView.js");
+        }
+
+        #[test]
+        fn skills_bridge_is_inserted_before_source_map_comment() {
+            let preload = "const ready=true;\n//# sourceMappingURL=mainView.js.map";
+            let mut next = remove_skills_bridge(preload);
+            next.insert_str(0, SKILLS_BRIDGE_SCRIPT);
+
+            let bridge_index = next.find("__claudePlusSkillsBridgeV1").unwrap();
+            let source_map_index = next.find("sourceMappingURL").unwrap();
+            assert!(bridge_index < source_map_index);
+            assert!(next.starts_with(";(()=>{const MARK=\"__claudePlusSkillsBridgeV1\""));
+        }
+
+        #[test]
+        fn remove_skills_bridge_cleans_multiple_residues() {
+            let text = format!(
+                "{}const ready=true;{}//# sourceMappingURL=mainView.js.map",
+                SKILLS_BRIDGE_SCRIPT, SKILLS_BRIDGE_SCRIPT
+            );
+            let cleaned = remove_skills_bridge(&text);
+
+            assert_eq!(
+                cleaned,
+                "const ready=true;//# sourceMappingURL=mainView.js.map"
+            );
         }
     }
 
