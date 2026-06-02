@@ -318,7 +318,11 @@ select {
   font-weight: 600;
 }
 
-.aboutPage,
+.aboutPage {
+  align-content: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .diagnosticsPage {
   grid-template-columns: minmax(0, 1.45fr) minmax(230px, 0.75fr);
 }
@@ -974,6 +978,12 @@ select {
   gap: 9px;
 }
 
+.aboutPanel {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
 .keyValue {
   display: grid;
   gap: 4px;
@@ -984,7 +994,6 @@ select {
 .aboutCopy {
   display: grid;
   gap: 8px;
-  margin-bottom: 12px;
 }
 
 .aboutCopy p {
@@ -992,6 +1001,19 @@ select {
   color: var(--text-200);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.aboutInfoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+}
+
+.aboutInfoGrid .keyValue {
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--bg-100);
+  padding: 10px 12px;
 }
 
 .themeRow {

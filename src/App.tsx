@@ -86,8 +86,8 @@ const routes: Array<{ id: Route; label: string; icon: Icon }> = [
   { id: "overview", label: "CCS转接", icon: Link2 },
   { id: "localization", label: "一键汉化", icon: Languages },
   { id: "enhance", label: "页面增强", icon: Hammer },
-  { id: "about", label: "关于工具", icon: Info },
   { id: "diagnostics", label: "诊断日志", icon: FileText },
+  { id: "about", label: "关于工具", icon: Info },
 ];
 
 const routeMeta: Record<Route, { title: string }> = {
@@ -961,7 +961,7 @@ function AboutPage({
 }) {
   return (
     <div className="pageGrid aboutPage">
-      <section className="panel mainPanel">
+      <section className="panel aboutPanel">
         <div className="panelHead">
           <div>
             <h2>Claude++</h2>
@@ -969,10 +969,24 @@ function AboutPage({
           </div>
           <Info size={20} />
         </div>
+
         <div className="aboutCopy">
           <p>Claude Desktop 指向本机 Claude++ 代理，Claude++ 从 CC Switch 读取当前服务商映射并转发请求。</p>
-          <p>一键汉化只修改 Claude Desktop 资源与配置，并保留恢复路径。</p>
+          <p>当前版本包含 CCS 转接、一键汉化、页面增强、诊断日志等本地能力；暂未接入 GitHub 发布信息。</p>
         </div>
+
+        <div className="aboutInfoGrid">
+          <KeyValue label="当前版本" value="0.1.0" />
+          <KeyValue label="Claude++ 转接" value={proxyText} />
+          <KeyValue label="当前路由" value={routeText} />
+          <KeyValue label="汉化状态" value={zhText} />
+          <KeyValue label="GitHub 仓库" value="待补充" />
+          <KeyValue label="Release 信息" value="待补充" />
+          <KeyValue label="许可证" value="待补充" />
+          <KeyValue label="维护者" value="待补充" />
+          <KeyValue label="反馈入口" value="待补充" />
+        </div>
+
         <div className="themeRow">
           <div>
             <strong>界面主题</strong>
@@ -989,13 +1003,6 @@ function AboutPage({
             </button>
           </div>
         </div>
-      </section>
-
-      <section className="panel statusPanel">
-        <KeyValue label="版本" value="0.1.0" />
-        <KeyValue label="Claude++ 转接" value={proxyText} />
-        <KeyValue label="当前路由" value={routeText} />
-        <KeyValue label="汉化" value={zhText} />
       </section>
     </div>
   );
