@@ -321,6 +321,23 @@ fn extract_title_translation(payload: &serde_json::Value) -> Option<String> {
                     .or_else(|| item.get("content").and_then(|text| text.as_str()))
             })
         })
+        .or_else(|| {
+            payload
+                .get("choices")
+                .and_then(|choices| choices.as_array())
+                .and_then(|choices| {
+                    choices.iter().find_map(|choice| {
+                        choice
+                            .get("message")
+                            .and_then(|message| message.get("content"))
+                            .and_then(|content| content.as_str())
+                            .or_else(|| {
+                                choice.get("text").and_then(|text| text.as_str())
+                            })
+                    })
+                })
+        })
+        .or_else(|| payload.get("text").and_then(|text| text.as_str()))
         .or_else(|| payload.get("title").and_then(|title| title.as_str()))?;
     let cleaned = text
         .trim()
@@ -488,5 +505,23 @@ mod tests {
         assert!(text.contains("15 个汉字以内"));
         assert!(text.contains("Prepare quarterly roadmap"));
         assert!(text.contains("不要 Markdown"));
+    }
+
+    #[test]
+    fn extracts_openai_style_title_translation_response() {
+        let payload = serde_json::json!({
+            "choices": [
+                {
+                    "message": {
+                        "content": "扫描 Alma 项目"
+                    }
+                }
+            ]
+        });
+
+        assert_eq!(
+            extract_title_translation(&payload),
+            Some("扫描 Alma 项目".to_string())
+        );
     }
 }

@@ -97,7 +97,7 @@ function I(e){return/[A-Za-z]/.test(e)&&!/[\u4e00-\u9fff]/.test(e)&&e.length>=4&
 function J(e){if(!e||e.closest("svg,[aria-hidden='true'],button[aria-label*='more' i],button[aria-label*='更多']"))return null;const n=[];let t;const r=document.createTreeWalker(e,NodeFilter.SHOW_TEXT,{acceptNode:e=>{const n=e.parentElement;if(!n||n.closest("svg,[aria-hidden='true']"))return NodeFilter.FILTER_REJECT;const t=E(e.nodeValue);return I(t)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT}});for(;t=r.nextNode();)n.push(t);return n.sort((e,n)=>E(n.nodeValue).length-E(e.nodeValue).length)[0]||null}
 function K(e){const n=e.getAttribute("href")||e.getAttribute("data-href")||e.getAttribute("data-to")||"",t=e.getAttribute("aria-label")||"",r=E(e.textContent),a=new RegExp("(^|/)chat(s)?(/|\\\\?|#|$)|conversation","i");return a.test(n)||/open .*chat|open .*conversation|select .*chat|rename chat|打开会话|选择.*会话/i.test(t)||(/^[A-Za-z0-9][\\s\\S]{3,90}$/.test(r)&&e.closest("aside,nav,[role=navigation]")&&t.includes(r))}
 async function L(e,n){const t=E(n.nodeValue);if(!I(t)||e.getAttribute("data-claude-plus-original-title")===t)return;if(H.has(t)){const r=H.get(t);r&&(n.nodeValue=r,e.setAttribute("data-claude-plus-original-title",t),e.setAttribute("data-claude-plus-title-i18n",r));return}e.setAttribute("data-claude-plus-original-title",t);try{const r=await fetch("http://127.0.0.1:15722/claude-plus/conversation-title-i18n",{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({title:t})}),a=await r.json();const s=E(a&&a.title);if(r.ok&&s&&s!==t&&/[\u4e00-\u9fff]/.test(s)){H.set(t,s);n.nodeValue=s;e.setAttribute("data-claude-plus-title-i18n",s)}else H.set(t,"")}catch(r){H.set(t,"")}}
-function M(){if(!window.__claudePlusEnhanceConversationTitleI18nV1)return;document.querySelectorAll("aside a,nav a,aside button,nav button,aside [role=link],nav [role=link],aside [role=button],nav [role=button]").forEach(e=>{if(!K(e))return;const n=J(e);n&&L(e,n)})}
+function M(){if(!window.__claudePlusEnhanceConversationTitleI18nV1)return;document.querySelectorAll("aside a,nav a,aside button,nav button,aside div,nav div,aside li,nav li,aside [role=link],nav [role=link],aside [role=button],nav [role=button],aside [role=listitem],nav [role=listitem]").forEach(e=>{if(!K(e))return;const n=J(e);n&&L(e,n)})}
 function y(){b||q||(q=setTimeout(()=>{q=0,x();M()},250))}
 function z(e){return String(e==null?"":e).replace(/[&<>"']/g,e=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[e]))}
 function D(){try{if(localStorage.getItem("claudePlusCustom3pPane")!=="connectors")return}catch(e){return}for(let e=0;e<14;e++)setTimeout(()=>{const e=Array.from(document.querySelectorAll("button,a,[role=button],[role=tab],[role=menuitem],nav *,aside *")).find(e=>/连接器与扩展|Connectors|MCP servers/i.test(o(e)));if(e){e.click();try{localStorage.removeItem("claudePlusCustom3pPane")}catch(t){}}},220+e*250)}
@@ -611,6 +611,14 @@ D();
             assert!(!INJECT_SCRIPT.contains(r"/(^|\\/)"));
             assert!(!INJECT_SCRIPT.contains(r"(\\/|\\?|#|$)"));
             assert!(INJECT_SCRIPT.contains("new RegExp"));
+        }
+
+        #[test]
+        fn conversation_title_i18n_scans_plain_sidebar_list_items() {
+            assert!(INJECT_SCRIPT.contains("aside div"));
+            assert!(INJECT_SCRIPT.contains("nav div"));
+            assert!(INJECT_SCRIPT.contains("aside li"));
+            assert!(INJECT_SCRIPT.contains("aside [role=listitem]"));
         }
 
         #[test]
