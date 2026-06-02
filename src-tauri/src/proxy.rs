@@ -313,7 +313,21 @@ fn display_to_role_from_mappings(mappings: &[Mapping], model: &str) -> Option<St
 fn model_matches_role_kind(model: &str, role_kind: &str) -> bool {
     let model = model.to_ascii_lowercase();
     let role_kind = role_kind.to_ascii_lowercase();
-    !role_kind.is_empty() && model.contains(&role_kind)
+    if role_kind.is_empty() {
+        return false;
+    }
+    if model == role_kind {
+        return true;
+    }
+
+    let has_role_token = model
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .any(|part| part == role_kind);
+    has_role_token
+        && (model.starts_with("claude-")
+            || model.starts_with("now-")
+            || model.contains("/claude-")
+            || model.starts_with(&format!("{role_kind}-")))
 }
 
 fn parse_title_i18n_request(body: &[u8]) -> Option<String> {
@@ -518,9 +532,6 @@ where
 fn extract_token_usage_from_text(text: &str) -> Option<TokenUsageSnapshot> {
     let mut usage = TokenUsageSnapshot::default();
     let mut found = false;
-    if let Ok(value) = serde_json::from_str::<serde_json::Value>(text) {
-        collect_token_usages(&value, 0, &mut usage, &mut found);
-    }
     for fragment in sse_json_fragments(text) {
         if let Ok(value) = serde_json::from_str::<serde_json::Value>(fragment) {
             collect_token_usages(&value, 0, &mut usage, &mut found);
@@ -782,6 +793,22 @@ mod tests {
             display_to_role_from_mappings(&mappings, "claude-haiku-4-5-20251001"),
             Some("claude-haiku-4-5".to_string())
         );
+    }
+
+    #[test]
+    fn role_kind_fallback_requires_token_boundary() {
+        assert!(model_matches_role_kind("now-opus-4-6", "opus"));
+        assert!(model_matches_role_kind(
+            "claude-haiku-4-5-20251001",
+            "haiku"
+        ));
+        assert!(model_matches_role_kind(
+            "anthropic/claude-3-5-sonnet-20241022",
+            "sonnet"
+        ));
+        assert!(!model_matches_role_kind("preopus-4-6", "opus"));
+        assert!(model_matches_role_kind("claude-sonnet-4-6", "sonnet"));
+        assert!(!model_matches_role_kind("test-sonnet-model", "sonnet"));
     }
 
     #[test]

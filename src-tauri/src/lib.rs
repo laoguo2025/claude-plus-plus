@@ -60,8 +60,18 @@ fn use_claude_plus_route(state: tauri::State<ServerHandle>) -> Result<(), String
 }
 
 #[tauri::command]
-fn use_ccs_route() -> Result<(), String> {
+fn use_ccs_route(state: tauri::State<ServerHandle>) -> Result<(), String> {
     let result = revert_cd_config();
+    if result.is_ok() {
+        if let Err(error) = state.stop() {
+            let _ = diagnostics::append_event(
+                "manager.use_ccs_route.stop_proxy_failed",
+                serde_json::json!({
+                    "error": error
+                }),
+            );
+        }
+    }
     let _ = diagnostics::append_event(
         if result.is_ok() {
             "manager.use_ccs_route.ok"

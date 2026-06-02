@@ -1,7 +1,11 @@
 use crate::time_utils::now_ms;
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::{fs, io::Write, path::PathBuf};
+use std::{
+    fs,
+    io::{Read, Seek, SeekFrom, Write},
+    path::PathBuf,
+};
 
 const APP_STATE_DIR: &str = ".claude-plus-plus";
 const DIAGNOSTIC_LOG_FILE: &str = "claude-plus-plus.log";
@@ -118,12 +122,54 @@ fn default_app_state_dir() -> PathBuf {
 }
 
 fn read_tail(path: &PathBuf, lines: usize) -> std::io::Result<String> {
-    let text = fs::read_to_string(path)?;
     if lines == 0 {
         return Ok(String::new());
     }
 
+    let mut file = fs::File::open(path)?;
+    let mut position = file.seek(SeekFrom::End(0))?;
+    if position == 0 {
+        return Ok(String::new());
+    }
+
+    const BLOCK_SIZE: usize = 8192;
+    let mut chunks: Vec<u8> = Vec::new();
+    let mut newline_count = 0usize;
+
+    while position > 0 && newline_count <= lines {
+        let read_size = BLOCK_SIZE.min(position as usize);
+        position -= read_size as u64;
+        file.seek(SeekFrom::Start(position))?;
+
+        let mut buffer = vec![0u8; read_size];
+        file.read_exact(&mut buffer)?;
+        newline_count += buffer.iter().filter(|byte| **byte == b'\n').count();
+
+        buffer.extend_from_slice(&chunks);
+        chunks = buffer;
+    }
+
+    let text = String::from_utf8_lossy(&chunks);
     let mut selected: Vec<&str> = text.lines().rev().take(lines).collect();
     selected.reverse();
     Ok(selected.join("\n"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_tail_returns_requested_last_lines() {
+        let path = std::env::temp_dir().join(format!(
+            "claude-plus-plus-read-tail-{}.log",
+            std::process::id()
+        ));
+        fs::write(&path, "one\ntwo\nthree\nfour\n").unwrap();
+
+        assert_eq!(read_tail(&path, 2).unwrap(), "three\nfour");
+        assert_eq!(read_tail(&path, 0).unwrap(), "");
+
+        let _ = fs::remove_file(path);
+    }
 }
