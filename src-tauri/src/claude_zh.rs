@@ -1,6 +1,7 @@
 #[cfg(target_os = "windows")]
 mod imp {
     use crate::claude_desktop;
+    use crate::constants::CLAUDE_STORE_PACKAGE_NAME;
     use regex::{bytes::Regex as BytesRegex, Regex};
     use serde::Serialize;
     use serde_json::{Map, Value};
@@ -1251,7 +1252,7 @@ mod imp {
             }
         }
         if packages.is_empty() {
-            packages.push("Claude_pzs8sxrjxfjjc".to_string());
+            packages.push(CLAUDE_STORE_PACKAGE_NAME.to_string());
         }
 
         let mut paths = Vec::new();

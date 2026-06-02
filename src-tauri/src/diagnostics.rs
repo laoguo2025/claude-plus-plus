@@ -1,11 +1,7 @@
+use crate::time_utils::now_ms;
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::{
-    fs,
-    io::Write,
-    path::PathBuf,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{fs, io::Write, path::PathBuf};
 
 const APP_STATE_DIR: &str = ".claude-plus-plus";
 const DIAGNOSTIC_LOG_FILE: &str = "claude-plus-plus.log";
@@ -130,11 +126,4 @@ fn read_tail(path: &PathBuf, lines: usize) -> std::io::Result<String> {
     let mut selected: Vec<&str> = text.lines().rev().take(lines).collect();
     selected.reverse();
     Ok(selected.join("\n"))
-}
-
-fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
 }

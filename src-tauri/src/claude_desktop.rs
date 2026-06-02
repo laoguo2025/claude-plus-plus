@@ -9,10 +9,10 @@ use std::{
 use std::os::windows::process::CommandExt;
 
 #[cfg(target_os = "windows")]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
+use crate::constants::CLAUDE_STORE_APP_ID;
 
 #[cfg(target_os = "windows")]
-const CLAUDE_STORE_APP: &str = r"shell:AppsFolder\Claude_pzs8sxrjxfjjc!Claude";
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 #[cfg(target_os = "windows")]
 pub fn restart() -> Result<(), String> {
@@ -69,7 +69,7 @@ pub(crate) fn launch_claude() -> Result<(), String> {
         }
     }
 
-    launch_with_explorer(CLAUDE_STORE_APP.as_ref())
+    launch_with_explorer(CLAUDE_STORE_APP_ID.as_ref())
         .map_err(|e| format!("启动 Claude Desktop 失败: {e}"))
 }
 

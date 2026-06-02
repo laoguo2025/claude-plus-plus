@@ -1675,11 +1675,11 @@ mod imp {
         }
     }
 
-    pub fn install() -> Result<(), String> {
+    pub fn install(_feature: &str) -> Result<(), String> {
         Err("当前只支持在 Windows 上安装 Claude Desktop 页面增强".to_string())
     }
 
-    pub fn uninstall() -> Result<(), String> {
+    pub fn uninstall(_feature: &str) -> Result<(), String> {
         Err("当前只支持在 Windows 上恢复 Claude Desktop 页面增强".to_string())
     }
 }

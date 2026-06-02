@@ -1,5 +1,6 @@
 // 在 Claude Desktop 3P 配置库新建独立 Claude++ 条目并切为生效。
 // 不修改 CC Switch 写的条目(切服务商会被覆盖),两条目共存。
+use crate::constants::CLAUDE_STORE_PACKAGE_NAME;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
@@ -13,7 +14,7 @@ pub fn store_config_library_dir() -> Option<PathBuf> {
     Some(
         local
             .join("Packages")
-            .join("Claude_pzs8sxrjxfjjc")
+            .join(CLAUDE_STORE_PACKAGE_NAME)
             .join("LocalCache")
             .join("Roaming")
             .join("Claude-3p")

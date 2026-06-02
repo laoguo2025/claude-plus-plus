@@ -4,10 +4,13 @@ mod claude_desktop;
 mod claude_enhance;
 mod claude_skills;
 mod claude_zh;
+mod constants;
 mod diagnostics;
 mod proxy;
 mod server;
+mod time_utils;
 
+use constants::{CC_SWITCH_CLAUDE_DESKTOP_ENTRY_ID, DEFAULT_PROXY_PORT};
 use server::ServerHandle;
 use std::time::Duration;
 use tauri::{
@@ -15,8 +18,6 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager, WindowEvent,
 };
-
-const DEFAULT_PORT: u16 = 15722;
 
 #[derive(serde::Serialize)]
 struct StatusInfo {
@@ -43,7 +44,7 @@ fn proxy_status(state: tauri::State<ServerHandle>) -> StatusInfo {
 #[tauri::command]
 fn use_claude_plus_route(state: tauri::State<ServerHandle>) -> Result<(), String> {
     let _ = diagnostics::append_event("manager.use_claude_plus_route.start", serde_json::json!({}));
-    state.start(DEFAULT_PORT, server::default_db_path())?;
+    state.start(DEFAULT_PROXY_PORT, server::default_db_path())?;
     let result = apply_cd_config();
     let _ = diagnostics::append_event(
         if result.is_ok() {
@@ -83,12 +84,12 @@ fn get_mappings() -> Result<ccswitch_db::ProviderMappings, String> {
 fn apply_cd_config() -> Result<(), String> {
     let key = server::read_ccswitch_api_key()
         .ok_or_else(|| "无法从 CC Switch 配置读取 API key".to_string())?;
-    cd_config::apply(DEFAULT_PORT, &key)
+    cd_config::apply(DEFAULT_PROXY_PORT, &key)
 }
 
 #[tauri::command]
 fn revert_cd_config() -> Result<(), String> {
-    cd_config::revert(Some("00000000-0000-4000-8000-000000157210"))
+    cd_config::revert(Some(CC_SWITCH_CLAUDE_DESKTOP_ENTRY_ID))
 }
 
 #[tauri::command]
@@ -200,10 +201,10 @@ pub fn run() {
         .setup(|app| {
             // 启动即自动开代理
             let handle: tauri::State<ServerHandle> = app.state();
-            if let Err(e) = handle.start(DEFAULT_PORT, server::default_db_path()) {
+            if let Err(e) = handle.start(DEFAULT_PROXY_PORT, server::default_db_path()) {
                 tracing::error!("auto start proxy failed: {e}");
             }
-            spawn_mapping_monitor(DEFAULT_PORT);
+            spawn_mapping_monitor(DEFAULT_PROXY_PORT);
             let show = MenuItem::with_id(app, "show", "Show Claude++", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;

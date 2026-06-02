@@ -3,6 +3,7 @@
 // POST /claude-desktop/v1/messages -> body.model 显示名->角色ID,转发 :15721,SSE 逐块透传
 // 其它 /claude-desktop/*           -> 含 model 则改写后透传,否则原样透传
 use crate::ccswitch_db::{self, Mapping};
+use crate::time_utils::now_ms;
 use axum::{
     body::Body,
     extract::{Path, State},
@@ -19,7 +20,7 @@ use futures_util::{Stream, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::Instant;
 
 /// 上游地址兜底(读不到 CC Switch 配置时用)。正常应从 CC Switch 读取。
 const UPSTREAM_FALLBACK: &str = "http://127.0.0.1:15721/claude-desktop";
@@ -512,13 +513,6 @@ where
             }
         }
     })
-}
-
-fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or(0)
 }
 
 fn extract_token_usage_from_text(text: &str) -> Option<TokenUsageSnapshot> {

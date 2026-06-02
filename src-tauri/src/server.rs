@@ -1,5 +1,6 @@
 // 代理服务生命周期管理 + 从 CC Switch 读取 bearer key。
 use crate::ccswitch_db;
+use crate::constants::CC_SWITCH_CLAUDE_DESKTOP_ENTRY_ID;
 use crate::proxy::{self, AppState};
 use std::path::PathBuf;
 use std::sync::{mpsc, Arc, Mutex};
@@ -102,7 +103,7 @@ fn read_ccswitch_field(field: &str) -> Option<String> {
     crate::cd_config::candidate_dirs()
         .into_iter()
         .filter_map(|dir| {
-            let p = dir.join("00000000-0000-4000-8000-000000157210.json");
+            let p = dir.join(format!("{CC_SWITCH_CLAUDE_DESKTOP_ENTRY_ID}.json"));
             let modified = p.metadata().and_then(|m| m.modified()).ok()?;
             let s = std::fs::read_to_string(&p).ok()?;
             let v = serde_json::from_str::<serde_json::Value>(&s).ok()?;
