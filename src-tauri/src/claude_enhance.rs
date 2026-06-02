@@ -2,6 +2,8 @@
 mod imp {
     use crate::claude_desktop;
     use serde::Serialize;
+    use serde_json::{Map, Value};
+    use sha2::{Digest, Sha256};
     use std::{
         collections::HashSet,
         env, fs,
@@ -14,10 +16,36 @@ mod imp {
     const NAV_API_MARKER: &str = "__claudePlusEnhanceThirdPartyApiV1";
     const NAV_PLUGINS_MARKER: &str = "__claudePlusEnhancePluginsV1";
     const NAV_MCP_MARKER: &str = "__claudePlusEnhanceMcpV1";
+    const SKILLS_BRIDGE_MARKER: &str = "__claudePlusSkillsBridgeV1";
+    const ASAR_PATCH_TARGET: &str = ".vite/build/index.js";
+    const ASAR_INTEGRITY_BLOCK_SIZE: usize = 4 * 1024 * 1024;
+    const SKILLS_BRIDGE_SCRIPT: &str = r##";(()=>{const MARK="__claudePlusSkillsBridgeV1";
+if(globalThis[MARK])return;
+Object.defineProperty(globalThis,MARK,{value:!0});
+try{
+const{contextBridge,shell}=require("electron"),fs=require("fs"),path=require("path"),crypto=require("crypto");
+const home=process.env.USERPROFILE||process.env.HOME||"",claudeHome=path.join(home,".claude");
+function norm(e){try{return path.resolve(e)}catch{return String(e||"")}}
+function id(e){return crypto.createHash("sha256").update(norm(e).toLowerCase()).digest("hex").slice(0,32)}
+function readText(e){try{return fs.readFileSync(e,"utf8")}catch{return""}}
+function parseFrontmatter(e){const t={};let r=e.split(/\r?\n/);if((r.shift()||"").trim()!=="---")return t;let n=null;for(const e of r){const r=e.trimEnd();if(r.trim()==="---")break;if(/^\s/.test(e)&&n){t[n]=(t[n]?t[n]+" ":"")+r.trim();continue}const s=r.indexOf(":");if(s>0){n=r.slice(0,s).trim();t[n]=r.slice(s+1).trim().replace(/^['"]|['"]$/g,"")}}return t}
+function firstSentence(e){for(const t of e.split(/\r?\n/).map(e=>e.trim()))if(t&&t!=="---"&&!t.startsWith("#")&&!t.includes(":")&&!t.startsWith("```"))return Array.from(t).slice(0,120).join("");return"未提供描述"}
+function summary(e,t){const r=(t||"").trim();if(!r||r==="未提供描述")return`该技能用于处理「${e}」相关工作流。`;return"该技能用于："+Array.from(r.split(/\s+/).join(" ")).slice(0,140).join("")}
+function readSkill(e,t,r,n){const s=path.join(n,"SKILL.md");if(!fs.existsSync(s))return null;const a=readText(s),o=parseFrontmatter(a),l=o.name&&o.name.trim()?o.name.trim():path.basename(n),i=o.description&&o.description.trim()?o.description.trim():firstSentence(a),c=norm(n),d=norm(s);return{id:id(c),name:l,scope:e,source_label:t,project_path:r,path:c,skill_file:d,description:i,summary_zh:summary(l,i)}}
+function collectRoot(e,t,r,n,s){try{if(!fs.existsSync(e))return;for(const a of fs.readdirSync(e,{withFileTypes:!0}))if(a.isDirectory()){const o=readSkill(t,r,n,path.join(e,a.name));o&&s.push(o)}}catch{}}
+function fromClaudeJson(){try{const e=JSON.parse(readText(path.join(home,".claude.json"))),t=e&&e.projects&&typeof e.projects==="object"?Object.keys(e.projects):[];return t.map(norm)}catch{return[]}}
+function walk(e,t){try{for(const r of fs.readdirSync(e,{withFileTypes:!0})){const n=path.join(e,r.name);if(r.isDirectory())walk(n,t);else if(r.isFile()&&n.endsWith(".jsonl"))for(const e of readText(n).split(/\r?\n/))if(e.includes('"cwd"'))try{const r=JSON.parse(e);typeof r.cwd==="string"&&t.add(norm(r.cwd))}catch{}}}catch{}}
+function decodeProjectName(e){const t=e.split("--").filter(Boolean),r=(t[0]||"").replace(/:$/,"");if(r.length!==1)return null;const n=[r+":\\"];for(const e of t.slice(1))e.startsWith("claude-worktrees-")?(n.push(".claude"),n.push("worktrees"),n.push(e.slice("claude-worktrees-".length))):n.push(e==="claude"?".claude":e);return norm(path.join(...n))}
+function projectPaths(){const e=new Set;for(const t of fromClaudeJson())try{fs.existsSync(t)&&fs.statSync(t).isDirectory()&&e.add(norm(t))}catch{};const t=path.join(claudeHome,"projects");walk(t,e);try{for(const r of fs.readdirSync(t,{withFileTypes:!0}))if(r.isDirectory()){const t=decodeProjectName(r.name);t&&fs.existsSync(t)&&e.add(norm(t))}}catch{}return Array.from(e).sort()}
+function listSkills(){const e=[],t=[];const r=path.join(claudeHome,"skills");fs.existsSync(r)&&(t.push(norm(r)),collectRoot(r,"global","全局",null,e));const n=projectPaths();for(const r of n){const n=path.join(r,".claude","skills");fs.existsSync(n)&&(t.push(norm(n)),collectRoot(n,"project","项目",r,e))}e.sort((e,t)=>e.scope.localeCompare(t.scope)||String(e.project_path||"").localeCompare(String(t.project_path||""))||e.name.localeCompare(t.name));return{skills:e,roots:t,project_count:n.length}}
+async function trashSkill(e){const t=listSkills().skills.find(t=>t.id===e);if(!t)throw new Error("未找到该 skill，可能已经被删除或路径已变化");const r=norm(t.path);if(!fs.existsSync(r)||!fs.statSync(r).isDirectory()||!fs.existsSync(path.join(r,"SKILL.md")))throw new Error("目标不是有效 skill 目录");await shell.trashItem(r);return{ok:!0}}
+contextBridge.exposeInMainWorld("claudePlusSkills",{list:()=>Promise.resolve(listSkills()),trash:e=>trashSkill(String(e||""))});
+}catch(e){console.error("[Claude++] skills bridge failed",e)}
+})();"##;
     const INJECT_SCRIPT: &str = r##";(()=>{const m="__claudePlusEnhanceNavV2";
 if(window[m])return;
 Object.defineProperty(window,m,{value:!0});
-const v="3.7",n=[
+const v="3.8",n=[
 {id:"third_party_api",marker:"__claudePlusEnhanceThirdPartyApiV1",label:"第三方API",path:"/setup-desktop-3p",open:"custom3p",icon:'<svg width="16" height="16" style="width:1em;height:1em;min-width:1em;max-width:1em;min-height:1em;max-height:1em;flex:none;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h8"/><rect x="4" y="5" width="16" height="14" rx="2"/></svg>'},
 {id:"plugins",marker:"__claudePlusEnhancePluginsV1",label:"技能",path:"/customize/plugins/new?marketplace&plugin",open:"skills",icon:'<svg width="16" height="16" style="width:1em;height:1em;min-width:1em;max-width:1em;min-height:1em;max-height:1em;flex:none;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10H7z"/><path d="M10 3h4v4"/><path d="M10 21h4v-4"/><path d="M3 10h4"/><path d="M17 14h4"/></svg>'},
 {id:"mcp",marker:"__claudePlusEnhanceMcpV1",label:"MCP",path:"/customize/connectors",icon:'<svg width="16" height="16" style="width:1em;height:1em;min-width:1em;max-width:1em;min-height:1em;max-height:1em;flex:none;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="7" r="2.5"/><circle cx="18" cy="17" r="2.5"/><path d="M8.3 10.9 15.7 8.1"/><path d="M8.3 13.1 15.7 15.9"/></svg>'}
@@ -41,8 +69,9 @@ function h(e){const n=i(e).find(c);if(!n)return!1;const t=n.parentElement||n.par
 function x(){if(b)return;const e=document.getElementById("claude-plus-enhance-style");e&&e.remove();let n=!1;return document.querySelectorAll("nav,aside,[role=navigation]").forEach(e=>{n=h(e)||n}),n}
 function y(){b||q||(q=setTimeout(()=>{q=0,x()},250))}
 function z(e){return String(e==null?"":e).replace(/[&<>"']/g,e=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[e]))}
-function A(){let e=document.getElementById("claude-plus-skills-modal");if(e)return e.remove();e=document.createElement("div");e.id="claude-plus-skills-modal";e.innerHTML='<div class="cps-backdrop"></div><section class="cps-panel" role="dialog" aria-modal="true" aria-label="Claude skills"><header><div><strong>技能</strong><span>全局与历史项目中的本地 Claude skills</span></div><button type="button" data-cps-close>关闭</button></header><main><p class="cps-loading">正在读取 skills...</p></main></section>';document.body.appendChild(e);const n=document.createElement("style");n.id="claude-plus-skills-style";n.textContent="#claude-plus-skills-modal{position:fixed;inset:0;z-index:2147483647;color:#f4f1ea;font:13px/1.45 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#claude-plus-skills-modal .cps-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.52)}#claude-plus-skills-modal .cps-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(900px,calc(100vw - 48px));max-height:min(720px,calc(100vh - 48px));display:grid;grid-template-rows:auto 1fr;background:#171717;border:1px solid #3d3a35;border-radius:10px;box-shadow:0 22px 80px rgba(0,0,0,.48);overflow:hidden}#claude-plus-skills-modal header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border-bottom:1px solid #2f2d2a;background:#1f1e1b}#claude-plus-skills-modal header div{display:grid;gap:2px}#claude-plus-skills-modal header strong{font-size:16px}#claude-plus-skills-modal header span,.cps-meta,.cps-path,.cps-empty,.cps-loading,.cps-error{color:#a9a39a}#claude-plus-skills-modal button{border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:7px;min-height:30px;padding:0 10px;cursor:pointer}#claude-plus-skills-modal button:hover{border-color:#d97745}#claude-plus-skills-modal button.cps-danger{border-color:#7f2d22;background:#4a1f1a;color:#ffd8cf}#claude-plus-skills-modal button:disabled{opacity:.55;cursor:default}#claude-plus-skills-modal main{overflow:auto;padding:14px;display:grid;gap:10px}#claude-plus-skills-modal .cps-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;border:1px solid #34312d;border-radius:8px;background:#20201d}#claude-plus-skills-modal .cps-title{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:5px}#claude-plus-skills-modal .cps-title strong{font-size:14px}#claude-plus-skills-modal .cps-badge{font-size:12px;color:#f2d2bd;border:1px solid #7d553d;border-radius:999px;padding:1px 7px;background:#33261f}#claude-plus-skills-modal .cps-summary{margin:0 0 6px;color:#e7e0d4}#claude-plus-skills-modal .cps-path{font-size:12px;word-break:break-all}#claude-plus-skills-modal .cps-actions{display:flex;align-items:flex-start}.cps-toast{position:absolute;right:16px;bottom:14px;background:#2b2925;border:1px solid #5a544b;border-radius:8px;padding:8px 10px;color:#f4f1ea}";document.head.appendChild(n);function t(){e.remove();n.remove()}e.querySelector("[data-cps-close]").addEventListener("click",t);e.querySelector(".cps-backdrop").addEventListener("click",t);return e}
-async function B(){const e=A(),n=e.querySelector("main");try{const t=await fetch("http://127.0.0.1:15722/claude-plus/skills",{cache:"no-store"});if(!t.ok)throw new Error("HTTP "+t.status);const r=await t.json(),a=r.skills||[];if(!a.length){n.innerHTML='<p class="cps-empty">没有找到本地 skills。</p>';return}n.innerHTML=a.map(e=>'<article class="cps-card" data-id="'+z(e.id)+'"><div><div class="cps-title"><strong>'+z(e.name)+'</strong><span class="cps-badge">'+z(e.source_label)+'</span></div><p class="cps-summary">'+z(e.summary_zh)+'</p><div class="cps-meta">'+z(e.description||"")+'</div><div class="cps-path">'+z(e.project_path?("项目："+e.project_path):"全局")+'</div><div class="cps-path">'+z(e.path)+'</div></div><div class="cps-actions"><button type="button" class="cps-danger" data-cps-trash>删除</button></div></article>').join("");n.querySelectorAll("[data-cps-trash]").forEach(t=>t.addEventListener("click",async()=>{const r=t.closest(".cps-card"),a=a=>{let n=e.querySelector(".cps-toast");n||(n=document.createElement("div"),n.className="cps-toast",e.appendChild(n));n.textContent=a;setTimeout(()=>n&&n.remove(),2600)},s=r?.dataset.id,l=r?.querySelector(".cps-title strong")?.textContent||"该 skill";if(!s)return;if(!confirm("确认删除 skill “"+l+"”？\n\n该操作会把对应 skill 目录移动到回收站。"))return;t.disabled=!0;try{const e=await fetch("http://127.0.0.1:15722/claude-plus/skills/"+encodeURIComponent(s)+"/trash",{method:"POST"}),n=await e.json().catch(()=>({}));if(!e.ok||n.ok===false)throw new Error(n.error||("HTTP "+e.status));r.remove();a("已移动到回收站")}catch(e){t.disabled=!1;a(e.message||String(e))}}))}catch(t){n.innerHTML='<p class="cps-error">无法连接 Claude++ 本地服务。请先启动 Claude++ 后重试。</p><p class="cps-path">'+z(t.message||String(t))+"</p>"}}
+function A(){let e=document.getElementById("claude-plus-skills-modal");if(e)return e.remove();e=document.createElement("div");e.id="claude-plus-skills-modal";e.innerHTML='<div class="cps-backdrop"></div><section class="cps-panel" role="dialog" aria-modal="true" aria-label="技能"><header><strong>技能</strong><button type="button" data-cps-close>关闭</button></header><main><p class="cps-loading">正在读取 skills...</p></main></section>';document.body.appendChild(e);const n=document.createElement("style");n.id="claude-plus-skills-style";n.textContent="#claude-plus-skills-modal{position:fixed;inset:0;z-index:2147483647;color:#f4f1ea;font:13px/1.45 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#claude-plus-skills-modal .cps-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.52)}#claude-plus-skills-modal .cps-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(720px,calc(100vw - 48px));height:min(760px,calc(100vh - 48px));display:grid;grid-template-rows:auto 1fr;background:#171717;border:1px solid #3d3a35;border-radius:10px;box-shadow:0 22px 80px rgba(0,0,0,.48);overflow:hidden}#claude-plus-skills-modal header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px 12px;border-bottom:1px solid #2f2d2a;background:#1f1e1b}#claude-plus-skills-modal header strong{font-size:18px;font-weight:650}#claude-plus-skills-modal button{border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:7px;min-height:30px;padding:0 10px;cursor:pointer}#claude-plus-skills-modal button:hover{border-color:#d97745}#claude-plus-skills-modal button.cps-danger{border-color:#7f2d22;background:#4a1f1a;color:#ffd8cf}#claude-plus-skills-modal button:disabled{opacity:.55;cursor:default}#claude-plus-skills-modal main{overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:18px}#claude-plus-skills-modal .cps-section{display:flex;flex-direction:column;gap:10px}#claude-plus-skills-modal .cps-section-title{font-size:14px;font-weight:650;color:#f4f1ea}#claude-plus-skills-modal .cps-container{display:grid;gap:10px;border:1px solid #34312d;border-radius:8px;background:#1f1f1c;padding:10px}#claude-plus-skills-modal .cps-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;border:1px solid #34312d;border-radius:8px;background:#262521}#claude-plus-skills-modal .cps-title{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:5px}#claude-plus-skills-modal .cps-title strong{font-size:14px}#claude-plus-skills-modal .cps-summary{margin:0 0 6px;color:#e7e0d4}#claude-plus-skills-modal .cps-meta,.cps-path,.cps-empty,.cps-loading,.cps-error{color:#a9a39a}#claude-plus-skills-modal .cps-path{font-size:12px;word-break:break-all}#claude-plus-skills-modal .cps-actions{display:flex;align-items:flex-start}.cps-toast{position:absolute;right:16px;bottom:14px;background:#2b2925;border:1px solid #5a544b;border-radius:8px;padding:8px 10px;color:#f4f1ea}";document.head.appendChild(n);function t(){e.remove();n.remove()}e.querySelector("[data-cps-close]").addEventListener("click",t);e.querySelector(".cps-backdrop").addEventListener("click",t);return e}
+function C(e,n){const t=e.filter(e=>e.scope===n),r=n==="global"?"全局 skills":"项目 skills";return'<section class="cps-section"><div class="cps-section-title">'+r+'</div><div class="cps-container">'+(t.length?t.map(e=>'<article class="cps-card" data-id="'+z(e.id)+'"><div><div class="cps-title"><strong>'+z(e.name)+'</strong></div><p class="cps-summary">'+z(e.summary_zh)+'</p><div class="cps-meta">'+z(e.description||"")+'</div><div class="cps-path">'+z(e.project_path?("项目："+e.project_path):"全局")+'</div><div class="cps-path">'+z(e.path)+'</div></div><div class="cps-actions"><button type="button" class="cps-danger" data-cps-trash>删除</button></div></article>').join(""):'<p class="cps-empty">暂无'+r+'。</p>')+"</div></section>"}
+async function B(){const e=A(),n=e.querySelector("main"),t=window.claudePlusSkills;if(!t||typeof t.list!=="function"||typeof t.trash!=="function"){n.innerHTML='<p class="cps-error">本地 skills 桥未安装或尚未生效。</p><p class="cps-path">请在 Claude++ 中重新安装“技能”页面增强，并重启 Claude Desktop。</p>';return}try{const r=await t.list(),a=r.skills||[];n.innerHTML=C(a,"global")+C(a,"project");n.querySelectorAll("[data-cps-trash]").forEach(r=>r.addEventListener("click",async()=>{const a=r.closest(".cps-card"),s=s=>{let n=e.querySelector(".cps-toast");n||(n=document.createElement("div"),n.className="cps-toast",e.appendChild(n));n.textContent=s;setTimeout(()=>n&&n.remove(),2600)},l=a?.dataset.id,o=a?.querySelector(".cps-title strong")?.textContent||"该 skill";if(!l)return;if(!confirm("确认删除 skill “"+o+"”？\n\n该操作会把对应 skill 目录移动到回收站。"))return;r.disabled=!0;try{await t.trash(l);a.remove();s("已移动到回收站")}catch(e){r.disabled=!1;s(e.message||String(e))}}))}catch(r){n.innerHTML='<p class="cps-error">读取本地 skills 失败。</p><p class="cps-path">'+z(r.message||String(r))+"</p>"}}
 async function s(e){if(e.open==="custom3p"){const n=window["claude.settings"]?.Custom3pSetup?.openSetupWindow||window.claude?.settings?.Custom3pSetup?.openSetupWindow;if(typeof n==="function"){try{await n();return}catch(t){}}return}if(e.open==="skills"){B();return}const n=new URL(e.path,location.origin),t=n.pathname+n.search+n.hash;try{history.pushState(null,"",t);window.dispatchEvent(new PopStateEvent("popstate",{state:history.state}));window.dispatchEvent(new Event("pushstate"));window.dispatchEvent(new Event("locationchange"))}catch(r){location.assign(n.toString())}}
 new MutationObserver(y).observe(document.documentElement,{childList:!0,subtree:!0});
 document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{once:!0}):x();
@@ -158,6 +187,22 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
             self.backed_up.insert(path.to_path_buf());
             Ok(())
         }
+
+        fn backup_app_file(&mut self, path: &Path) -> Result<(), String> {
+            if !path.exists() || self.backed_up.contains(path) {
+                return Ok(());
+            }
+
+            let app_path = app_path_from_resources(&self.resources_path);
+            let relative = relative_to(path, &app_path)?;
+            let target = self.ensure_set()?.join("_app").join(relative);
+            if let Some(parent) = target.parent() {
+                fs::create_dir_all(parent).map_err(|e| format!("创建增强备份父目录失败: {e}"))?;
+            }
+            fs::copy(path, &target).map_err(|e| format!("备份 Claude 程序文件失败: {e}"))?;
+            self.backed_up.insert(path.to_path_buf());
+            Ok(())
+        }
     }
 
     pub fn status() -> ClaudeEnhanceStatus {
@@ -198,6 +243,9 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
 
         let mut backup = BackupContext::new(&paths.resources);
         update_feature_marker(&paths.resources, &mut backup, feature, true)?;
+        if matches!(feature, EnhanceFeatureId::Plugins) {
+            update_skills_bridge(&paths.resources, &mut backup, true)?;
+        }
         Ok(())
     }
 
@@ -215,6 +263,9 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
         enable_write_access(&paths.resources);
         let mut backup = BackupContext::new(&paths.resources);
         update_feature_marker(&paths.resources, &mut backup, feature, false)?;
+        if matches!(feature, EnhanceFeatureId::Plugins) {
+            update_skills_bridge(&paths.resources, &mut backup, false)?;
+        }
         Ok(())
     }
 
@@ -233,7 +284,7 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
                 id: "plugins",
                 category: "菜单栏增强",
                 label: "技能",
-                description: "在 Claude Desktop 左侧菜单中直达技能设置页。",
+                description: "在 Claude Desktop 左侧菜单中打开本地 skills 弹窗。",
                 enabled: is_enabled(enabled, EnhanceFeatureId::Plugins),
                 available: true,
                 note: "侧边栏软入口",
@@ -277,7 +328,14 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
 
     fn feature_states(resources_path: &Path) -> Vec<(EnhanceFeatureId, bool)> {
         let text = read_index_bundle(resources_path).unwrap_or_default();
-        feature_states_from_text(&text)
+        let mut states = feature_states_from_text(&text);
+        if let Some((_, enabled)) = states
+            .iter_mut()
+            .find(|(feature, _)| *feature == EnhanceFeatureId::Plugins)
+        {
+            *enabled = *enabled && skills_bridge_installed(resources_path);
+        }
+        states
     }
 
     fn feature_states_from_text(text: &str) -> Vec<(EnhanceFeatureId, bool)> {
@@ -356,11 +414,50 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
         format!(";window.{marker}=true;")
     }
 
+    fn update_skills_bridge(
+        resources_path: &Path,
+        backup: &mut BackupContext,
+        enabled: bool,
+    ) -> Result<(), String> {
+        patch_asar_file(resources_path, ASAR_PATCH_TARGET, backup, |content| {
+            let text =
+                std::str::from_utf8(content).map_err(|e| format!("preload 入口不是 UTF-8: {e}"))?;
+            let mut next = remove_skills_bridge(text);
+            if enabled {
+                next.push_str(SKILLS_BRIDGE_SCRIPT);
+            }
+            if next == text {
+                Ok(None)
+            } else {
+                Ok(Some(next.into_bytes()))
+            }
+        })
+    }
+
+    fn remove_skills_bridge(text: &str) -> String {
+        let Some(start) = text.find(";(()=>{const MARK=\"__claudePlusSkillsBridgeV1\"") else {
+            return text.to_string();
+        };
+        let Some(relative_end) = text[start..].find("})();") else {
+            return text.to_string();
+        };
+        let end = start + relative_end + "})();".len();
+        format!("{}{}", &text[..start], &text[end..])
+    }
+
+    fn skills_bridge_installed(resources_path: &Path) -> bool {
+        read_asar_file(resources_path, ASAR_PATCH_TARGET)
+            .ok()
+            .and_then(|content| String::from_utf8(content).ok())
+            .map(|text| text.contains(SKILLS_BRIDGE_MARKER))
+            .unwrap_or(false)
+    }
+
     #[cfg(test)]
     mod tests {
         use super::{
             feature_payload, feature_states_from_text, EnhanceFeatureId, INJECT_SCRIPT,
-            NAV_API_MARKER, NAV_MCP_MARKER, NAV_PLUGINS_MARKER,
+            NAV_API_MARKER, NAV_MCP_MARKER, NAV_PLUGINS_MARKER, SKILLS_BRIDGE_SCRIPT,
         };
 
         fn state(states: &[(EnhanceFeatureId, bool)], feature: EnhanceFeatureId) -> bool {
@@ -394,6 +491,20 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
             assert!(state(&states, EnhanceFeatureId::Mcp));
             assert!(!text.contains(&feature_payload(NAV_PLUGINS_MARKER)));
         }
+
+        #[test]
+        fn skills_popup_uses_preload_bridge_not_local_service() {
+            assert!(INJECT_SCRIPT.contains("window.claudePlusSkills"));
+            assert!(!INJECT_SCRIPT.contains("127.0.0.1:15722/claude-plus/skills"));
+            assert!(!INJECT_SCRIPT.contains("无法连接 Claude++ 本地服务"));
+        }
+
+        #[test]
+        fn preload_bridge_exposes_skills_api() {
+            assert!(SKILLS_BRIDGE_SCRIPT.contains("contextBridge.exposeInMainWorld"));
+            assert!(SKILLS_BRIDGE_SCRIPT.contains("claudePlusSkills"));
+            assert!(SKILLS_BRIDGE_SCRIPT.contains("shell.trashItem"));
+        }
     }
 
     fn read_index_bundle(resources_path: &Path) -> Result<String, String> {
@@ -405,6 +516,288 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
             output.push_str(&text);
         }
         Ok(output)
+    }
+
+    fn read_asar_file(resources_path: &Path, file_path: &str) -> Result<Vec<u8>, String> {
+        let asar_path = resources_path.join("app.asar");
+        let data = fs::read(&asar_path).map_err(|e| format!("读取 app.asar 失败: {e}"))?;
+        let parsed = read_asar_header(&data, &asar_path)?;
+        let header: Value = serde_json::from_str(&parsed.header_string)
+            .map_err(|e| format!("解析 app.asar 头失败: {e}"))?;
+        let entry = get_asar_entry(&header, file_path)?;
+        let offset = entry_value_to_usize(entry.get("offset"), "offset")?;
+        let size = entry_value_to_usize(entry.get("size"), "size")?;
+        let content_offset = 8 + parsed.header_size + offset;
+        let content_end = content_offset + size;
+        if content_end > data.len() {
+            return Err("app.asar 目标文件边界无效".to_string());
+        }
+        Ok(data[content_offset..content_end].to_vec())
+    }
+
+    fn patch_asar_file<F>(
+        resources_path: &Path,
+        file_path: &str,
+        backup: &mut BackupContext,
+        patcher: F,
+    ) -> Result<(), String>
+    where
+        F: FnOnce(&[u8]) -> Result<Option<Vec<u8>>, String>,
+    {
+        let asar_path = resources_path.join("app.asar");
+        let mut data = fs::read(&asar_path).map_err(|e| format!("读取 app.asar 失败: {e}"))?;
+        let parsed = read_asar_header(&data, &asar_path)?;
+        let mut header: Value = serde_json::from_str(&parsed.header_string)
+            .map_err(|e| format!("解析 app.asar 头失败: {e}"))?;
+        let entry = get_asar_entry_mut(&mut header, file_path)?;
+        let offset = entry_value_to_usize(entry.get("offset"), "offset")?;
+        let old_size = entry_value_to_usize(entry.get("size"), "size")?;
+        let content_offset = 8 + parsed.header_size + offset;
+        let content_end = content_offset + old_size;
+        if content_end > data.len() {
+            return Err("app.asar 目标文件边界无效".to_string());
+        }
+
+        let content = &data[content_offset..content_end];
+        let Some(patched_content) = patcher(content)? else {
+            sync_claude_exe_asar_integrity(
+                resources_path,
+                Some(&parsed.header_string),
+                Some(backup),
+            )?;
+            return Ok(());
+        };
+
+        backup.backup_resource(&asar_path)?;
+        data.splice(content_offset..content_end, patched_content.iter().copied());
+        entry["size"] = Value::Number((patched_content.len() as u64).into());
+        entry["integrity"] = asar_file_integrity(&patched_content);
+        shift_asar_offsets_after(
+            &mut header,
+            offset,
+            patched_content.len() as i64 - old_size as i64,
+        )?;
+        let header_string =
+            serde_json::to_string(&header).map_err(|e| format!("生成 app.asar 头失败: {e}"))?;
+        let encoded_header = encode_asar_header(&header_string);
+        let content_start = 8 + parsed.header_size;
+        let mut next_data = Vec::with_capacity(encoded_header.len() + data.len() - content_start);
+        next_data.extend_from_slice(&encoded_header);
+        next_data.extend_from_slice(&data[content_start..]);
+        data = next_data;
+        fs::write(&asar_path, data).map_err(|e| format!("写入 app.asar 失败: {e}"))?;
+        sync_claude_exe_asar_integrity(resources_path, Some(&header_string), Some(backup))?;
+        Ok(())
+    }
+
+    struct AsarHeader {
+        header_size: usize,
+        header_string: String,
+    }
+
+    fn read_asar_header(data: &[u8], path: &Path) -> Result<AsarHeader, String> {
+        if data.len() < 16 {
+            return Err(format!("不支持的 app.asar 头: {}", path.display()));
+        }
+        let size_pickle_payload = read_u32_le(data, 0)? as usize;
+        let header_size = read_u32_le(data, 4)? as usize;
+        if size_pickle_payload != 4 || header_size == 0 || data.len() < 8 + header_size {
+            return Err(format!("不支持的 app.asar size pickle: {}", path.display()));
+        }
+
+        let header_pickle = &data[8..8 + header_size];
+        let header_payload_size = read_u32_le(header_pickle, 0)? as usize;
+        let header_string_size = read_i32_le(header_pickle, 4)? as usize;
+        let expected_payload_size = align4(4 + header_string_size);
+        if header_payload_size != expected_payload_size || header_size != 4 + header_payload_size {
+            return Err(format!(
+                "不支持的 app.asar header pickle: {}",
+                path.display()
+            ));
+        }
+        let header_bytes = &header_pickle[8..8 + header_string_size];
+        let header_string = String::from_utf8(header_bytes.to_vec())
+            .map_err(|e| format!("app.asar 头不是 UTF-8: {e}"))?;
+        Ok(AsarHeader {
+            header_size,
+            header_string,
+        })
+    }
+
+    fn encode_asar_header(header_string: &str) -> Vec<u8> {
+        let header_bytes = header_string.as_bytes();
+        let header_payload_size = align4(4 + header_bytes.len());
+        let header_size = 4 + header_payload_size;
+        let mut header_pickle = vec![0u8; header_size];
+        header_pickle[0..4].copy_from_slice(&(header_payload_size as u32).to_le_bytes());
+        header_pickle[4..8].copy_from_slice(&(header_bytes.len() as i32).to_le_bytes());
+        header_pickle[8..8 + header_bytes.len()].copy_from_slice(header_bytes);
+
+        let mut encoded = vec![0u8; 8 + header_size];
+        encoded[0..4].copy_from_slice(&4u32.to_le_bytes());
+        encoded[4..8].copy_from_slice(&(header_size as u32).to_le_bytes());
+        encoded[8..].copy_from_slice(&header_pickle);
+        encoded
+    }
+
+    fn get_asar_entry<'a>(header: &'a Value, file_path: &str) -> Result<&'a Value, String> {
+        let mut node = header;
+        for part in file_path.split('/') {
+            let files = node
+                .get("files")
+                .and_then(Value::as_object)
+                .ok_or_else(|| format!("app.asar 中未找到 {file_path}"))?;
+            node = files
+                .get(part)
+                .ok_or_else(|| format!("app.asar 中未找到 {file_path}"))?;
+        }
+        for key in ["size", "offset", "integrity"] {
+            if node.get(key).is_none() {
+                return Err(format!("app.asar 目标缺少字段: {key}"));
+            }
+        }
+        Ok(node)
+    }
+
+    fn get_asar_entry_mut<'a>(
+        header: &'a mut Value,
+        file_path: &str,
+    ) -> Result<&'a mut Value, String> {
+        let mut node = header;
+        for part in file_path.split('/') {
+            let files = node
+                .get_mut("files")
+                .and_then(Value::as_object_mut)
+                .ok_or_else(|| format!("app.asar 中未找到 {file_path}"))?;
+            node = files
+                .get_mut(part)
+                .ok_or_else(|| format!("app.asar 中未找到 {file_path}"))?;
+        }
+        for key in ["size", "offset", "integrity"] {
+            if node.get(key).is_none() {
+                return Err(format!("app.asar 目标缺少字段: {key}"));
+            }
+        }
+        Ok(node)
+    }
+
+    fn shift_asar_offsets_after(
+        header: &mut Value,
+        changed_offset: usize,
+        delta: i64,
+    ) -> Result<(), String> {
+        if delta == 0 {
+            return Ok(());
+        }
+        fn visit(node: &mut Value, changed_offset: usize, delta: i64) -> Result<(), String> {
+            if let Some(files) = node.get_mut("files").and_then(Value::as_object_mut) {
+                for child in files.values_mut() {
+                    visit(child, changed_offset, delta)?;
+                }
+                return Ok(());
+            }
+            let Some(offset_value) = node.get_mut("offset") else {
+                return Ok(());
+            };
+            let Some(current) = offset_value
+                .as_u64()
+                .or_else(|| offset_value.as_str().and_then(|s| s.parse::<u64>().ok()))
+            else {
+                return Err("app.asar offset 无效".to_string());
+            };
+            if current as usize > changed_offset {
+                let next = current as i64 + delta;
+                if next < 0 {
+                    return Err("app.asar offset 计算越界".to_string());
+                }
+                *offset_value = match offset_value {
+                    Value::String(_) => Value::String(next.to_string()),
+                    _ => Value::Number((next as u64).into()),
+                };
+            }
+            Ok(())
+        }
+        visit(header, changed_offset, delta)
+    }
+
+    fn entry_value_to_usize(value: Option<&Value>, name: &str) -> Result<usize, String> {
+        match value {
+            Some(Value::Number(n)) => n
+                .as_u64()
+                .and_then(|v| usize::try_from(v).ok())
+                .ok_or_else(|| format!("app.asar {name} 无效")),
+            Some(Value::String(s)) => s
+                .parse::<usize>()
+                .map_err(|_| format!("app.asar {name} 无效")),
+            _ => Err(format!("app.asar {name} 无效")),
+        }
+    }
+
+    fn asar_file_integrity(data: &[u8]) -> Value {
+        let mut blocks = Vec::new();
+        if data.is_empty() {
+            blocks.push(Value::String(sha256_hex(data)));
+        } else {
+            for chunk in data.chunks(ASAR_INTEGRITY_BLOCK_SIZE) {
+                blocks.push(Value::String(sha256_hex(chunk)));
+            }
+        }
+        let mut integrity = Map::new();
+        integrity.insert("algorithm".to_string(), Value::String("SHA256".to_string()));
+        integrity.insert("hash".to_string(), Value::String(sha256_hex(data)));
+        integrity.insert(
+            "blockSize".to_string(),
+            Value::Number((ASAR_INTEGRITY_BLOCK_SIZE as u64).into()),
+        );
+        integrity.insert("blocks".to_string(), Value::Array(blocks));
+        Value::Object(integrity)
+    }
+
+    fn sync_claude_exe_asar_integrity(
+        resources_path: &Path,
+        header_string: Option<&str>,
+        backup: Option<&mut BackupContext>,
+    ) -> Result<(), String> {
+        let asar_path = resources_path.join("app.asar");
+        let header_hash = match header_string {
+            Some(s) => sha256_hex(s.as_bytes()),
+            None => {
+                let data = fs::read(&asar_path).map_err(|e| format!("读取 app.asar 失败: {e}"))?;
+                let parsed = read_asar_header(&data, &asar_path)?;
+                sha256_hex(parsed.header_string.as_bytes())
+            }
+        };
+
+        let app_path = app_path_from_resources(resources_path);
+        let exe_path = [app_path.join("Claude.exe"), app_path.join("claude.exe")]
+            .into_iter()
+            .find(|path| path.is_file())
+            .ok_or_else(|| "未找到 Claude.exe".to_string())?;
+        let mut exe = fs::read(&exe_path).map_err(|e| format!("读取 Claude.exe 失败: {e}"))?;
+        let marker = b"resources\\\\app.asar\",\"alg\":\"SHA256\",\"value\":\"";
+        let matches = find_pattern(&exe, marker);
+        if matches.len() != 1 {
+            return Err("未找到 Claude.exe 内嵌 app.asar 完整性标记".to_string());
+        }
+        let hash_offset = matches[0] + marker.len();
+        if hash_offset + 64 > exe.len() {
+            return Err("Claude.exe 完整性标记边界无效".to_string());
+        }
+        let current = std::str::from_utf8(&exe[hash_offset..hash_offset + 64])
+            .map_err(|e| format!("Claude.exe 完整性哈希不是 UTF-8: {e}"))?;
+        if current == header_hash {
+            return Ok(());
+        }
+        if !current.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err("Claude.exe 完整性哈希不是 SHA256 十六进制".to_string());
+        }
+
+        if let Some(backup) = backup {
+            backup.backup_app_file(&exe_path)?;
+        }
+        exe[hash_offset..hash_offset + 64].copy_from_slice(header_hash.as_bytes());
+        fs::write(&exe_path, exe).map_err(|e| format!("写入 Claude.exe 失败: {e}"))?;
+        Ok(())
     }
 
     fn resolve_claude_paths() -> Result<ClaudePaths, String> {
@@ -556,6 +949,43 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",x,{
         full.strip_prefix(&root)
             .map(Path::to_path_buf)
             .map_err(|_| format!("路径不在预期目录内: {}", path.display()))
+    }
+
+    fn align4(value: usize) -> usize {
+        value + ((4 - (value % 4)) % 4)
+    }
+
+    fn read_u32_le(bytes: &[u8], offset: usize) -> Result<u32, String> {
+        let slice = bytes
+            .get(offset..offset + 4)
+            .ok_or_else(|| "读取 u32 越界".to_string())?;
+        Ok(u32::from_le_bytes(slice.try_into().unwrap()))
+    }
+
+    fn read_i32_le(bytes: &[u8], offset: usize) -> Result<i32, String> {
+        let slice = bytes
+            .get(offset..offset + 4)
+            .ok_or_else(|| "读取 i32 越界".to_string())?;
+        Ok(i32::from_le_bytes(slice.try_into().unwrap()))
+    }
+
+    fn sha256_hex(data: &[u8]) -> String {
+        let digest = Sha256::digest(data);
+        let mut out = String::with_capacity(64);
+        for byte in digest {
+            out.push_str(&format!("{byte:02x}"));
+        }
+        out
+    }
+
+    fn find_pattern(data: &[u8], pattern: &[u8]) -> Vec<usize> {
+        if pattern.is_empty() || data.len() < pattern.len() {
+            return Vec::new();
+        }
+        data.windows(pattern.len())
+            .enumerate()
+            .filter_map(|(index, window)| (window == pattern).then_some(index))
+            .collect()
     }
 
     fn modified_secs(path: &Path) -> Option<u64> {

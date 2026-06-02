@@ -21,7 +21,7 @@
 - HTTP gateway routes and model rewrite: `src-tauri/src/proxy.rs`.
 - CC Switch DB mapping read: `src-tauri/src/ccswitch_db.rs`.
 - Claude Desktop configLibrary write/revert: `src-tauri/src/cd_config.rs`.
-- Claude local skills discovery and recycle-bin deletion: `src-tauri/src/claude_skills.rs`; exposed through `/claude-plus/skills` and `/claude-plus/skills/:id/trash` on the local gateway for the injected Claude Desktop skills popup.
+- Claude local skills discovery and recycle-bin deletion: `src-tauri/src/claude_skills.rs`; exposed through `/claude-plus/skills` and `/claude-plus/skills/:id/trash` on the local gateway for Claude++ app-side compatibility. The injected Claude Desktop skills popup must not depend on the Claude++ process after installation; it uses a preload bridge in Claude Desktop `app.asar` to scan local global/project skills and call Electron `shell.trashItem`.
 
 ## Rollback
 - In the app, use the revert command to set Claude Desktop `appliedId` back to CC Switch's `00000000-0000-4000-8000-000000157210` entry.
