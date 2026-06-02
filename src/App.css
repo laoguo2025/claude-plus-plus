@@ -535,23 +535,6 @@ select {
   font-weight: 600;
 }
 
-.notice {
-  margin-top: 10px;
-  border: 1px solid var(--brand-border);
-  border-radius: 8px;
-  background: var(--brand-soft);
-  color: var(--text-200);
-  font-size: 13px;
-  line-height: 1.4;
-  padding: 9px 11px;
-}
-
-.notice.warn {
-  border-color: var(--warning-border);
-  background: var(--warning-bg);
-  color: var(--brand-strong);
-}
-
 .errorBanner {
   position: absolute;
   right: 18px;
@@ -607,8 +590,7 @@ select {
   padding: 8px 10px;
 }
 
-.miniTable span,
-.keyValue span {
+.miniTable span {
   min-width: 0;
   overflow: hidden;
   color: var(--text-400);
@@ -617,8 +599,7 @@ select {
   white-space: nowrap;
 }
 
-.miniTable strong,
-.keyValue strong {
+.miniTable strong {
   min-width: 0;
   overflow: hidden;
   color: var(--text-000);
@@ -628,8 +609,7 @@ select {
   white-space: nowrap;
 }
 
-.miniTable code,
-.logBox code {
+.miniTable code {
   color: var(--text-200);
   font-family: var(--font-mono);
   font-size: 12px;
@@ -638,11 +618,6 @@ select {
 .emptyInline {
   color: var(--text-400);
   justify-content: center;
-}
-
-.mainPanel {
-  display: grid;
-  grid-template-rows: auto auto auto 1fr;
 }
 
 .diagnosticsReportPanel,
@@ -921,83 +896,10 @@ select {
   color: var(--text-000);
 }
 
-.splitForm {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-  align-items: start;
-}
-
-.field {
-  display: grid;
-  gap: 6px;
-}
-
-.field span {
-  color: var(--text-200);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.toggleRow {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  background: var(--bg-100);
-  padding: 10px 12px;
-}
-
-.toggleRow input {
-  width: 16px;
-  height: 16px;
-  margin: 2px 0 0;
-}
-
-.toggleRow strong,
-.toggleRow small {
-  display: block;
-}
-
-.toggleRow strong {
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.toggleRow small {
-  margin-top: 2px;
-  color: var(--text-400);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.primaryActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-start;
-  margin-top: 14px;
-}
-
-.statusPanel {
-  display: grid;
-  align-content: start;
-  gap: 9px;
-}
-
 .aboutPanel {
   display: grid;
   align-content: start;
   gap: 14px;
-}
-
-.keyValue {
-  display: grid;
-  gap: 4px;
-  border-bottom: 1px solid var(--border-soft);
-  padding-bottom: 9px;
 }
 
 .aboutInfoTable {
@@ -1086,58 +988,6 @@ select {
   margin-top: 10px;
 }
 
-.emptyPage {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 10px;
-  text-align: center;
-}
-
-.emptyPage svg {
-  color: var(--brand-strong);
-}
-
-.emptyPage h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.emptyPage p {
-  max-width: 360px;
-  margin: 0;
-  color: var(--text-400);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.badge {
-  border: 1px solid var(--brand-border);
-  border-radius: 999px;
-  background: var(--brand-soft);
-  color: var(--brand-strong);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 5px 10px;
-}
-
-.logBox {
-  display: grid;
-  gap: 6px;
-  overflow: hidden;
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  background: var(--bg-100);
-  padding: 10px 12px;
-}
-
-.logBox code {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .iconButton {
   white-space: nowrap;
 }
@@ -1170,7 +1020,6 @@ select {
     grid-template-columns: 1fr;
   }
 
-  .splitForm,
   .miniTable div,
   .providerStrip,
   .workflowRow {
