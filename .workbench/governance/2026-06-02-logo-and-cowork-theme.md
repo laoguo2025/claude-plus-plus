@@ -53,3 +53,13 @@
 - 发现 `claude-plus-plus.exe` 初次重打包仍嵌入旧白底图标，根因是 Rust build script 未因 `icons/icon.ico` 内容变化重跑资源链接；已在 `src-tauri/build.rs` 增加 `cargo:rerun-if-changed=icons/icon.ico`。
 - 清理当前 crate 的 release build 缓存后重打包，并从 `claude-plus-plus.exe` 与 `Claude++_0.1.0_x64-setup.exe` 的 PE 图标资源中抽取验证：16/24/32/48/64/256 全尺寸四角 alpha 均为 0。
 - `cargo test --manifest-path src-tauri\Cargo.toml --lib`：通过，36 passed，3 ignored。
+
+## 2026-06-02 概览页留白收敛补丁
+
+用户反馈 `CCS转接` 页顶部说明与步骤卡之间间距过大、模型映射卡底部留白过大。本次仅调整 `src/App.css`：
+
+- `.overviewPage` 从固定三行高度改为按内容高度排列，并用 `align-content: start` 避免最后一块撑满剩余空间。
+- `.pageGrid` 间距从 12px 收敛到 10px。
+- 路由步骤卡最小高度从 82px 降到 74px。
+- 浏览器预览验证 `CCS转接` 三块高度为 103px / 141px / 159px，映射卡不再撑到页面底部。
+- 用户要求本轮不打包；仅执行 `npm run build` 验证。
