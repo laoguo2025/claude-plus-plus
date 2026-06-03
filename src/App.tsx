@@ -47,7 +47,6 @@ import "./App.css";
 type Icon = ComponentType<LucideProps>;
 
 function loadInitialTheme(): Theme {
-  if (typeof window === "undefined") return "light";
   return window.localStorage.getItem("claude-plus-theme") === "dark" ? "dark" : "light";
 }
 

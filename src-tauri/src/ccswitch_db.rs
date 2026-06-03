@@ -18,18 +18,24 @@ pub struct Mapping {
 }
 
 /// 从 route key(如 claude-opus-4-7-r2)提取角色类别 opus/sonnet/haiku。
-/// 角色只有这三种,版本号会变(4-6/4-7/4-8…),所以按关键字匹配。
+/// 角色只有这三种,版本号会变(4-6/4-7/4-8…),所以按分隔 token 匹配。
 fn role_kind_of(role_key: &str) -> String {
     let lower = role_key.to_ascii_lowercase();
-    if lower.contains("opus") {
+    if role_key_has_token(&lower, "opus") {
         "opus".to_string()
-    } else if lower.contains("sonnet") {
+    } else if role_key_has_token(&lower, "sonnet") {
         "sonnet".to_string()
-    } else if lower.contains("haiku") {
+    } else if role_key_has_token(&lower, "haiku") {
         "haiku".to_string()
     } else {
         role_key.to_string()
     }
+}
+
+fn role_key_has_token(role_key: &str, target: &str) -> bool {
+    role_key
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .any(|token| token == target)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -321,5 +327,14 @@ mod tests {
         assert_eq!(usage.cache_creation_tokens, 7);
         assert_eq!(usage.elapsed_ms, 400);
         assert_eq!(usage.updated_at_ms, 103000);
+    }
+
+    #[test]
+    fn role_kind_requires_token_boundary() {
+        assert_eq!(role_kind_of("claude-opus-4-7-r2"), "opus");
+        assert_eq!(role_kind_of("claude-sonnet-4-6"), "sonnet");
+        assert_eq!(role_kind_of("claude-haiku-4-5"), "haiku");
+        assert_eq!(role_kind_of("claude-notopus-4-7-r2"), "claude-notopus-4-7-r2");
+        assert_eq!(role_kind_of("sonnetlite"), "sonnetlite");
     }
 }

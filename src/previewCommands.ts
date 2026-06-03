@@ -123,7 +123,7 @@ function applyPreviewCommandState(cmd: string) {
 
 function previewLogs(): LogsPayload {
   return {
-    path: "C:\\Users\\Administrator\\.claude-plus-plus\\claude-plus-plus.log",
+    path: "%USERPROFILE%\\.claude-plus-plus\\claude-plus-plus.log",
     text: [
       JSON.stringify({
         timestamp_ms: Date.now(),
@@ -147,8 +147,8 @@ function previewDiagnosticsReport(): string {
         status: previewStatus,
       },
       paths: {
-        ccSwitchDb: "C:\\Users\\Administrator\\.cc-switch\\cc-switch.db",
-        diagnosticLog: "C:\\Users\\Administrator\\.claude-plus-plus\\claude-plus-plus.log",
+        ccSwitchDb: "%USERPROFILE%\\.cc-switch\\cc-switch.db",
+        diagnosticLog: "%USERPROFILE%\\.claude-plus-plus\\claude-plus-plus.log",
       },
     },
     null,
