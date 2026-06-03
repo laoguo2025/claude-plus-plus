@@ -666,7 +666,10 @@ impl TokenUsageStreamTracker {
         let Ok(value) = serde_json::from_str::<serde_json::Value>(data) else {
             return;
         };
-        collect_token_usages(&value, 0, &mut self.aggregate, &mut self.found);
+        if let Some(usage) = best_token_usage(&value) {
+            merge_token_usage(&mut self.aggregate, &usage);
+            self.found = true;
+        }
     }
 
     fn snapshot(&self) -> Option<TokenUsageSnapshot> {
@@ -693,26 +696,93 @@ fn finalized_token_usage(usage: &TokenUsageSnapshot) -> TokenUsageSnapshot {
     usage
 }
 
-fn collect_token_usages(
+fn best_token_usage(value: &serde_json::Value) -> Option<TokenUsageSnapshot> {
+    let mut candidates = Vec::new();
+    collect_token_usage_candidates(value, 0, &mut candidates);
+    candidates
+        .into_iter()
+        .max_by_key(|usage| token_usage_score(usage))
+        .map(|usage| finalized_token_usage(&usage))
+}
+
+fn token_usage_score(usage: &TokenUsageSnapshot) -> u64 {
+    let mut score = 0;
+    if usage.input_tokens > 0 {
+        score += 200;
+    }
+    if usage.output_tokens > 0 {
+        score += 200;
+    }
+    if usage.input_tokens > 0 && usage.output_tokens > 0 {
+        score += 500;
+    }
+    if usage.total_tokens > 0 {
+        score += 100;
+    }
+    if usage.cached_tokens > 0 {
+        score += 50;
+    }
+    if usage.cache_creation_tokens > 0 {
+        score += 30;
+    }
+    if usage.context_limit > 0 {
+        score += 20;
+    }
+    if usage.context_used > usage.total_tokens {
+        score += 10;
+    }
+    score + usage.total_tokens.min(1_000_000)
+}
+
+fn collect_token_usage_candidates(
     value: &serde_json::Value,
     depth: usize,
-    aggregate: &mut TokenUsageSnapshot,
-    found: &mut bool,
+    candidates: &mut Vec<TokenUsageSnapshot>,
 ) {
     if depth > 8 {
         return;
     }
     if let Some(usage) = normalize_token_usage(value) {
-        merge_token_usage(aggregate, &usage);
-        *found = true;
+        candidates.push(usage);
+        return;
     }
     match value {
         serde_json::Value::Array(items) => {
             for item in items {
-                collect_token_usages(item, depth + 1, aggregate, found);
+                collect_token_usage_candidates(item, depth + 1, candidates);
             }
         }
         serde_json::Value::Object(map) => {
+            if let Some(token_status) = map
+                .get("last")
+                .or_else(|| map.get("lastUsage"))
+                .or_else(|| map.get("last_token_usage"))
+                .or_else(|| map.get("lastTokenUsage"))
+            {
+                if let Some(context_limit) = number_field_optional(
+                    value,
+                    &[
+                        "context_limit",
+                        "contextLimit",
+                        "model_context_window",
+                        "modelContextWindow",
+                        "context_window",
+                        "contextWindow",
+                    ],
+                ) {
+                    let mut merged = token_status.clone();
+                    if let serde_json::Value::Object(ref mut merged_map) = merged {
+                        merged_map.insert(
+                            "contextWindow".to_string(),
+                            serde_json::Value::Number(context_limit.into()),
+                        );
+                    }
+                    if let Some(usage) = normalize_token_usage(&merged) {
+                        candidates.push(usage);
+                        return;
+                    }
+                }
+            }
             for key in [
                 "usage",
                 "token_usage",
@@ -735,7 +805,7 @@ fn collect_token_usages(
                 "delta",
             ] {
                 if let Some(child) = map.get(key) {
-                    collect_token_usages(child, depth + 1, aggregate, found);
+                    collect_token_usage_candidates(child, depth + 1, candidates);
                 }
             }
         }
@@ -790,8 +860,6 @@ fn normalize_token_usage(value: &serde_json::Value) -> Option<TokenUsageSnapshot
         &[
             "cached_tokens",
             "cachedTokens",
-            "cached_input_tokens",
-            "cachedInputTokens",
             "cache_read_input_tokens",
             "cacheReadInputTokens",
         ],
@@ -856,10 +924,13 @@ fn normalize_token_usage(value: &serde_json::Value) -> Option<TokenUsageSnapshot
 }
 
 fn number_field(value: &serde_json::Value, keys: &[&str]) -> u64 {
+    number_field_optional(value, keys).unwrap_or(0)
+}
+
+fn number_field_optional(value: &serde_json::Value, keys: &[&str]) -> Option<u64> {
     keys.iter()
         .filter_map(|key| value.get(*key).and_then(json_number))
         .max()
-        .unwrap_or(0)
 }
 
 fn nested_number_field(value: &serde_json::Value, keys: &[(&str, &str)]) -> u64 {
@@ -1017,7 +1088,7 @@ mod tests {
     }
 
     #[test]
-    fn token_usage_clamps_cached_tokens_to_input_tokens() {
+    fn token_usage_does_not_treat_cached_input_as_cache_hit() {
         let text = [
             "event: message_start",
             "data: {\"usage\":{\"input_tokens\":9573,\"cached_input_tokens\":41920,\"cache_creation_input_tokens\":200}}",
@@ -1031,8 +1102,42 @@ mod tests {
         let usage = extract_token_usage_from_text(&text).expect("token usage");
 
         assert_eq!(usage.input_tokens, 9573);
-        assert_eq!(usage.cached_tokens, 9573);
-        assert_eq!(usage.cache_creation_tokens, 0);
+        assert_eq!(usage.cached_tokens, 0);
+        assert_eq!(usage.cache_creation_tokens, 200);
+    }
+
+    #[test]
+    fn token_usage_prefers_same_candidate_over_cross_node_cache_mix() {
+        let text = [
+            "event: response.completed",
+            "data: {\"usage\":{\"input_tokens\":325,\"output_tokens\":56,\"total_tokens\":381},\"token_usage\":{\"input_tokens\":325,\"cached_input_tokens\":325}}",
+            "",
+        ]
+        .join("\n");
+
+        let usage = extract_token_usage_from_text(&text).expect("token usage");
+
+        assert_eq!(usage.input_tokens, 325);
+        assert_eq!(usage.output_tokens, 56);
+        assert_eq!(usage.total_tokens, 381);
+        assert_eq!(usage.cached_tokens, 0);
+    }
+
+    #[test]
+    fn token_usage_reads_responses_input_token_details_cache() {
+        let text = [
+            "event: response.completed",
+            "data: {\"response\":{\"usage\":{\"input_tokens\":1396,\"output_tokens\":94,\"total_tokens\":1490,\"input_tokens_details\":{\"cached_tokens\":1302}}}}",
+            "",
+        ]
+        .join("\n");
+
+        let usage = extract_token_usage_from_text(&text).expect("token usage");
+
+        assert_eq!(usage.input_tokens, 1396);
+        assert_eq!(usage.output_tokens, 94);
+        assert_eq!(usage.total_tokens, 1490);
+        assert_eq!(usage.cached_tokens, 1302);
     }
 
     #[test]
