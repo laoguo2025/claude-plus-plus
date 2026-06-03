@@ -46,6 +46,7 @@ interface CcSwitchRouteStatus {
   enabled: boolean;
   configured: boolean | null;
   has_mappings: boolean;
+  reachable: boolean;
 }
 interface ClaudeZhStatus {
   supported: boolean;
@@ -101,6 +102,7 @@ const PREVIEW_STATUS: StatusInfo = {
     enabled: true,
     configured: true,
     has_mappings: true,
+    reachable: true,
   },
 };
 const PREVIEW_ZH_STATUS: ClaudeZhStatus = {
@@ -429,6 +431,29 @@ function App() {
     }
   }, [restartNeeded]);
 
+  const refreshAll = useCallback(async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      await refreshRouteState();
+      await detectClaudeDesktopOnce();
+      await refreshEnhanceStatus();
+      if (route === "diagnostics") {
+        await refreshLogs();
+        await refreshDiagnostics();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }, [
+    detectClaudeDesktopOnce,
+    refreshDiagnostics,
+    refreshEnhanceStatus,
+    refreshLogs,
+    refreshRouteState,
+    route,
+  ]);
+
   useEffect(() => {
     if (route !== "diagnostics") return;
     refreshLogs();
@@ -493,7 +518,7 @@ function App() {
               <Power size={16} />
               <span>重启 Claude Desktop</span>
             </button>
-            <button className="iconButton square" disabled={busy} onClick={refreshRouteState} title="刷新本页" aria-label="刷新本页">
+            <button className="iconButton square" disabled={busy} onClick={refreshAll} title="全局刷新" aria-label="全局刷新">
               <RefreshCw size={16} />
             </button>
           </div>
@@ -582,6 +607,9 @@ function OverviewPage({
     ? "Claude Desktop 当前接入 Claude++ 本地代理"
     : "Claude Desktop 当前未接入 Claude++";
   const providerConfigured = !!pm;
+  const ccswitchSwitchOn = ccswitchRoute?.configured === true;
+  const ccswitchSwitchDetail =
+    ccswitchSwitchOn && ccswitchRoute?.reachable === false ? "路由启动中" : "请在 CCS 开启路由";
 
   return (
     <div className="pageGrid overviewPage">
@@ -612,10 +640,10 @@ function OverviewPage({
             detail={zhStatus?.claude_found ? undefined : "请先下载安装 Claude Desktop"}
           />
           <RouteStatusCard
-            active={!!ccswitchRoute?.enabled}
+            active={ccswitchSwitchOn}
             label="CC Switch 路由开关"
-            value={ccswitchRoute?.enabled ? "已开启" : "未开启"}
-            detail={ccswitchRoute?.enabled ? undefined : "请在 CCS 开启路由"}
+            value={ccswitchSwitchOn ? "已开启" : "未开启"}
+            detail={ccswitchSwitchOn && ccswitchRoute?.reachable !== false ? undefined : ccswitchSwitchDetail}
           />
           <RouteStatusCard
             active={!!status?.cd_applied}

@@ -108,13 +108,6 @@ fn tcp_port_accepts_connections(port: u16) -> bool {
     TcpStream::connect_timeout(&addr, Duration::from_millis(250)).is_ok()
 }
 
-pub fn read_ccswitch_local_proxy_enabled() -> Option<bool> {
-    let path = default_config_dir()?.join("settings.json");
-    let s = std::fs::read_to_string(path).ok()?;
-    let v = serde_json::from_str::<serde_json::Value>(&s).ok()?;
-    v.get("enableLocalProxy").and_then(|x| x.as_bool())
-}
-
 /// 从 CC Switch 当前生效的 Claude Desktop profile 文件读 bearer key。
 /// 优先读运行实例配置库里 CC Switch 写的 157210 条目。
 pub fn read_ccswitch_api_key() -> Option<String> {
@@ -150,11 +143,4 @@ fn read_ccswitch_field(field: &str) -> Option<String> {
 /// 默认 DB 路径透出,供命令层使用。
 pub fn default_db_path() -> PathBuf {
     ccswitch_db::default_db_path()
-}
-
-fn default_config_dir() -> Option<PathBuf> {
-    std::env::var_os("USERPROFILE")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
-        .map(|home| home.join(".cc-switch"))
 }

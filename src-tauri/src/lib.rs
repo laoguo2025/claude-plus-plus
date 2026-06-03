@@ -14,6 +14,7 @@ mod time_utils;
 
 use constants::CC_SWITCH_CLAUDE_DESKTOP_ENTRY_ID;
 use server::ServerHandle;
+use std::net::ToSocketAddrs;
 use std::time::{Duration, Instant};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -34,6 +35,7 @@ struct CcSwitchRouteStatus {
     enabled: bool,
     configured: Option<bool>,
     has_mappings: bool,
+    reachable: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -55,14 +57,29 @@ fn proxy_status(state: tauri::State<ServerHandle>) -> StatusInfo {
 }
 
 fn ccswitch_route_status() -> CcSwitchRouteStatus {
-    let configured = server::read_ccswitch_local_proxy_enabled();
+    let proxy_config = ccswitch_db::load_proxy_config(&server::default_db_path()).ok();
+    let configured = proxy_config.as_ref().map(|config| config.proxy_enabled);
+    let reachable = proxy_config
+        .as_ref()
+        .map(|config| config.proxy_enabled && tcp_endpoint_accepts(&config.listen_address, config.listen_port))
+        .unwrap_or(false);
     let has_mappings = ccswitch_db::load_mappings(&server::default_db_path()).is_ok();
 
     CcSwitchRouteStatus {
         enabled: configured.unwrap_or(false),
         configured,
         has_mappings,
+        reachable,
     }
+}
+
+fn tcp_endpoint_accepts(host: &str, port: u16) -> bool {
+    let Ok(addrs) = (host, port).to_socket_addrs() else {
+        return false;
+    };
+    addrs
+        .into_iter()
+        .any(|addr| std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(250)).is_ok())
 }
 
 #[tauri::command]

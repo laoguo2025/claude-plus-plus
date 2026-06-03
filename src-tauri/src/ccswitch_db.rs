@@ -40,6 +40,13 @@ pub struct ProviderMappings {
     pub mappings: Vec<Mapping>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ProxyConfig {
+    pub proxy_enabled: bool,
+    pub listen_address: String,
+    pub listen_port: u16,
+}
+
 /// 默认数据库路径。
 pub fn default_db_path() -> PathBuf {
     // <home>\.cc-switch\cc-switch.db
@@ -107,5 +114,32 @@ pub fn load_mappings(db_path: &std::path::Path) -> Result<ProviderMappings, Stri
         provider_name,
         provider_id,
         mappings,
+    })
+}
+
+pub fn load_proxy_config(db_path: &std::path::Path) -> Result<ProxyConfig, String> {
+    let conn = Connection::open_with_flags(
+        db_path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|e| format!("open db failed: {e}"))?;
+
+    let (proxy_enabled, listen_address, listen_port): (i64, String, i64) = conn
+        .query_row(
+            "SELECT proxy_enabled, listen_address, listen_port \
+             FROM proxy_config \
+             WHERE app_type = 'claude' LIMIT 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(|e| format!("query proxy config failed: {e}"))?;
+
+    let listen_port =
+        u16::try_from(listen_port).map_err(|_| "proxy listen_port out of range".to_string())?;
+
+    Ok(ProxyConfig {
+        proxy_enabled: proxy_enabled != 0,
+        listen_address,
+        listen_port,
     })
 }
