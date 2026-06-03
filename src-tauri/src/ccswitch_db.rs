@@ -47,6 +47,18 @@ pub struct ProxyConfig {
     pub listen_port: u16,
 }
 
+#[derive(Debug, Clone)]
+pub struct CcSwitchUsageSnapshot {
+    pub id: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cache_read_tokens: u64,
+    pub cache_creation_tokens: u64,
+    pub elapsed_ms: u64,
+    pub updated_at_ms: u64,
+    pub call_count: u64,
+}
+
 /// 默认数据库路径。
 pub fn default_db_path() -> PathBuf {
     // <home>\.cc-switch\cc-switch.db
@@ -142,4 +154,183 @@ pub fn load_proxy_config(db_path: &std::path::Path) -> Result<ProxyConfig, Strin
         listen_address,
         listen_port,
     })
+}
+
+/// 只读读取 CC Switch 已落库的 Claude Desktop 用量。
+///
+/// 传入 `since_ms` 时按本轮开始时间聚合；不传时取最新一条。
+/// 只读打开数据库,不修改 CC Switch 的任何文件或配置。
+pub fn load_claude_desktop_usage(
+    db_path: &std::path::Path,
+    since_ms: Option<u64>,
+) -> Result<Option<CcSwitchUsageSnapshot>, String> {
+    let conn = Connection::open_with_flags(
+        db_path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|e| format!("open db failed: {e}"))?;
+
+    let Some(since_ms) = since_ms else {
+        let row = conn
+            .query_row(
+                "SELECT created_at, \
+                        COALESCE(input_tokens, 0), \
+                        COALESCE(output_tokens, 0), \
+                        COALESCE(cache_read_tokens, 0), \
+                        COALESCE(cache_creation_tokens, 0), \
+                        COALESCE(latency_ms, duration_ms, 0) \
+                 FROM proxy_request_logs \
+                 WHERE app_type = 'claude-desktop' \
+                   AND data_source = 'proxy' \
+                   AND status_code BETWEEN 200 AND 299 \
+                 ORDER BY created_at DESC, request_id DESC \
+                 LIMIT 1",
+                [],
+                |row| {
+                    Ok(CcSwitchUsageSnapshot {
+                        id: created_at_to_ms(row.get::<_, i64>(0)?),
+                        input_tokens: i64_to_u64(row.get(1)?),
+                        output_tokens: i64_to_u64(row.get(2)?),
+                        cache_read_tokens: i64_to_u64(row.get(3)?),
+                        cache_creation_tokens: i64_to_u64(row.get(4)?),
+                        elapsed_ms: i64_to_u64(row.get(5)?),
+                        updated_at_ms: created_at_to_ms(row.get::<_, i64>(0)?),
+                        call_count: 1,
+                    })
+                },
+            )
+            .map(Some)
+            .or_else(|err| {
+                if matches!(err, rusqlite::Error::QueryReturnedNoRows) {
+                    Ok(None)
+                } else {
+                    Err(format!("query claude-desktop usage failed: {err}"))
+                }
+            })?;
+        return Ok(row);
+    };
+
+    let since_seconds = (since_ms / 1000) as i64;
+    let row = conn
+        .query_row(
+            "SELECT MAX(created_at), \
+                    COALESCE(SUM(input_tokens), 0), \
+                    COALESCE(SUM(output_tokens), 0), \
+                    COALESCE(SUM(cache_read_tokens), 0), \
+                    COALESCE(SUM(cache_creation_tokens), 0), \
+                    COALESCE(MAX(COALESCE(latency_ms, duration_ms, 0)), 0), \
+                    COUNT(*) \
+             FROM proxy_request_logs \
+             WHERE app_type = 'claude-desktop' \
+               AND data_source = 'proxy' \
+               AND status_code BETWEEN 200 AND 299 \
+               AND created_at >= ?1",
+            [since_seconds],
+            |row| {
+                let call_count = i64_to_u64(row.get(6)?);
+                if call_count == 0 {
+                    return Ok(None);
+                }
+                let updated_at = row.get::<_, i64>(0)?;
+                Ok(Some(CcSwitchUsageSnapshot {
+                    id: created_at_to_ms(updated_at).saturating_add(call_count),
+                    input_tokens: i64_to_u64(row.get(1)?),
+                    output_tokens: i64_to_u64(row.get(2)?),
+                    cache_read_tokens: i64_to_u64(row.get(3)?),
+                    cache_creation_tokens: i64_to_u64(row.get(4)?),
+                    elapsed_ms: i64_to_u64(row.get(5)?),
+                    updated_at_ms: created_at_to_ms(updated_at),
+                    call_count,
+                }))
+            },
+        )
+        .map_err(|err| format!("query claude-desktop usage failed: {err}"))?;
+
+    Ok(row)
+}
+
+fn created_at_to_ms(created_at_seconds: i64) -> u64 {
+    i64_to_u64(created_at_seconds).saturating_mul(1000)
+}
+
+fn i64_to_u64(value: i64) -> u64 {
+    u64::try_from(value).unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn usage_test_db() -> PathBuf {
+        let mut path = std::env::temp_dir();
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        path.push(format!(
+            "claude-plus-ccswitch-usage-{}-{stamp}.db",
+            std::process::id()
+        ));
+        let conn = Connection::open(&path).expect("create db");
+        conn.execute_batch(
+            "CREATE TABLE proxy_request_logs (
+                request_id TEXT,
+                app_type TEXT,
+                data_source TEXT,
+                status_code INTEGER,
+                input_tokens INTEGER,
+                output_tokens INTEGER,
+                cache_read_tokens INTEGER,
+                cache_creation_tokens INTEGER,
+                latency_ms INTEGER,
+                duration_ms INTEGER,
+                created_at INTEGER
+            );
+            INSERT INTO proxy_request_logs VALUES
+                ('old', 'claude-desktop', 'proxy', 200, 10, 4, 200, 5, 100, 110, 100),
+                ('ignored-app', 'claude', 'proxy', 200, 999, 999, 999, 999, 999, 999, 101),
+                ('ignored-status', 'claude-desktop', 'proxy', 500, 999, 999, 999, 999, 999, 999, 102),
+                ('new', 'claude-desktop', 'proxy', 200, 20, 6, 300, 7, NULL, 400, 103);",
+        )
+        .expect("seed db");
+        drop(conn);
+        path
+    }
+
+    #[test]
+    fn claude_desktop_usage_reads_latest_successful_proxy_row() {
+        let path = usage_test_db();
+        let usage = load_claude_desktop_usage(&path, None)
+            .expect("query usage")
+            .expect("usage");
+        std::fs::remove_file(&path).ok();
+
+        assert_eq!(usage.id, 103000);
+        assert_eq!(usage.input_tokens, 20);
+        assert_eq!(usage.output_tokens, 6);
+        assert_eq!(usage.cache_read_tokens, 300);
+        assert_eq!(usage.cache_creation_tokens, 7);
+        assert_eq!(usage.elapsed_ms, 400);
+        assert_eq!(usage.updated_at_ms, 103000);
+        assert_eq!(usage.call_count, 1);
+    }
+
+    #[test]
+    fn claude_desktop_usage_aggregates_proxy_rows_since_turn_start() {
+        let path = usage_test_db();
+        let usage = load_claude_desktop_usage(&path, Some(100000))
+            .expect("query usage")
+            .expect("usage");
+        std::fs::remove_file(&path).ok();
+
+        assert_eq!(usage.id, 103002);
+        assert_eq!(usage.input_tokens, 30);
+        assert_eq!(usage.output_tokens, 10);
+        assert_eq!(usage.cache_read_tokens, 500);
+        assert_eq!(usage.cache_creation_tokens, 12);
+        assert_eq!(usage.elapsed_ms, 400);
+        assert_eq!(usage.updated_at_ms, 103000);
+        assert_eq!(usage.call_count, 2);
+    }
 }

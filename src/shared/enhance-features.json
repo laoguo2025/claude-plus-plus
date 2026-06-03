@@ -52,5 +52,14 @@
     "description": "在对话区域右侧，增加用户发言时间线，方便快速定位上下文。",
     "available": true,
     "note": "已加载问题定位"
+  },
+  {
+    "id": "token_usage",
+    "category": "对话增强",
+    "label": "Token 使用信息",
+    "version": "v0.1",
+    "description": "在每轮回复下方显示本轮调用合计、输入、输出、缓存读写、上下文、调用次数和耗时。",
+    "available": true,
+    "note": "CC Switch 只读用量"
   }
 ]

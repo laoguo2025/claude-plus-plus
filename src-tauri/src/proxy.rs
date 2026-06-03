@@ -6,15 +6,15 @@ use crate::ccswitch_db::{self, Mapping};
 use crate::constants::UPSTREAM_FALLBACK_URL;
 use crate::time_utils::now_ms;
 use axum::{
-    Router,
     body::Body,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{
-        HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri,
         header::{CACHE_CONTROL, EXPIRES, PRAGMA},
+        HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri,
     },
     response::{IntoResponse, Response},
     routing::{any, get, post},
+    Router,
 };
 use bytes::Bytes;
 use futures_util::Stream;
@@ -29,6 +29,7 @@ const MODEL_ID_PREFIX: &str = "claude-plus-plus";
 const TITLE_I18N_RATE_LIMIT_WINDOW: Duration = Duration::from_secs(60);
 const TITLE_I18N_RATE_LIMIT_MAX: u32 = 90;
 const TOKEN_USAGE_MAX_PENDING_LINE: usize = 64 * 1024;
+const TOKEN_USAGE_DB_FRESH_WINDOW_MS: u64 = 15_000;
 
 #[derive(Debug)]
 struct RateLimiter {
@@ -121,6 +122,8 @@ pub struct TokenUsageSnapshot {
     pub context_limit: u64,
     pub elapsed_ms: u64,
     pub updated_at_ms: u64,
+    pub call_count: u64,
+    pub source: String,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -291,13 +294,45 @@ async fn handle_trash_skill(Path(id): Path<String>) -> Response {
     }
 }
 
-async fn handle_token_usage(State(state): State<AppState>) -> Response {
-    let token_usage = state
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TokenUsageQuery {
+    since_ms: Option<u64>,
+}
+
+async fn handle_token_usage(
+    State(state): State<AppState>,
+    Query(query): Query<TokenUsageQuery>,
+) -> Response {
+    let mut token_usage = state
         .token_usage
         .read()
         .ok()
         .map(|state| state.clone())
         .unwrap_or_default();
+    let db_usage = ccswitch_db::load_claude_desktop_usage(&state.db_path, query.since_ms).ok();
+    if let Some(Some(db_usage)) = db_usage {
+        let fresh_enough = query
+            .since_ms
+            .map(|since_ms| {
+                db_usage
+                    .updated_at_ms
+                    .saturating_add(TOKEN_USAGE_DB_FRESH_WINDOW_MS)
+                    >= since_ms
+            })
+            .unwrap_or(true);
+        if fresh_enough {
+            let usage = TokenUsageSnapshot::from(db_usage);
+            token_usage.usage = Some(usage.clone());
+            token_usage.pending = false;
+            token_usage.last_error = None;
+            if let Ok(mut state) = state.token_usage.write() {
+                state.usage = Some(usage);
+                state.pending = false;
+                state.last_error = None;
+            }
+        }
+    }
     let mut response = (
         StatusCode::OK,
         axum::Json(serde_json::json!({
@@ -311,6 +346,28 @@ async fn handle_token_usage(State(state): State<AppState>) -> Response {
         .into_response();
     apply_json_headers(response.headers_mut());
     response
+}
+
+impl From<ccswitch_db::CcSwitchUsageSnapshot> for TokenUsageSnapshot {
+    fn from(usage: ccswitch_db::CcSwitchUsageSnapshot) -> Self {
+        let total_tokens = usage.input_tokens.saturating_add(usage.output_tokens);
+        Self {
+            id: usage.id,
+            total_tokens,
+            input_tokens: usage.input_tokens,
+            output_tokens: usage.output_tokens,
+            cached_tokens: usage.cache_read_tokens,
+            cache_read_known: true,
+            cache_creation_tokens: usage.cache_creation_tokens,
+            cache_creation_known: true,
+            context_used: total_tokens,
+            context_limit: 0,
+            elapsed_ms: usage.elapsed_ms,
+            updated_at_ms: usage.updated_at_ms,
+            call_count: usage.call_count,
+            source: "cc-switch".to_string(),
+        }
+    }
 }
 
 fn apply_json_headers(headers: &mut HeaderMap) {
@@ -945,6 +1002,8 @@ fn normalize_token_usage(value: &serde_json::Value) -> Option<TokenUsageSnapshot
         context_limit,
         elapsed_ms: 0,
         updated_at_ms: 0,
+        call_count: 0,
+        source: "stream".to_string(),
     })
 }
 
@@ -1210,6 +1269,35 @@ mod tests {
     }
 
     #[test]
+    fn token_usage_maps_ccswitch_usage_snapshot() {
+        let usage = TokenUsageSnapshot::from(ccswitch_db::CcSwitchUsageSnapshot {
+            id: 1700000000002,
+            input_tokens: 120,
+            output_tokens: 30,
+            cache_read_tokens: 900,
+            cache_creation_tokens: 45,
+            elapsed_ms: 2345,
+            updated_at_ms: 1700000000000,
+            call_count: 2,
+        });
+
+        assert_eq!(usage.id, 1700000000002);
+        assert_eq!(usage.total_tokens, 150);
+        assert_eq!(usage.input_tokens, 120);
+        assert_eq!(usage.output_tokens, 30);
+        assert_eq!(usage.cached_tokens, 900);
+        assert!(usage.cache_read_known);
+        assert_eq!(usage.cache_creation_tokens, 45);
+        assert!(usage.cache_creation_known);
+        assert_eq!(usage.context_used, 150);
+        assert_eq!(usage.context_limit, 0);
+        assert_eq!(usage.elapsed_ms, 2345);
+        assert_eq!(usage.updated_at_ms, 1700000000000);
+        assert_eq!(usage.call_count, 2);
+        assert_eq!(usage.source, "cc-switch");
+    }
+
+    #[test]
     fn token_usage_tracker_handles_split_sse_lines() {
         let mut tracker = TokenUsageStreamTracker::default();
 
@@ -1225,7 +1313,7 @@ mod tests {
 
     #[tokio::test]
     async fn token_usage_stream_publishes_only_after_stream_end() {
-        use futures_util::{StreamExt, stream};
+        use futures_util::{stream, StreamExt};
 
         let store = Arc::new(RwLock::new(TokenUsageState {
             usage: Some(TokenUsageSnapshot {
@@ -1281,7 +1369,7 @@ mod tests {
 
     #[tokio::test]
     async fn token_usage_stream_without_usage_keeps_previous_snapshot() {
-        use futures_util::{StreamExt, stream};
+        use futures_util::{stream, StreamExt};
 
         let previous = TokenUsageSnapshot {
             id: 7,
