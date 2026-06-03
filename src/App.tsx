@@ -31,7 +31,14 @@ import type {
   Theme,
   WelcomeStatus,
 } from "./appTypes";
-import { ALIPAY_QR_PATH, CC_SWITCH_DOWNLOAD_URL, CLAUDE_DESKTOP_DOWNLOAD_URL, QQ_GROUP_QR_PATH, routeMeta, routes } from "./appConstants";
+import {
+  ALIPAY_QR_PATH,
+  CC_SWITCH_DOWNLOAD_URL,
+  CLAUDE_DESKTOP_DOWNLOAD_URL,
+  QQ_GROUP_QR_PATH,
+  routeMeta,
+  routes,
+} from "./appConstants";
 import { previewEnhanceFeatures, PREVIEW_APP_VERSION } from "./previewCommands";
 import { routeSummaryText, ccswitchRouteDetailText } from "./routeStatus";
 import { callCommand, openExternalUrl } from "./tauriClient";
@@ -247,13 +254,23 @@ function App() {
     setBusy(true);
     setErr("");
     try {
-      await refreshRouteState();
-      await detectClaudeDesktopOnce();
-      await refreshWelcomeStatus();
-      await refreshEnhanceStatus();
-      if (route === "diagnostics") {
-        await refreshLogs();
-        await refreshDiagnostics();
+      const refreshSteps = [
+        refreshRouteState,
+        detectClaudeDesktopOnce,
+        refreshWelcomeStatus,
+        refreshEnhanceStatus,
+        ...(route === "diagnostics" ? [refreshLogs, refreshDiagnostics] : []),
+      ];
+      const errors: string[] = [];
+      for (const refreshStep of refreshSteps) {
+        try {
+          await refreshStep();
+        } catch (e) {
+          errors.push(String(e));
+        }
+      }
+      if (errors.length > 0) {
+        setErr(errors.join("\n"));
       }
     } finally {
       setBusy(false);
@@ -908,27 +925,21 @@ function AboutPage({
           <AboutInfoRow label="Claude Desktop 版本" value={claudeDesktopVersion} />
           <AboutInfoRow
             label="仓库地址"
-            value="待补充"
-            action={
-              <button disabled title="仓库地址待补充">
-                前往仓库
-              </button>
-            }
+            value="未配置公开仓库地址"
           />
           <div className="releaseCard">
             <div className="releaseCardHead">
               <strong>GitHub Release 更新</strong>
               <span>当前版本 {appVersion}</span>
             </div>
-            <AboutInfoRow label="状态" value="待补充" />
-            <AboutInfoRow label="最新版本" value="待补充" />
-            <AboutInfoRow label="资源" value="待补充" />
-            <AboutInfoRow label="进度" value="0%" />
-            <textarea className="releaseNotes" readOnly value="Release 信息待补充。" />
-            <div className="releaseActions">
-              <button disabled>检查更新</button>
-              <button disabled>下载并运行安装包</button>
-            </div>
+            <AboutInfoRow label="状态" value="未接入自动检查" />
+            <AboutInfoRow label="最新版本" value="请以 GitHub Release 为准" />
+            <AboutInfoRow label="资源" value="本地构建和手动发布" />
+            <textarea
+              className="releaseNotes"
+              readOnly
+              value={`当前应用版本: ${appVersion}\n\nClaude++ 目前未接入自动更新。需要确认新版时，请前往 GitHub 项目主页或使用本地 release 构建脚本。`}
+            />
           </div>
         </div>
       </section>

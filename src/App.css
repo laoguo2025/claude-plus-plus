@@ -16,12 +16,12 @@
   --brand-soft: rgba(220, 125, 87, 0.045);
   --brand-border: rgba(201, 106, 62, 0.18);
   --accent: var(--brand-strong);
-  --success: var(--brand-strong);
-  --success-bg: var(--bg-100);
-  --success-border: var(--brand-border);
-  --warning: var(--brand-strong);
-  --warning-bg: var(--brand-soft);
-  --warning-border: var(--brand-border);
+  --success: #2f7d59;
+  --success-bg: rgba(47, 125, 89, 0.06);
+  --success-border: rgba(47, 125, 89, 0.22);
+  --warning: #9b6a24;
+  --warning-bg: rgba(155, 106, 36, 0.08);
+  --warning-border: rgba(155, 106, 36, 0.24);
   --danger: #9d5148;
   --danger-bg: var(--bg-100);
   --danger-border: var(--border-strong);
@@ -47,12 +47,12 @@
   --brand-soft: rgba(220, 125, 87, 0.06);
   --brand-border: rgba(220, 125, 87, 0.2);
   --accent: var(--brand);
-  --success: var(--brand);
-  --success-bg: var(--bg-100);
-  --success-border: var(--brand-border);
-  --warning: var(--brand);
-  --warning-bg: var(--brand-soft);
-  --warning-border: var(--brand-border);
+  --success: #73b78e;
+  --success-bg: rgba(115, 183, 142, 0.08);
+  --success-border: rgba(115, 183, 142, 0.24);
+  --warning: #d1a34c;
+  --warning-bg: rgba(209, 163, 76, 0.1);
+  --warning-border: rgba(209, 163, 76, 0.25);
   --danger: #d18478;
   --danger-bg: var(--bg-100);
   --danger-border: var(--border-strong);
@@ -527,7 +527,7 @@ select {
 
 .routeStatusCard.active {
   border-color: var(--success-border);
-  background: var(--bg-100);
+  background: var(--success-bg);
 }
 
 .routeStatusCard.inactive {
@@ -927,11 +927,11 @@ select {
 }
 
 .rowIcon.success {
-  color: var(--brand-strong);
+  color: var(--success);
 }
 
 .rowIcon.warning {
-  color: var(--brand-strong);
+  color: var(--warning);
 }
 
 .rowIcon.danger {
@@ -975,11 +975,11 @@ select {
 }
 
 .stateBadge.success {
-  color: var(--brand-strong);
+  color: var(--success);
 }
 
 .stateBadge.warning {
-  color: var(--text-200);
+  color: var(--warning);
 }
 
 .stateBadge.danger {
