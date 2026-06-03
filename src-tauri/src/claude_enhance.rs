@@ -186,7 +186,7 @@ function D(){try{if(localStorage.getItem("claudePlusCustom3pPane")!=="connectors
 function A(){let e=document.getElementById("claude-plus-skills-modal");if(e)return e.remove();e=document.createElement("div");e.id="claude-plus-skills-modal";e.innerHTML='<div class="cps-backdrop"></div><section class="cps-panel" role="dialog" aria-modal="true" aria-label="技能"><header><strong>技能</strong><button type="button" data-cps-close>关闭</button></header><main><p class="cps-loading">正在读取 skills...</p></main></section>';document.body.appendChild(e);const n=document.createElement("style");n.id="claude-plus-skills-style";n.textContent="#claude-plus-skills-modal{position:fixed;inset:0;z-index:2147483647;color:#f4f1ea;font:13px/1.45 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#claude-plus-skills-modal .cps-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.52)}#claude-plus-skills-modal .cps-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(886px,calc(100vw - 48px));height:min(713px,calc(100vh - 48px));display:grid;grid-template-rows:auto 1fr;background:#171717;border:1px solid #3d3a35;border-radius:10px;box-shadow:0 22px 80px rgba(0,0,0,.48);overflow:hidden}#claude-plus-skills-modal header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px 12px;border-bottom:1px solid #2f2d2a;background:#1f1e1b}#claude-plus-skills-modal header strong{font-size:18px;font-weight:650}#claude-plus-skills-modal button{border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:7px;min-height:30px;padding:0 10px;cursor:pointer}#claude-plus-skills-modal button:hover{border-color:#d97745}#claude-plus-skills-modal button.cps-danger{border-color:#7f2d22;background:#4a1f1a;color:#ffd8cf}#claude-plus-skills-modal button:disabled{opacity:.55;cursor:default}#claude-plus-skills-modal main{overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:18px}#claude-plus-skills-modal .cps-section{display:flex;flex-direction:column;gap:10px}#claude-plus-skills-modal .cps-section-title{font-size:14px;font-weight:650;color:#f4f1ea}#claude-plus-skills-modal .cps-container{display:grid;gap:8px;border:1px solid #34312d;border-radius:8px;background:#1f1f1c;padding:10px}#claude-plus-skills-modal .cps-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:10px 12px;border:1px solid #34312d;border-radius:8px;background:#262521}#claude-plus-skills-modal .cps-main{display:flex;min-width:0;flex-direction:column;gap:4px}#claude-plus-skills-modal .cps-name{font-size:14px;font-weight:650;color:#f4f1ea}#claude-plus-skills-modal .cps-brief{color:#e7e0d4}#claude-plus-skills-modal .cps-file,#claude-plus-skills-modal .cps-empty,#claude-plus-skills-modal .cps-loading,#claude-plus-skills-modal .cps-error{color:#a9a39a}#claude-plus-skills-modal .cps-file{font-size:12px;word-break:break-all}#claude-plus-skills-modal .cps-actions{display:flex;align-items:flex-start;gap:8px}#claude-plus-skills-modal .cps-detail{grid-column:1/-1;border-top:1px solid #34312d;margin-top:4px;padding-top:10px;color:#d8d0c4;display:grid;gap:8px}#claude-plus-skills-modal .cps-detail[hidden]{display:none}#claude-plus-skills-modal .cps-detail strong{display:block;color:#f4f1ea;font-size:12px;margin-bottom:2px}.cps-toast{position:absolute;right:16px;bottom:14px;background:#2b2925;border:1px solid #5a544b;border-radius:8px;padding:8px 10px;color:#f4f1ea}";document.head.appendChild(n);function t(){e.remove();n.remove()}e.querySelector("[data-cps-close]").addEventListener("click",t);e.querySelector(".cps-backdrop").addEventListener("click",t);return e}
 function C(e,n){const t=e.filter(e=>e.scope===n),r=n==="global"?"全局 skills":"项目 skills";return'<section class="cps-section"><div class="cps-section-title">'+r+'</div><div class="cps-container">'+(t.length?t.map(e=>'<article class="cps-card" data-id="'+z(e.id)+'"><div class="cps-main"><div class="cps-name">'+z(e.name)+'</div><div class="cps-brief">'+z(e.summary_zh||e.description||"未提供描述。")+'</div><div class="cps-file">'+z(e.skill_file||e.path)+'</div></div><div class="cps-actions"><button type="button" data-cps-detail>详情</button><button type="button" class="cps-danger" data-cps-trash>删除</button></div><div class="cps-detail" hidden><div><strong>原始描述</strong><div>'+z(e.description||"未提供描述。")+'</div></div><div><strong>文件地址</strong><div class="cps-file">'+z(e.skill_file||e.path)+'</div></div><div><strong>目录地址</strong><div class="cps-file">'+z(e.path)+'</div></div></div></article>').join(""):'<p class="cps-empty">暂无'+r+'。</p>')+"</div></section>"}
 async function B(){const e=A(),n=e.querySelector("main"),t=window.claudePlusSkills;if(!t||typeof t.list!=="function"||typeof t.trash!=="function"){n.innerHTML='<p class="cps-error">本地 skills 桥未安装或尚未生效。</p><p class="cps-path">请在 Claude++ 中重新安装“技能”页面增强，并重启 Claude Desktop。</p>';return}try{const r=await t.list(),a=r.skills||[];n.innerHTML=C(a,"global")+C(a,"project");n.querySelectorAll("[data-cps-detail]").forEach(e=>e.addEventListener("click",()=>{const n=e.closest(".cps-card")?.querySelector(".cps-detail");if(!n)return;const t=n.hasAttribute("hidden");t?n.removeAttribute("hidden"):n.setAttribute("hidden","");e.textContent=t?"收起":"详情"}));n.querySelectorAll("[data-cps-trash]").forEach(r=>r.addEventListener("click",async()=>{const a=r.closest(".cps-card"),s=s=>{let n=e.querySelector(".cps-toast");n||(n=document.createElement("div"),n.className="cps-toast",e.appendChild(n));n.textContent=s;setTimeout(()=>n&&n.remove(),2600)},l=a?.dataset.id,o=a?.querySelector(".cps-name")?.textContent||"该 skill";if(!l)return;if(!confirm("确认删除 skill “"+o+"”？\n\n该操作会把对应 skill 目录移动到回收站。"))return;r.disabled=!0;try{await t.trash(l);a.remove();s("已移动到回收站")}catch(e){r.disabled=!1;s(e.message||String(e))}}))}catch(r){n.innerHTML='<p class="cps-error">读取本地 skills 失败。</p><p class="cps-path">'+z(r.message||String(r))+"</p>"}}
-function O(){let e=document.getElementById("claude-plus-conversation-enhance-style");if(e)return;e=document.createElement("style");e.id="claude-plus-conversation-enhance-style";e.textContent=".claude-plus-markdown-menu-item{color:#f4f1ea!important}.claude-plus-markdown-menu-item:hover{background:rgba(255,255,255,.08)!important}.claude-plus-export-toast{position:fixed;right:22px;top:112px;z-index:2147482001;max-width:min(360px,calc(100vw - 44px));border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:8px;padding:8px 10px;font:13px/1.4 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.24)}.claude-plus-timeline{position:fixed;right:10px;top:18vh;bottom:18vh;width:28px;z-index:2147481999;pointer-events:none}.claude-plus-timeline-track{position:absolute;left:13px;top:0;bottom:0;width:2px;border-radius:999px;background:rgba(214,119,69,.32)}.claude-plus-timeline-marker{position:absolute;left:7px;width:14px;height:14px;border:2px solid #d97745;border-radius:999px;background:#1f1e1b;box-shadow:0 0 0 2px rgba(31,30,27,.9);pointer-events:auto;cursor:pointer}.claude-plus-timeline-marker:hover{background:#d97745}.claude-plus-timeline-tip{position:absolute;right:24px;top:50%;transform:translateY(-50%);display:none;min-width:180px;max-width:min(320px,calc(100vw - 80px));border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:8px;padding:8px 10px;font:12px/1.35 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.24)}.claude-plus-timeline-marker:hover .claude-plus-timeline-tip{display:block}.claude-plus-timeline-target{outline:2px solid #d97745;outline-offset:4px;transition:outline-color .9s ease}.claude-plus-token-usage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:min(760px,calc(100% - 48px));margin:10px auto 14px;border:1px solid rgba(20,184,166,.3);background:rgba(20,184,166,.08);color:inherit;border-radius:7px;padding:6px 10px;font:12px/1.35 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;opacity:.92;letter-spacing:0;text-align:center;word-break:break-word}.claude-plus-token-usage strong{font-weight:650;color:inherit}.claude-plus-token-usage .cpu-line{display:block;max-width:100%}.claude-plus-token-usage .cpu-muted{color:inherit;opacity:.75}main>.claude-plus-token-usage,body>.claude-plus-token-usage{display:none!important}";document.head.appendChild(e)}
+function O(){let e=document.getElementById("claude-plus-conversation-enhance-style");if(e)return;e=document.createElement("style");e.id="claude-plus-conversation-enhance-style";e.textContent=".claude-plus-markdown-menu-item{color:#f4f1ea!important}.claude-plus-markdown-menu-item:hover{background:rgba(255,255,255,.08)!important}.claude-plus-export-toast{position:fixed;right:22px;top:112px;z-index:2147482001;max-width:min(360px,calc(100vw - 44px));border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:8px;padding:8px 10px;font:13px/1.4 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.24)}.claude-plus-timeline{position:fixed;right:10px;top:18vh;bottom:18vh;width:28px;z-index:2147481999;pointer-events:none}.claude-plus-timeline-track{position:absolute;left:13px;top:0;bottom:0;width:2px;border-radius:999px;background:rgba(214,119,69,.32)}.claude-plus-timeline-marker{position:absolute;left:7px;width:14px;height:14px;border:2px solid #d97745;border-radius:999px;background:#1f1e1b;box-shadow:0 0 0 2px rgba(31,30,27,.9);pointer-events:auto;cursor:pointer}.claude-plus-timeline-marker:hover{background:#d97745}.claude-plus-timeline-tip{position:absolute;right:24px;top:50%;transform:translateY(-50%);display:none;min-width:180px;max-width:min(320px,calc(100vw - 80px));border:1px solid #5a544b;background:#2b2925;color:#f4f1ea;border-radius:8px;padding:8px 10px;font:12px/1.35 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.24)}.claude-plus-timeline-marker:hover .claude-plus-timeline-tip{display:block}.claude-plus-timeline-target{outline:2px solid #d97745;outline-offset:4px;transition:outline-color .9s ease}.claude-plus-token-usage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:min(592px,calc(100% - 48px));margin:8px auto 12px;border:1px solid rgba(20,184,166,.3);background:rgba(20,184,166,.08);color:inherit;border-radius:7px;padding:6px 10px;font:11.5px/1.35 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;opacity:.92;letter-spacing:0;text-align:center;word-break:break-word}.claude-plus-token-usage strong{font-weight:650;color:inherit}.claude-plus-token-usage .cpu-line{display:block;max-width:100%}.claude-plus-token-usage .cpu-muted{color:inherit;opacity:.75}main>.claude-plus-token-usage,body>.claude-plus-token-usage{display:none!important}";document.head.appendChild(e)}
 function S(e){try{return Array.from(document.querySelectorAll(e))}catch(n){return[]}}
 function T(e){const n=e.cloneNode(!0);n.querySelectorAll(".claude-plus-markdown-menu-item,.claude-plus-export-toast,.claude-plus-timeline,button,svg,style,script,textarea,input,nav,aside").forEach(e=>e.remove());return String(n.innerText||n.textContent||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim()}
 function U(e){return e&&e.nodeType===1&&!e.closest(".claude-plus-markdown-menu-item,.claude-plus-export-toast,.claude-plus-timeline,nav,aside")}
@@ -213,7 +213,7 @@ const cpu={last:null,lastId:0,polling:!1,pollBusy:!1,lastPollAt:0,pending:!1,seq
 window.__claudePlusTokenUsageDebug=cpu.debug;
 function cpuN(e){const n=Number(e);return Number.isFinite(n)&&n>=0?Math.round(n):0}
 function cpuF(e){return cpuN(e).toLocaleString("en-US")}
-function cpuPct(e,n){return n?((e/n)*100).toFixed(1)+"%":"0%"}
+function cpuPct(e,n){return n?((e/n)*100).toFixed(1)+"%":""}
 function cpuNormId(e){return String(e||"").trim().replace(/^\/+|\/+$/g,"").slice(0,120)}
 function cpuProjectFromLocation(){const e=String(location.pathname||"").match(/\/(?:project|projects)\/([^/?#]+)/i);return cpuNormId(e&&e[1])}
 function cpuConversationFromLocation(){const e=String(location.pathname||"").match(/\/(?:chat|chats|conversation|conversations|thread|threads)\/([^/?#]+)/i);return cpuNormId(e&&e[1])}
@@ -229,14 +229,17 @@ function cpuPublicTurn(){const e=cpu.currentTurn;return e?{id:e.id,turnId:e.id,c
 function cpuExport(){return{last:cpu.last,currentTurn:cpuPublicTurn(),recent:cpu.recent.slice(),debug:cpu.debug.slice(),ledgerEvents:cpu.ledger.slice(),activeProjectId:cpuCurrentProjectId(),activeConversationId:cpuCurrentConversationId(),activeScopeKey:cpuCurrentScopeKey()}}
 function cpuPublish(){window.__claudePlusTokenUsageDebug=cpu.debug.slice();window.__claudePlusTokenUsage={last:cpu.last,currentTurn:cpuPublicTurn(),recent:cpu.recent.slice(),debug:cpu.debug.slice(),export:()=>cpuExport()}}
 function cpuClear(){cpu.last=null;cpu.lastId=0;cpu.renderReady=!1;clearTimeout(cpu.renderTimer);cpuPublish();cpuRender()}
-function cpuNormalizeUsage(e){if(!e||typeof e!=="object")return null;const t=cpuN(e.input_tokens??e.inputTokens??e.prompt_tokens??e.promptTokens),n=cpuN(e.output_tokens??e.outputTokens??e.completion_tokens??e.completionTokens),r=e.total_tokens??e.totalTokens??e.used_tokens??e.usedTokens??e.used,a=r==null&&!!(t||n),s=cpuN(r??t+n),l=cpuN(e.cache_read_input_tokens??e.cacheReadInputTokens??e.prompt_tokens_details?.cached_tokens??e.promptTokensDetails?.cachedTokens??e.input_tokens_details?.cached_tokens??e.inputTokensDetails?.cachedTokens),o=cpuN(e.cache_creation_input_tokens??e.cacheCreationInputTokens),i=cpuN(e.context_used??e.contextUsed??e.used_tokens??e.usedTokens??e.used),c=cpuN(e.context_limit??e.contextLimit??e.model_context_window??e.modelContextWindow??e.context_window??e.contextWindow??e.limit);if(!t&&!n&&!s&&!l&&!o&&!c)return null;return{id:cpuN(e.id),input:t,output:n,total:s,cached:0,cacheReadTokens:l,cacheCreationTokens:o,cachedReadTokens:l,cacheCreated:o,contextUsed:i||s,contextLimit:c,elapsed:cpuN(e.elapsedMs??e.elapsed_ms),updatedAt:cpuN(e.updatedAtMs??e.updated_at_ms),totalEstimated:a}}
+function cpuHas(e,...n){return n.some(n=>e&&e[n]!=null)}
+function cpuNestedHas(e,n,t){return e&&e[n]&&e[n][t]!=null}
+function cpuNormalizeUsage(e){if(!e||typeof e!=="object")return null;const t=cpuN(e.input_tokens??e.inputTokens??e.prompt_tokens??e.promptTokens),n=cpuN(e.output_tokens??e.outputTokens??e.completion_tokens??e.completionTokens),r=e.total_tokens??e.totalTokens??e.used_tokens??e.usedTokens??e.used,a=r==null&&!!(t||n),s=cpuN(r??t+n),l=e.cache_read_known??e.cacheReadKnown,o=l!=null?!!l:cpuHas(e,"cache_read_input_tokens","cacheReadInputTokens")||cpuNestedHas(e,"prompt_tokens_details","cached_tokens")||cpuNestedHas(e,"promptTokensDetails","cachedTokens")||cpuNestedHas(e,"input_tokens_details","cached_tokens")||cpuNestedHas(e,"inputTokensDetails","cachedTokens"),i=cpuN(e.cache_read_input_tokens??e.cacheReadInputTokens??(o&&(e.cached_tokens!=null||e.cachedTokens!=null)?e.cached_tokens??e.cachedTokens:void 0)??e.prompt_tokens_details?.cached_tokens??e.promptTokensDetails?.cachedTokens??e.input_tokens_details?.cached_tokens??e.inputTokensDetails?.cachedTokens),c=e.cache_creation_known??e.cacheCreationKnown,d=c!=null?!!c:cpuHas(e,"cache_creation_input_tokens","cacheCreationInputTokens"),u=cpuN(e.cache_creation_input_tokens??e.cacheCreationInputTokens),p=cpuN(e.context_used??e.contextUsed??e.used_tokens??e.usedTokens??e.used),g=cpuN(e.context_limit??e.contextLimit??e.model_context_window??e.modelContextWindow??e.context_window??e.contextWindow??e.limit);if(!t&&!n&&!s&&!i&&!u&&!g)return null;return{id:cpuN(e.id),input:t,output:n,total:s,cached:0,cacheReadTokens:i,cacheCreationTokens:u,cachedReadTokens:i,cacheCreated:u,cacheReadKnown:o,cacheCreationKnown:d,contextUsed:p||s,contextLimit:g,elapsed:cpuN(e.elapsedMs??e.elapsed_ms),updatedAt:cpuN(e.updatedAtMs??e.updated_at_ms),totalEstimated:a}}
 function cpuCollectUsages(e,t=0,n=[]){if(!e||t>8)return n;if(Array.isArray(e)){e.forEach(e=>cpuCollectUsages(e,t+1,n));return n}if(typeof e!=="object")return n;for(const r of["usage","token_usage","tokenUsage","last","lastUsage","last_token_usage","lastTokenUsage"]){const t=cpuNormalizeUsage(e[r]);t&&n.push(t)}const r=cpuNormalizeUsage(e);if(r){n.push(r);return n}for(const r of["response","data","body","message","result","event","params","context_usage","contextUsage","info","completion","delta"])cpuCollectUsages(e[r],t+1,n);return n}
 function cpuExtractUsages(e){if(typeof e==="string"){const t=[];try{cpuCollectUsages(JSON.parse(e),0,t)}catch(n){}String(e||"").split(/\r?\n/).map(e=>e.trim()).filter(e=>e.startsWith("data:")).map(e=>e.slice(5).trim()).filter(e=>e&&e!=="[DONE]").forEach(e=>{try{cpuCollectUsages(JSON.parse(e),0,t)}catch(n){}});return t}return cpuCollectUsages(e)}
 function cpuMap(e){return cpuNormalizeUsage(e)}
 function cpuBeginTurn(){const e=Date.now(),n=cpuCurrentProjectId(),t=cpuCurrentConversationId(),r=cpuScopeKey(n,t);cpu.currentTurn={id:++cpu.turnSeq,calls:[],startedAt:e,lastUpdatedAt:e,elapsed:0,projectId:n,conversationId:t,scopeKey:r};cpu.lastProxyId=0;cpu.pending=!0;cpuClear();return cpu.currentTurn}
 function cpuEnsureTurn(){const e=Date.now(),n=cpuCurrentScopeKey();return!cpu.currentTurn||cpu.currentTurn.calls.length&&e-cpu.currentTurn.lastUpdatedAt>CPU_TURN_IDLE_TIMEOUT_MS||cpu.currentTurn.scopeKey!==n?cpuBeginTurn():cpu.currentTurn}
 function cpuSameUsage(e,n){if(!e||!n)return!1;if(e.scopeKey&&n.scopeKey&&e.scopeKey!==n.scopeKey)return!1;const t=Math.abs((e.observedAt||e.updatedAt||0)-(n.observedAt||n.updatedAt||0));if(t>CPU_CROSS_SOURCE_DEDUPE_WINDOW_MS)return!1;return e.total===n.total&&e.input===n.input&&e.output===n.output&&e.cachedReadTokens===n.cachedReadTokens&&e.cacheCreationTokens===n.cacheCreationTokens}
-function cpuAggregateTurn(){const e=cpuEnsureTurn(),n=e.calls.reduce((e,n)=>({id:e.id,input:e.input+n.input,output:e.output+n.output,total:e.total+n.total,cached:e.cached+n.cached,cacheReadTokens:e.cacheReadTokens+n.cacheReadTokens,cacheCreationTokens:e.cacheCreationTokens+n.cacheCreationTokens,cachedReadTokens:e.cachedReadTokens+n.cachedReadTokens,cacheCreated:e.cacheCreated+n.cacheCreated,contextUsed:Math.max(e.contextUsed,n.contextUsed),contextLimit:Math.max(e.contextLimit,n.contextLimit),elapsed:Math.max(e.elapsed,n.elapsed),updatedAt:Date.now(),callCount:e.callCount+1,totalEstimated:e.totalEstimated||!!n.totalEstimated,projectId:e.projectId,conversationId:e.conversationId,scopeKey:e.scopeKey}),{id:e.id,input:0,output:0,total:0,cached:0,cacheReadTokens:0,cacheCreationTokens:0,cachedReadTokens:0,cacheCreated:0,contextUsed:0,contextLimit:0,elapsed:e.elapsed||0,updatedAt:0,callCount:0,totalEstimated:!1,projectId:e.projectId,conversationId:e.conversationId,scopeKey:e.scopeKey});return n}
+function cpuKnownAdd(e,n,t){return e||t?e+n:e}
+function cpuAggregateTurn(){const e=cpuEnsureTurn(),n=e.calls.reduce((e,n)=>({id:e.id,input:e.input+n.input,output:e.output+n.output,total:e.total+n.total,cached:0,cacheReadTokens:cpuKnownAdd(e.cacheReadTokens,n.cacheReadTokens,n.cacheReadKnown),cacheCreationTokens:cpuKnownAdd(e.cacheCreationTokens,n.cacheCreationTokens,n.cacheCreationKnown),cachedReadTokens:cpuKnownAdd(e.cachedReadTokens,n.cachedReadTokens,n.cacheReadKnown),cacheCreated:cpuKnownAdd(e.cacheCreated,n.cacheCreated,n.cacheCreationKnown),cacheReadKnown:e.cacheReadKnown||!!n.cacheReadKnown,cacheCreationKnown:e.cacheCreationKnown||!!n.cacheCreationKnown,contextUsed:Math.max(e.contextUsed,n.contextUsed),contextLimit:Math.max(e.contextLimit,n.contextLimit),elapsed:Math.max(e.elapsed,n.elapsed),updatedAt:Date.now(),callCount:e.callCount+1,totalEstimated:e.totalEstimated||!!n.totalEstimated,projectId:e.projectId,conversationId:e.conversationId,scopeKey:e.scopeKey}),{id:e.id,input:0,output:0,total:0,cached:0,cacheReadTokens:0,cacheCreationTokens:0,cachedReadTokens:0,cacheCreated:0,cacheReadKnown:!1,cacheCreationKnown:!1,contextUsed:0,contextLimit:0,elapsed:e.elapsed||0,updatedAt:0,callCount:0,totalEstimated:!1,projectId:e.projectId,conversationId:e.conversationId,scopeKey:e.scopeKey});return n}
 function cpuRememberUsage(e,t,n){let r=cpuEnsureTurn();const a=cpuStampScope({...e,source:n||"",elapsed:t||e.elapsed,updatedAt:Date.now(),observedAt:Date.now()});if(r.scopeKey!==a.scopeKey)r=cpuBeginTurn();const s=r.calls.find(e=>cpuSameUsage(e,a));if(s)return cpuScheduleFinalRender(),!1;r.calls.push({...a,id:++cpu.seq});r.lastUpdatedAt=Date.now();r.elapsed=Math.max(r.elapsed||0,t||0);const l=cpuAggregateTurn();cpu.lastId=l.id;cpu.last=l;cpu.byScope[l.scopeKey]=l;cpu.pending=!1;cpu.renderReady=!1;cpu.recent=[l,...cpu.recent.filter(e=>!cpuSameUsage(e,l))].slice(0,CPU_RECENT_LIMIT);cpu.ledger.push({...a,turnId:r.id});cpu.ledger=cpu.ledger.slice(-CPU_LEDGER_LIMIT);cpuPublish();cpuScheduleFinalRender();return!0}
 function cpuRemember(e,t,n){const r=cpuExtractUsages(e);if(!r.length)return!1;r.forEach(e=>cpuRememberUsage(e,t,n));return!0}
 function cpuPayload(e,t,n){try{return cpuRemember(e,t,n)}catch(r){cpu.debug.unshift({at:new Date().toISOString(),source:n||"",error:String(r?.message||r)});cpu.debug=cpu.debug.slice(0,CPU_DEBUG_LIMIT);cpuPublish();return!1}}
@@ -251,7 +254,10 @@ function cpuInstallFetchObserver(){if(typeof window.fetch!=="function"||window.f
 function cpuInstallXhrObserver(){const e=window.XMLHttpRequest;if(!e||e.prototype.__claudePlusTokenUsageWrapped)return;const t=e.prototype.open,n=e.prototype.send;e.prototype.open=function(e,n,...r){this.__claudePlusTokenUsageUrl=n;return t.call(this,e,n,...r)};XMLHttpRequest.prototype.send=function(...e){const t=performance.now(),r=this.__claudePlusTokenUsageUrl;cpuApiUrl(r)&&(cpu.pending=!0,cpuEnsureTurn());this.addEventListener?.("loadend",()=>{if(!cpuApiUrl(r))return;try{cpuPayload(this.responseText||"",performance.now()-t,r)}catch(e){}});return n.apply(this,e)};e.prototype.__claudePlusTokenUsageWrapped=!0}
 function cpuInstallWebSocketObserver(){if(typeof window.WebSocket!=="function"||window.__claudePlusTokenUsageWebSocketWrapped)return;const NativeWebSocket=window.__claudePlusTokenUsageNativeWebSocket||window.WebSocket;function T(...e){const t=new NativeWebSocket(...e);t.addEventListener?.("message",e=>{try{typeof e.data==="string"?cpuPayload(e.data,0,"websocket"):e.data instanceof Blob&&e.data.size<=512000&&e.data.text().then(e=>cpuPayload(e,0,"websocket")).catch(()=>{})}catch(t){}});return t}T.prototype=NativeWebSocket.prototype;window.WebSocket=T;window.__claudePlusTokenUsageNativeWebSocket=NativeWebSocket;window.__claudePlusTokenUsageWebSocketWrapped=!0}
 function cpuInstallPostMessageObserver(){if(window.__claudePlusTokenUsageMessageObserver)return;window.addEventListener?.("message",e=>{try{cpuPayload(e.data,0,"post-message")}catch(t){}},!0);window.__claudePlusTokenUsageMessageObserver=!0}
-function cpuHtml(e){const t=e.input||0,n=Math.min(e.cachedReadTokens||e.cacheReadTokens||0,t),r=e.contextUsed||e.total||0,a=e.contextLimit||0,s=a?cpuPct(r,a):"0%",l=t?cpuPct(n,t):"0%",o=e.totalEstimated?"(估算)":"";return'<div class="cpu-line">本轮调用合计 <strong>'+cpuF(e.total)+o+"</strong> · 输入 "+cpuF(e.input)+" · 输出 "+cpuF(e.output)+" · 缓存创建 "+cpuF(e.cacheCreationTokens)+" · 缓存读取 "+cpuF(n)+" · 缓存命中率 "+l+" · 上下文 "+cpuF(r)+(a?"/"+cpuF(a):"")+" ("+s+") · 调用 "+cpuF(e.callCount)+" 次 · 耗时 "+((e.elapsed||0)/1000).toFixed(1)+"s</div>"}
+function cpuCacheText(e,n){return e?cpuF(n):"未知"}
+function cpuRateText(e,n,t){return e&&t?cpuPct(n,t):"未知"}
+function cpuContextText(e){const r=e.contextUsed||e.total||0,a=e.contextLimit||0;if(!a)return "上下文 "+cpuF(r);return "上下文 "+cpuF(r)+"/"+cpuF(a)+" ("+cpuPct(r,a)+")"}
+function cpuHtml(e){const t=e.input||0,n=Math.min(e.cachedReadTokens||e.cacheReadTokens||0,t),o=e.totalEstimated?"(估算)":"";return'<div class="cpu-line">本轮调用合计 <strong>'+cpuF(e.total)+o+"</strong> · 输入 "+cpuF(e.input)+" · 输出 "+cpuF(e.output)+" · 缓存创建 token "+cpuCacheText(e.cacheCreationKnown,e.cacheCreationTokens)+" · 缓存读取 token "+cpuCacheText(e.cacheReadKnown,n)+" · 缓存命中率 "+cpuRateText(e.cacheReadKnown,n,t)+" · "+cpuContextText(e)+" · 调用 "+cpuF(e.callCount)+" 次 · 耗时 "+((e.elapsed||0)/1000).toFixed(1)+"s</div>"}
 function cpuRect(e){if(!(e instanceof Element))return null;const n=e.getBoundingClientRect();return n.width||n.height?n:null}
 function cpuAction(e){if(!(e instanceof Element))return!1;const n=e.getAttribute("aria-label")||"";return/^(复制|喜欢|不喜欢|从此处开始分叉|Copy|Good response|Bad response|Branch from here)$/i.test(n)}
 function cpuLooksLikeRunStatus(e){const n=E(e?.textContent||"");return/运行中|Running|tokens|List all|source code files|正在/i.test(n)&&!/复制|Copy|Good response|Bad response|喜欢|不喜欢/i.test(n)}
@@ -985,11 +991,11 @@ D();
         };
 
         use super::{
-            feature_payload, feature_states_from_text, remove_skills_bridge, EnhanceFeatureId,
-            CONVERSATION_TITLE_I18N_MARKER, MARKDOWN_EXPORT_MARKER, NAV_API_MARKER, NAV_MCP_MARKER,
-            NAV_PLUGINS_MARKER, SCRIPT_MARKER, SKILLS_LIST_CHANNEL, SKILLS_MAIN_BRIDGE_TARGET,
-            SKILLS_PRELOAD_BRIDGE_TARGET, SKILLS_TRASH_CHANNEL, TIMELINE_MARKER,
-            TOKEN_USAGE_MAIN_BRIDGE_MARKER, TOKEN_USAGE_MARKER,
+            CONVERSATION_TITLE_I18N_MARKER, EnhanceFeatureId, MARKDOWN_EXPORT_MARKER,
+            NAV_API_MARKER, NAV_MCP_MARKER, NAV_PLUGINS_MARKER, SCRIPT_MARKER, SKILLS_LIST_CHANNEL,
+            SKILLS_MAIN_BRIDGE_TARGET, SKILLS_PRELOAD_BRIDGE_TARGET, SKILLS_TRASH_CHANNEL,
+            TIMELINE_MARKER, TOKEN_USAGE_MAIN_BRIDGE_MARKER, TOKEN_USAGE_MARKER, feature_payload,
+            feature_states_from_text, remove_skills_bridge,
         };
 
         static INJECT_SCRIPT: LazyLock<String> = LazyLock::new(super::inject_script);
@@ -1072,7 +1078,7 @@ D();
             assert_eq!(list.len(), 7);
             for feature in list {
                 let expected = if feature.id == "token_usage" {
-                    "v0.2"
+                    "v0.3"
                 } else {
                     "v0.1"
                 };
@@ -1228,8 +1234,10 @@ D();
             assert!(INJECT_SCRIPT.contains("window.claudePlusTitleI18n"));
             assert!(INJECT_SCRIPT.contains("data-claude-plus-original-title"));
             assert!(INJECT_SCRIPT.contains("data-claude-plus-title-i18n"));
-            assert!(super::title_i18n_main_bridge_script()
-                .contains("/claude-plus/conversation-title-i18n"));
+            assert!(
+                super::title_i18n_main_bridge_script()
+                    .contains("/claude-plus/conversation-title-i18n")
+            );
         }
 
         #[test]
@@ -1339,10 +1347,14 @@ D();
             assert!(INJECT_SCRIPT.contains("导出 Markdown"));
             assert!(INJECT_SCRIPT.contains("insertBefore(a,r)"));
             assert!(INJECT_SCRIPT.contains("n.slice(1).forEach"));
-            assert!(INJECT_SCRIPT
-                .contains(r#"querySelectorAll('button,[role="menuitem"],[cmdk-item]')"#));
-            assert!(!INJECT_SCRIPT
-                .contains(r#"querySelectorAll('button,[role="menuitem"],[cmdk-item],div')"#));
+            assert!(
+                INJECT_SCRIPT
+                    .contains(r#"querySelectorAll('button,[role="menuitem"],[cmdk-item]')"#)
+            );
+            assert!(
+                !INJECT_SCRIPT
+                    .contains(r#"querySelectorAll('button,[role="menuitem"],[cmdk-item],div')"#)
+            );
             assert!(!INJECT_SCRIPT.contains("position:fixed;right:22px;top:74px"));
         }
 
@@ -1392,8 +1404,10 @@ D();
             assert!(!INJECT_SCRIPT.contains("function cpuHost"));
             assert!(!INJECT_SCRIPT.contains("n.appendChild(e)"));
             assert!(!INJECT_SCRIPT.contains("Token 使用信息：等待下一次"));
-            assert!(!INJECT_SCRIPT
-                .contains("document.querySelector(\"textarea,[contenteditable='true']\")"));
+            assert!(
+                !INJECT_SCRIPT
+                    .contains("document.querySelector(\"textarea,[contenteditable='true']\")")
+            );
 
             let preload = super::token_usage_preload_bridge_script();
             let main = super::token_usage_main_bridge_script();
@@ -1515,8 +1529,8 @@ D();
             assert!(normalize.contains("cacheReadInputTokens"));
             assert!(normalize.contains("prompt_tokens_details?.cached_tokens"));
             assert!(normalize.contains("input_tokens_details?.cached_tokens"));
-            assert!(!normalize.contains("e.cached_tokens"));
-            assert!(!normalize.contains("e.cachedTokens"));
+            assert!(normalize.contains("e.cache_read_known??e.cacheReadKnown"));
+            assert!(normalize.contains("o&&(e.cached_tokens!=null||e.cachedTokens!=null)"));
             assert!(!normalize.contains("cached_input_tokens"));
             assert!(!normalize.contains("cachedInputTokens"));
             assert!(!INJECT_SCRIPT.contains("e.cachedReadTokens||e.cacheReadTokens||e.cached"));
@@ -1531,6 +1545,25 @@ D();
             assert!(INJECT_SCRIPT.contains("!cpuLooksLikeRunStatus(e)"));
             assert!(INJECT_SCRIPT.contains("r.insertBefore(e,a.nextSibling)"));
             assert!(!INJECT_SCRIPT.contains("r.insertBefore(e,t.nextSibling)"));
+        }
+
+        #[test]
+        fn token_usage_distinguishes_zero_from_unknown_cache_and_clears_on_next_turn() {
+            assert!(INJECT_SCRIPT.contains("cacheReadKnown"));
+            assert!(INJECT_SCRIPT.contains("cacheCreationKnown"));
+            assert!(INJECT_SCRIPT.contains("cpuKnownAdd"));
+            assert!(INJECT_SCRIPT.contains("function cpuCacheText"));
+            assert!(INJECT_SCRIPT.contains("function cpuRateText"));
+            assert!(INJECT_SCRIPT.contains("缓存创建 token "));
+            assert!(INJECT_SCRIPT.contains("缓存读取 token "));
+            assert!(INJECT_SCRIPT.contains("function cpuRateText"));
+            assert!(INJECT_SCRIPT.contains("return e&&t?cpuPct(n,t):\"未知\""));
+            assert!(INJECT_SCRIPT.contains("function cpuContextText"));
+            assert!(INJECT_SCRIPT.contains("return \"上下文 \"+cpuF(r)"));
+            assert!(!INJECT_SCRIPT.contains("(0%)"));
+            assert!(INJECT_SCRIPT.contains("cpuClear();return cpu.currentTurn"));
+            assert!(INJECT_SCRIPT.contains("width:min(592px,calc(100% - 48px))"));
+            assert!(INJECT_SCRIPT.contains("font:11.5px/1.35"));
         }
 
         #[test]

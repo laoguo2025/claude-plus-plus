@@ -6,15 +6,15 @@ use crate::ccswitch_db::{self, Mapping};
 use crate::constants::UPSTREAM_FALLBACK_URL;
 use crate::time_utils::now_ms;
 use axum::{
+    Router,
     body::Body,
     extract::{Path, State},
     http::{
-        header::{CACHE_CONTROL, EXPIRES, PRAGMA},
         HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri,
+        header::{CACHE_CONTROL, EXPIRES, PRAGMA},
     },
     response::{IntoResponse, Response},
     routing::{any, get, post},
-    Router,
 };
 use bytes::Bytes;
 use futures_util::Stream;
@@ -114,7 +114,9 @@ pub struct TokenUsageSnapshot {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub cached_tokens: u64,
+    pub cache_read_known: bool,
     pub cache_creation_tokens: u64,
+    pub cache_creation_known: bool,
     pub context_used: u64,
     pub context_limit: u64,
     pub elapsed_ms: u64,
@@ -818,9 +820,11 @@ fn merge_token_usage(aggregate: &mut TokenUsageSnapshot, usage: &TokenUsageSnaps
     aggregate.input_tokens = aggregate.input_tokens.max(usage.input_tokens);
     aggregate.output_tokens = aggregate.output_tokens.max(usage.output_tokens);
     aggregate.cached_tokens = aggregate.cached_tokens.max(usage.cached_tokens);
+    aggregate.cache_read_known |= usage.cache_read_known;
     aggregate.cache_creation_tokens = aggregate
         .cache_creation_tokens
         .max(usage.cache_creation_tokens);
+    aggregate.cache_creation_known |= usage.cache_creation_known;
     aggregate.context_used = aggregate.context_used.max(usage.context_used);
     aggregate.context_limit = aggregate.context_limit.max(usage.context_limit);
 }
@@ -855,7 +859,7 @@ fn normalize_token_usage(value: &serde_json::Value) -> Option<TokenUsageSnapshot
         ],
     )
     .max(input_tokens + output_tokens);
-    let cached_tokens = number_field(
+    let direct_cache_read = number_field_optional(
         value,
         &[
             "cached_tokens",
@@ -863,8 +867,8 @@ fn normalize_token_usage(value: &serde_json::Value) -> Option<TokenUsageSnapshot
             "cache_read_input_tokens",
             "cacheReadInputTokens",
         ],
-    )
-    .max(nested_number_field(
+    );
+    let nested_cache_read = nested_number_field_optional(
         value,
         &[
             ("prompt_tokens_details", "cached_tokens"),
@@ -872,11 +876,17 @@ fn normalize_token_usage(value: &serde_json::Value) -> Option<TokenUsageSnapshot
             ("input_tokens_details", "cached_tokens"),
             ("inputTokensDetails", "cachedTokens"),
         ],
-    ));
-    let cache_creation_tokens = number_field(
+    );
+    let cache_read_known = direct_cache_read.is_some() || nested_cache_read.is_some();
+    let cached_tokens = direct_cache_read
+        .unwrap_or(0)
+        .max(nested_cache_read.unwrap_or(0));
+    let cache_creation = number_field_optional(
         value,
         &["cache_creation_input_tokens", "cacheCreationInputTokens"],
     );
+    let cache_creation_known = cache_creation.is_some();
+    let cache_creation_tokens = cache_creation.unwrap_or(0);
     let context_used = number_field(
         value,
         &[
@@ -915,7 +925,9 @@ fn normalize_token_usage(value: &serde_json::Value) -> Option<TokenUsageSnapshot
         input_tokens,
         output_tokens,
         cached_tokens,
+        cache_read_known,
         cache_creation_tokens,
+        cache_creation_known,
         context_used,
         context_limit,
         elapsed_ms: 0,
@@ -933,11 +945,10 @@ fn number_field_optional(value: &serde_json::Value, keys: &[&str]) -> Option<u64
         .max()
 }
 
-fn nested_number_field(value: &serde_json::Value, keys: &[(&str, &str)]) -> u64 {
+fn nested_number_field_optional(value: &serde_json::Value, keys: &[(&str, &str)]) -> Option<u64> {
     keys.iter()
         .filter_map(|(parent, child)| value.get(*parent)?.get(*child).and_then(json_number))
         .max()
-        .unwrap_or(0)
 }
 
 fn json_number(value: &serde_json::Value) -> Option<u64> {
@@ -1084,6 +1095,7 @@ mod tests {
         assert_eq!(usage.output_tokens, 25);
         assert_eq!(usage.total_tokens, 125);
         assert_eq!(usage.cached_tokens, 80);
+        assert!(usage.cache_read_known);
         assert_eq!(usage.context_limit, 200000);
     }
 
@@ -1103,7 +1115,9 @@ mod tests {
 
         assert_eq!(usage.input_tokens, 9573);
         assert_eq!(usage.cached_tokens, 0);
+        assert!(!usage.cache_read_known);
         assert_eq!(usage.cache_creation_tokens, 200);
+        assert!(usage.cache_creation_known);
     }
 
     #[test]
@@ -1121,6 +1135,7 @@ mod tests {
         assert_eq!(usage.output_tokens, 56);
         assert_eq!(usage.total_tokens, 381);
         assert_eq!(usage.cached_tokens, 0);
+        assert!(!usage.cache_read_known);
     }
 
     #[test]
@@ -1138,6 +1153,29 @@ mod tests {
         assert_eq!(usage.output_tokens, 94);
         assert_eq!(usage.total_tokens, 1490);
         assert_eq!(usage.cached_tokens, 1302);
+        assert!(usage.cache_read_known);
+        assert!(!usage.cache_creation_known);
+    }
+
+    #[test]
+    fn token_usage_marks_zero_cache_as_unknown_unless_field_exists() {
+        let missing_cache = extract_token_usage_from_text(
+            "data: {\"usage\":{\"input_tokens\":100,\"output_tokens\":25,\"total_tokens\":125}}\n",
+        )
+        .expect("token usage");
+        assert_eq!(missing_cache.cached_tokens, 0);
+        assert!(!missing_cache.cache_read_known);
+        assert_eq!(missing_cache.cache_creation_tokens, 0);
+        assert!(!missing_cache.cache_creation_known);
+
+        let explicit_zero = extract_token_usage_from_text(
+            "data: {\"usage\":{\"input_tokens\":100,\"output_tokens\":25,\"cache_read_input_tokens\":0,\"cache_creation_input_tokens\":0}}\n",
+        )
+        .expect("token usage");
+        assert_eq!(explicit_zero.cached_tokens, 0);
+        assert!(explicit_zero.cache_read_known);
+        assert_eq!(explicit_zero.cache_creation_tokens, 0);
+        assert!(explicit_zero.cache_creation_known);
     }
 
     #[test]
@@ -1156,7 +1194,7 @@ mod tests {
 
     #[tokio::test]
     async fn token_usage_stream_publishes_only_after_stream_end() {
-        use futures_util::{stream, StreamExt};
+        use futures_util::{StreamExt, stream};
 
         let store = Arc::new(RwLock::new(Some(TokenUsageSnapshot {
             id: 1,
