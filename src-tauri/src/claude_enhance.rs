@@ -235,11 +235,11 @@ function cpuLatestAssistant(){const e=Array.from(document.querySelectorAll("butt
 function cpuMount(e){const n=e.closest('[data-testid="conversation-turn"],[data-message-author-role],article,section')||e,t=n.parentElement;if(!t||t===document.body||t===document.documentElement)return e;return n}
 function cpuRender(){document.querySelectorAll("main>.claude-plus-token-usage,body>.claude-plus-token-usage").forEach(e=>e.remove());let e=document.querySelector(".claude-plus-token-usage");if(!window.__claudePlusEnhanceTokenUsageV1){e&&e.remove();return}if(!cpu.last){e&&e.remove();return}O();const n=cpuLatestAssistant();if(!n)return;const t=cpuMount(n),r=t.parentElement;if(!r)return;e&&e.dataset.host!==String(cpu.lastId)&&(e.remove(),e=null);e||(e=document.createElement("div"),e.className="claude-plus-token-usage");e.dataset.host=String(cpu.lastId);e.innerHTML=cpuHtml(cpu.last);e.parentElement!==r||e.previousElementSibling!==t?r.insertBefore(e,t.nextSibling):0;document.querySelectorAll(".claude-plus-token-usage").forEach(n=>{n!==e&&n.remove()})}
 async function cpuPoll(e){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}const n=Date.now();if(cpu.pollBusy||(!e&&n-cpu.lastPollAt<350))return;cpu.pollBusy=!0;cpu.lastPollAt=n;try{const e=window.claudePlusTokenUsage,r=e&&typeof e.get==="function"?await e.get():await fetch("__CPP_TOKEN_USAGE_URL__",{cache:"no-store"}).then(e=>e.json()).catch(()=>null),t=cpuMap(r&&r.usage);if(!t)return;const a=t.id||t.updatedAt||0;if(a&&a===cpu.lastProxyId){cpuRender();return}cpu.lastProxyId=a||Date.now();cpuRememberUsage(t,t.elapsed)}catch(e){}finally{cpu.pollBusy=!1}}
+function cpuInstallObservers(){if(!window.__claudePlusEnhanceTokenUsageV1)return;cpuInstallFetchObserver();cpuInstallXhrObserver();cpuInstallWebSocketObserver();cpuInstallPostMessageObserver();["submit","click","keydown"].forEach(e=>document.addEventListener(e,cpuStart,!0))}
 function cpuTick(){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}if(cpuBusy()){if(!cpu.pending)cpuBeginTurn();cpuPoll(!0);return}cpuPoll();if(!cpu.polling){cpu.polling=!0;cpuPoll(!0);setInterval(()=>cpuPoll(!0),1200)}}
 async function s(e){if(e.open==="custom3p"||e.open==="custom3p_connectors"){const n=window["claude.settings"]?.Custom3pSetup?.openSetupWindow||window.claude?.settings?.Custom3pSetup?.openSetupWindow;if(typeof n==="function"){try{e.open==="custom3p_connectors"&&localStorage.setItem("claudePlusCustom3pPane","connectors");await n();return}catch(t){}}return}if(e.open==="skills"){B();return}const n=new URL(e.path,location.origin),t=n.pathname+n.search+n.hash;try{history.pushState(null,"",t);window.dispatchEvent(new PopStateEvent("popstate",{state:history.state}));window.dispatchEvent(new Event("pushstate"));window.dispatchEvent(new Event("locationchange"))}catch(r){location.assign(n.toString())}}
-cpuInstallFetchObserver();cpuInstallXhrObserver();cpuInstallWebSocketObserver();cpuInstallPostMessageObserver();
+cpuInstallObservers();
 new MutationObserver(y).observe(document.documentElement,{childList:!0,subtree:!0});
-["submit","click","keydown"].forEach(e=>document.addEventListener(e,cpuStart,!0));
 document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{x();M();P();Y();cpuTick()},{once:!0}):(x(),M(),P(),Y(),cpuTick());
 window.addEventListener("resize",()=>{Y()},{passive:!0});
 D();
@@ -546,7 +546,7 @@ D();
                 fs::read_to_string(&path).map_err(|e| format!("读取 Claude 前端入口失败: {e}"))?;
             let mut next = remove_old_script(&text);
             next = set_marker(next, feature.marker(), enabled);
-            next = ensure_script(next);
+            next = ensure_or_remove_script(next);
             if next == text {
                 patched = true;
                 continue;
@@ -563,9 +563,15 @@ D();
         }
     }
 
-    fn ensure_script(mut text: String) -> String {
-        if !text.contains(SCRIPT_MARKER) {
+    fn ensure_or_remove_script(mut text: String) -> String {
+        let has_enabled_feature = feature_states_from_text(&text)
+            .into_iter()
+            .any(|state| state.enabled);
+        if has_enabled_feature && !text.contains(SCRIPT_MARKER) {
             text.push_str(&inject_script());
+        }
+        if !has_enabled_feature {
+            text = remove_old_script(&text);
         }
         text
     }
@@ -950,9 +956,9 @@ D();
         use super::{
             feature_payload, feature_states_from_text, remove_skills_bridge, EnhanceFeatureId,
             CONVERSATION_TITLE_I18N_MARKER, MARKDOWN_EXPORT_MARKER, NAV_API_MARKER, NAV_MCP_MARKER,
-            NAV_PLUGINS_MARKER, SKILLS_LIST_CHANNEL, SKILLS_MAIN_BRIDGE_TARGET,
+            NAV_PLUGINS_MARKER, SCRIPT_MARKER, SKILLS_LIST_CHANNEL, SKILLS_MAIN_BRIDGE_TARGET,
             SKILLS_PRELOAD_BRIDGE_TARGET, SKILLS_TRASH_CHANNEL, TIMELINE_MARKER,
-            TOKEN_USAGE_MARKER,
+            TOKEN_USAGE_MAIN_BRIDGE_MARKER, TOKEN_USAGE_MARKER,
         };
 
         static INJECT_SCRIPT: LazyLock<String> = LazyLock::new(super::inject_script);
@@ -1015,6 +1021,17 @@ D();
             assert!(!state(&states, EnhanceFeatureId::TokenUsage));
             assert!(!text.contains(&feature_payload(NAV_PLUGINS_MARKER)));
             assert!(!text.contains(&feature_payload(CONVERSATION_TITLE_I18N_MARKER)));
+        }
+
+        #[test]
+        fn uninstalling_last_feature_removes_shared_script() {
+            let text = format!("base{}", feature_payload(TOKEN_USAGE_MARKER));
+            let text = super::set_marker(text, TOKEN_USAGE_MARKER, false);
+            let text = super::ensure_or_remove_script(text);
+
+            assert!(!text.contains(SCRIPT_MARKER));
+            assert!(!text.contains("cpuInstallFetchObserver"));
+            assert!(!text.contains(TOKEN_USAGE_MARKER));
         }
 
         #[test]
@@ -1370,6 +1387,20 @@ D();
         }
 
         #[test]
+        fn token_usage_observers_are_installed_only_when_feature_enabled() {
+            assert!(INJECT_SCRIPT.contains(
+                "function cpuInstallObservers(){if(!window.__claudePlusEnhanceTokenUsageV1)return;"
+            ));
+            assert!(INJECT_SCRIPT.contains("cpuInstallObservers();"));
+            assert!(!INJECT_SCRIPT.contains(
+                "cpuInstallFetchObserver();cpuInstallXhrObserver();cpuInstallWebSocketObserver();cpuInstallPostMessageObserver();\nnew MutationObserver"
+            ));
+            assert!(!INJECT_SCRIPT.contains(
+                "[\"submit\",\"click\",\"keydown\"].forEach(e=>document.addEventListener(e,cpuStart,!0));\ndocument.readyState"
+            ));
+        }
+
+        #[test]
         fn token_usage_aggregates_multiple_calls_into_one_turn() {
             assert!(INJECT_SCRIPT.contains("currentTurn"));
             assert!(INJECT_SCRIPT.contains("function cpuBeginTurn"));
@@ -1549,6 +1580,43 @@ D();
                 .expect("token usage feature status");
 
             assert!(feature.enabled);
+        }
+
+        #[test]
+        #[ignore = "writes Claude Desktop resources; set CLAUDE_PLUS_VERIFY_INSTALL=1"]
+        fn verify_uninstall_token_usage_enhance_removes_observers() {
+            assert_eq!(
+                std::env::var("CLAUDE_PLUS_VERIFY_INSTALL")
+                    .as_deref()
+                    .map(str::trim),
+                Ok("1")
+            );
+
+            super::uninstall("token_usage").expect("uninstall token usage enhance");
+            let paths = crate::claude_patch_common::resolve_claude_paths()
+                .expect("resolve Claude Desktop paths");
+            let text =
+                super::read_index_bundle(&paths.resources).expect("read installed index bundle");
+            let status = super::status();
+            let feature = status
+                .features
+                .iter()
+                .find(|feature| feature.id == "token_usage")
+                .expect("token usage feature status");
+            let main_bridge = super::read_asar_file(&paths.resources, SKILLS_MAIN_BRIDGE_TARGET)
+                .expect("read installed main bridge");
+            let main_bridge = String::from_utf8(main_bridge).expect("main bridge is utf8");
+
+            assert!(!feature.enabled);
+            assert!(!text.contains(&feature_payload(TOKEN_USAGE_MARKER)));
+            assert!(!main_bridge.contains(TOKEN_USAGE_MAIN_BRIDGE_MARKER));
+            if !text.contains("__claudePlusEnhanceNavV2") {
+                assert!(!text.contains("cpuInstallFetchObserver"));
+            } else {
+                assert!(text.contains(
+                    "function cpuInstallObservers(){if(!window.__claudePlusEnhanceTokenUsageV1)return;"
+                ));
+            }
         }
     }
 

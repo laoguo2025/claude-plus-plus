@@ -905,10 +905,10 @@ function EnhanceCard({
       </div>
       <div className="enhanceActions">
         <button className="primary" disabled={disabled || feature.enabled} onClick={onInstall}>
-          增强
+          安装
         </button>
         <button disabled={disabled || !feature.enabled} onClick={onUninstall}>
-          取消
+          卸载
         </button>
       </div>
     </div>
