@@ -879,15 +879,8 @@ fn normalize_token_usage(value: &serde_json::Value) -> Option<TokenUsageSnapshot
         ],
     )
     .max(input_tokens + output_tokens);
-    let direct_cache_read = number_field_optional(
-        value,
-        &[
-            "cached_tokens",
-            "cachedTokens",
-            "cache_read_input_tokens",
-            "cacheReadInputTokens",
-        ],
-    );
+    let direct_cache_read =
+        number_field_optional(value, &["cache_read_input_tokens", "cacheReadInputTokens"]);
     let nested_cache_read = nested_number_field_optional(
         value,
         &[
@@ -1175,6 +1168,24 @@ mod tests {
         assert_eq!(usage.cached_tokens, 1302);
         assert!(usage.cache_read_known);
         assert!(!usage.cache_creation_known);
+    }
+
+    #[test]
+    fn token_usage_does_not_treat_generic_cached_tokens_as_cache_read() {
+        let text = [
+            "event: response.completed",
+            "data: {\"usage\":{\"input_tokens\":2511,\"output_tokens\":614,\"total_tokens\":3125,\"cached_tokens\":2511}}",
+            "",
+        ]
+        .join("\n");
+
+        let usage = extract_token_usage_from_text(&text).expect("token usage");
+
+        assert_eq!(usage.input_tokens, 2511);
+        assert_eq!(usage.output_tokens, 614);
+        assert_eq!(usage.total_tokens, 3125);
+        assert_eq!(usage.cached_tokens, 0);
+        assert!(!usage.cache_read_known);
     }
 
     #[test]

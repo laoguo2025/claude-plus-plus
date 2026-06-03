@@ -231,7 +231,7 @@ function cpuPublish(){window.__claudePlusTokenUsageDebug=cpu.debug.slice();windo
 function cpuClear(){cpu.last=null;cpu.lastId=0;cpu.renderReady=!1;clearTimeout(cpu.renderTimer);cpuPublish();cpuRender()}
 function cpuHas(e,...n){return n.some(n=>e&&e[n]!=null)}
 function cpuNestedHas(e,n,t){return e&&e[n]&&e[n][t]!=null}
-function cpuNormalizeUsage(e){if(!e||typeof e!=="object")return null;const t=cpuN(e.input_tokens??e.inputTokens??e.prompt_tokens??e.promptTokens),n=cpuN(e.output_tokens??e.outputTokens??e.completion_tokens??e.completionTokens),r=e.total_tokens??e.totalTokens??e.used_tokens??e.usedTokens??e.used,a=r==null&&!!(t||n),s=cpuN(r??t+n),l=e.cache_read_known??e.cacheReadKnown,o=l!=null?!!l:cpuHas(e,"cache_read_input_tokens","cacheReadInputTokens")||cpuNestedHas(e,"prompt_tokens_details","cached_tokens")||cpuNestedHas(e,"promptTokensDetails","cachedTokens")||cpuNestedHas(e,"input_tokens_details","cached_tokens")||cpuNestedHas(e,"inputTokensDetails","cachedTokens"),i=cpuN(e.cache_read_input_tokens??e.cacheReadInputTokens??(o&&(e.cached_tokens!=null||e.cachedTokens!=null)?e.cached_tokens??e.cachedTokens:void 0)??e.prompt_tokens_details?.cached_tokens??e.promptTokensDetails?.cachedTokens??e.input_tokens_details?.cached_tokens??e.inputTokensDetails?.cachedTokens),c=e.cache_creation_known??e.cacheCreationKnown,d=c!=null?!!c:cpuHas(e,"cache_creation_input_tokens","cacheCreationInputTokens"),u=cpuN(e.cache_creation_input_tokens??e.cacheCreationInputTokens),p=cpuN(e.context_used??e.contextUsed??e.used_tokens??e.usedTokens??e.used),g=cpuN(e.context_limit??e.contextLimit??e.model_context_window??e.modelContextWindow??e.context_window??e.contextWindow??e.limit);if(!t&&!n&&!s&&!i&&!u&&!g)return null;return{id:cpuN(e.id),input:t,output:n,total:s,cached:0,cacheReadTokens:i,cacheCreationTokens:u,cachedReadTokens:i,cacheCreated:u,cacheReadKnown:o,cacheCreationKnown:d,contextUsed:p||s,contextLimit:g,elapsed:cpuN(e.elapsedMs??e.elapsed_ms),updatedAt:cpuN(e.updatedAtMs??e.updated_at_ms),totalEstimated:a}}
+function cpuNormalizeUsage(e){if(!e||typeof e!=="object")return null;const t=cpuN(e.input_tokens??e.inputTokens??e.prompt_tokens??e.promptTokens),n=cpuN(e.output_tokens??e.outputTokens??e.completion_tokens??e.completionTokens),r=e.total_tokens??e.totalTokens??e.used_tokens??e.usedTokens??e.used,a=r==null&&!!(t||n),s=cpuN(r??t+n),l=e.cache_read_known??e.cacheReadKnown,o=l!=null?!!l:cpuHas(e,"cache_read_input_tokens","cacheReadInputTokens")||cpuNestedHas(e,"prompt_tokens_details","cached_tokens")||cpuNestedHas(e,"promptTokensDetails","cachedTokens")||cpuNestedHas(e,"input_tokens_details","cached_tokens")||cpuNestedHas(e,"inputTokensDetails","cachedTokens"),i=cpuN(e.cache_read_input_tokens??e.cacheReadInputTokens??e.prompt_tokens_details?.cached_tokens??e.promptTokensDetails?.cachedTokens??e.input_tokens_details?.cached_tokens??e.inputTokensDetails?.cachedTokens),c=e.cache_creation_known??e.cacheCreationKnown,d=c!=null?!!c:cpuHas(e,"cache_creation_input_tokens","cacheCreationInputTokens"),u=cpuN(e.cache_creation_input_tokens??e.cacheCreationInputTokens),p=cpuN(e.context_used??e.contextUsed??e.used_tokens??e.usedTokens??e.used),g=cpuN(e.context_limit??e.contextLimit??e.model_context_window??e.modelContextWindow??e.context_window??e.contextWindow??e.limit);if(!t&&!n&&!s&&!i&&!u&&!g)return null;return{id:cpuN(e.id),input:t,output:n,total:s,cached:0,cacheReadTokens:i,cacheCreationTokens:u,cachedReadTokens:i,cacheCreated:u,cacheReadKnown:o,cacheCreationKnown:d,contextUsed:p||s,contextLimit:g,elapsed:cpuN(e.elapsedMs??e.elapsed_ms),updatedAt:cpuN(e.updatedAtMs??e.updated_at_ms),totalEstimated:a}}
 function cpuCollectUsages(e,t=0,n=[]){if(!e||t>8)return n;if(Array.isArray(e)){e.forEach(e=>cpuCollectUsages(e,t+1,n));return n}if(typeof e!=="object")return n;for(const r of["usage","token_usage","tokenUsage","last","lastUsage","last_token_usage","lastTokenUsage"]){const t=cpuNormalizeUsage(e[r]);t&&n.push(t)}const r=cpuNormalizeUsage(e);if(r){n.push(r);return n}for(const r of["response","data","body","message","result","event","params","context_usage","contextUsage","info","completion","delta"])cpuCollectUsages(e[r],t+1,n);return n}
 function cpuExtractUsages(e){if(typeof e==="string"){const t=[];try{cpuCollectUsages(JSON.parse(e),0,t)}catch(n){}String(e||"").split(/\r?\n/).map(e=>e.trim()).filter(e=>e.startsWith("data:")).map(e=>e.slice(5).trim()).filter(e=>e&&e!=="[DONE]").forEach(e=>{try{cpuCollectUsages(JSON.parse(e),0,t)}catch(n){}});return t}return cpuCollectUsages(e)}
 function cpuMap(e){return cpuNormalizeUsage(e)}
@@ -256,7 +256,7 @@ function cpuInstallWebSocketObserver(){if(typeof window.WebSocket!=="function"||
 function cpuInstallPostMessageObserver(){if(window.__claudePlusTokenUsageMessageObserver)return;window.addEventListener?.("message",e=>{try{cpuPayload(e.data,0,"post-message")}catch(t){}},!0);window.__claudePlusTokenUsageMessageObserver=!0}
 function cpuCacheText(e,n){return e?cpuF(n):"未知"}
 function cpuRateText(e,n,t){return e&&t?cpuPct(n,t):"未知"}
-function cpuContextText(e){const r=e.contextUsed||e.total||0,a=e.contextLimit||0;if(!a)return "上下文 "+cpuF(r);return "上下文 "+cpuF(r)+"/"+cpuF(a)+" ("+cpuPct(r,a)+")"}
+function cpuContextText(e){const r=e.contextUsed||e.total||0,a=e.contextLimit||0;if(!a)return "上下文占比 未知";return "上下文占比 "+cpuF(r)+"/"+cpuF(a)+" ("+cpuPct(r,a)+")"}
 function cpuHtml(e){const t=e.input||0,n=Math.min(e.cachedReadTokens||e.cacheReadTokens||0,t),o=e.totalEstimated?"(估算)":"";return'<div class="cpu-line">本轮调用合计 <strong>'+cpuF(e.total)+o+"</strong> · 输入 "+cpuF(e.input)+" · 输出 "+cpuF(e.output)+" · 缓存创建 token "+cpuCacheText(e.cacheCreationKnown,e.cacheCreationTokens)+" · 缓存读取 token "+cpuCacheText(e.cacheReadKnown,n)+" · 缓存命中率 "+cpuRateText(e.cacheReadKnown,n,t)+" · "+cpuContextText(e)+" · 调用 "+cpuF(e.callCount)+" 次 · 耗时 "+((e.elapsed||0)/1000).toFixed(1)+"s</div>"}
 function cpuRect(e){if(!(e instanceof Element))return null;const n=e.getBoundingClientRect();return n.width||n.height?n:null}
 function cpuAction(e){if(!(e instanceof Element))return!1;const n=e.getAttribute("aria-label")||"";return/^(复制|喜欢|不喜欢|从此处开始分叉|Copy|Good response|Bad response|Branch from here)$/i.test(n)}
@@ -270,7 +270,7 @@ function cpuLatestAssistant(){const e=Array.from(document.querySelectorAll("butt
 function cpuMount(e){const n=e.closest('[data-testid="conversation-turn"],[data-message-author-role],article,section')||e,t=n.parentElement;if(!t||t===document.body||t===document.documentElement)return e;return n}
 function cpuAssistantFooter(e){const n=cpuMount(e),t=Array.from(n.querySelectorAll("button,[role=button]")).filter(cpuAction).pop();if(!t)return null;for(let e=t;e&&e!==n;e=e.parentElement){const t=e.parentElement;if(!t)break;const r=Array.from(t.querySelectorAll("button,[role=button]")).filter(cpuAction);if(r.length)return t}return t.parentElement||null}
 function cpuInsertAfter(e,n){const t=n.parentElement;t&&t.insertBefore(e,n.nextSibling)}
-function cpuRender(){document.querySelectorAll("main>.claude-plus-token-usage,body>.claude-plus-token-usage").forEach(e=>e.remove());let e=document.querySelector(".claude-plus-token-usage");if(!window.__claudePlusEnhanceTokenUsageV1){e&&e.remove();return}if(!cpu.last||!cpu.renderReady){e&&e.remove();return}O();const n=cpuLatestAssistant();if(!n||cpuLooksLikeRunStatus(n)){e&&e.remove();return}const t=cpuMount(n),r=t.parentElement;if(!r)return;const a=cpuAssistantFooter(t)||t;e&&e.dataset.host!==String(cpu.lastId)&&(e.remove(),e=null);e||(e=document.createElement("div"),e.className="claude-plus-token-usage");e.dataset.host=String(cpu.lastId);e.dataset.scopeKey=cpu.last.scopeKey||"";e.innerHTML=cpuHtml(cpu.last);e.parentElement!==r||e.previousElementSibling!==a?r.insertBefore(e,a.nextSibling):0;document.querySelectorAll(".claude-plus-token-usage").forEach(n=>{n!==e&&n.remove()})}
+function cpuRender(){document.querySelectorAll("main>.claude-plus-token-usage,body>.claude-plus-token-usage").forEach(e=>e.remove());let e=document.querySelector(".claude-plus-token-usage");if(!window.__claudePlusEnhanceTokenUsageV1){e&&e.remove();return}if(!cpu.last||!cpu.renderReady){e&&e.remove();return}O();const n=cpuLatestAssistant();if(!n||cpuLooksLikeRunStatus(n)){e&&e.remove();return}const t=cpuMount(n),r=t.parentElement;if(!r)return;const a=cpuAssistantFooter(t);const s=a?.parentElement||r;e&&e.dataset.host!==String(cpu.lastId)&&(e.remove(),e=null);e||(e=document.createElement("div"),e.className="claude-plus-token-usage");e.dataset.host=String(cpu.lastId);e.dataset.scopeKey=cpu.last.scopeKey||"";e.innerHTML=cpuHtml(cpu.last);e.parentElement!==s||e.previousElementSibling!==(a||t)?s.insertBefore(e,a?a.nextSibling:t.nextSibling):0;document.querySelectorAll(".claude-plus-token-usage").forEach(n=>{n!==e&&n.remove()})}
 async function cpuPoll(e){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}const n=Date.now();if(cpu.pollBusy||(!e&&n-cpu.lastPollAt<350))return;cpu.pollBusy=!0;cpu.lastPollAt=n;try{const e=window.claudePlusTokenUsage,r=e&&typeof e.get==="function"?await e.get():await fetch("__CPP_TOKEN_USAGE_URL__",{cache:"no-store"}).then(e=>e.json()).catch(()=>null),t=cpuMap(r&&r.usage);if(!t)return;const a=t.id||t.updatedAt||0;if(a&&a===cpu.lastProxyId){cpuScheduleFinalRender();return}cpu.lastProxyId=a||Date.now();cpuRememberUsage(t,t.elapsed,"proxy")}catch(e){}finally{cpu.pollBusy=!1}}
 function cpuInstallObservers(){if(!window.__claudePlusEnhanceTokenUsageV1)return;cpuInstallFetchObserver();cpuInstallXhrObserver();cpuInstallWebSocketObserver();cpuInstallPostMessageObserver();cpuInstallContextMeterObserver();["submit","click","keydown"].forEach(e=>document.addEventListener(e,cpuStart,!0))}
 function cpuTick(){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}cpuStampScope({});const busy=cpuBusy();if(busy){if(!cpu.pending)cpuBeginTurn();cpuPoll(!0);cpu.wasBusy=!0;return}if(cpu.wasBusy&&!busy)cpuScheduleFinalRender();cpu.wasBusy=busy;cpuPoll();cpuMergeContext();if(!cpu.polling){cpu.polling=!0;cpuPoll(!0);setInterval(()=>cpuPoll(!0),1200)}}
@@ -1382,7 +1382,7 @@ D();
             assert!(INJECT_SCRIPT.contains("function cpuBusy"));
             assert!(INJECT_SCRIPT.contains("function cpuSend"));
             assert!(INJECT_SCRIPT.contains("function cpuStart"));
-            assert!(INJECT_SCRIPT.contains("r.insertBefore(e,a.nextSibling)"));
+            assert!(INJECT_SCRIPT.contains("s.insertBefore(e,a?a.nextSibling:t.nextSibling)"));
             assert!(INJECT_SCRIPT.contains("display:flex;flex-direction:column"));
             assert!(!INJECT_SCRIPT.contains("if(!t){cpuClear();return}"));
             assert!(!INJECT_SCRIPT.contains("if(cpuBusy()){cpuClear();cpuPoll(!0);return}"));
@@ -1503,7 +1503,7 @@ D();
             assert!(INJECT_SCRIPT.contains("缓存创建 "));
             assert!(INJECT_SCRIPT.contains("缓存读取 "));
             assert!(INJECT_SCRIPT.contains("缓存命中率 "));
-            assert!(INJECT_SCRIPT.contains("上下文 "));
+            assert!(INJECT_SCRIPT.contains("上下文占比 "));
             assert!(INJECT_SCRIPT.contains("调用 "));
             assert!(INJECT_SCRIPT.contains("耗时 "));
             assert!(INJECT_SCRIPT.contains("cacheCreationTokens"));
@@ -1525,7 +1525,9 @@ D();
             assert!(normalize.contains("prompt_tokens_details?.cached_tokens"));
             assert!(normalize.contains("input_tokens_details?.cached_tokens"));
             assert!(normalize.contains("e.cache_read_known??e.cacheReadKnown"));
-            assert!(normalize.contains("o&&(e.cached_tokens!=null||e.cachedTokens!=null)"));
+            assert!(!normalize.contains("e.cached_tokens"));
+            assert!(!normalize.contains("e.cachedTokens"));
+            assert!(!normalize.contains("cached_tokens\",\"cachedTokens"));
             assert!(!normalize.contains("cached_input_tokens"));
             assert!(!normalize.contains("cachedInputTokens"));
             assert!(!INJECT_SCRIPT.contains("e.cachedReadTokens||e.cacheReadTokens||e.cached"));
@@ -1535,10 +1537,11 @@ D();
         fn token_usage_mounts_after_assistant_footer_not_run_status() {
             assert!(INJECT_SCRIPT.contains("function cpuAssistantFooter"));
             assert!(INJECT_SCRIPT.contains("function cpuInsertAfter"));
-            assert!(INJECT_SCRIPT.contains("cpuAssistantFooter(t)||t"));
+            assert!(INJECT_SCRIPT.contains("const a=cpuAssistantFooter(t)"));
+            assert!(INJECT_SCRIPT.contains("const s=a?.parentElement||r"));
             assert!(INJECT_SCRIPT.contains("cpuLooksLikeRunStatus"));
             assert!(INJECT_SCRIPT.contains("!cpuLooksLikeRunStatus(e)"));
-            assert!(INJECT_SCRIPT.contains("r.insertBefore(e,a.nextSibling)"));
+            assert!(INJECT_SCRIPT.contains("s.insertBefore(e,a?a.nextSibling:t.nextSibling)"));
             assert!(!INJECT_SCRIPT.contains("r.insertBefore(e,t.nextSibling)"));
         }
 
@@ -1554,7 +1557,8 @@ D();
             assert!(INJECT_SCRIPT.contains("function cpuRateText"));
             assert!(INJECT_SCRIPT.contains("return e&&t?cpuPct(n,t):\"未知\""));
             assert!(INJECT_SCRIPT.contains("function cpuContextText"));
-            assert!(INJECT_SCRIPT.contains("return \"上下文 \"+cpuF(r)"));
+            assert!(INJECT_SCRIPT.contains("if(!a)return \"上下文占比 未知\""));
+            assert!(INJECT_SCRIPT.contains("return \"上下文占比 \"+cpuF(r)+\"/\"+cpuF(a)"));
             assert!(!INJECT_SCRIPT.contains("(0%)"));
             assert!(INJECT_SCRIPT.contains("cpuClear();return cpu.currentTurn"));
             assert!(INJECT_SCRIPT.contains("width:min(592px,calc(100% - 48px))"));
