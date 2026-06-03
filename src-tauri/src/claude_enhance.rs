@@ -231,7 +231,7 @@ function cpuPublish(){window.__claudePlusTokenUsageDebug=cpu.debug.slice();windo
 function cpuClear(){cpu.last=null;cpu.lastId=0;cpu.renderReady=!1;clearTimeout(cpu.renderTimer);cpuPublish();cpuRender()}
 function cpuHas(e,...n){return n.some(n=>e&&e[n]!=null)}
 function cpuNestedHas(e,n,t){return e&&e[n]&&e[n][t]!=null}
-function cpuNormalizeUsage(e){if(!e||typeof e!=="object")return null;const t=cpuN(e.input_tokens??e.inputTokens??e.prompt_tokens??e.promptTokens),n=cpuN(e.output_tokens??e.outputTokens??e.completion_tokens??e.completionTokens),r=e.total_tokens??e.totalTokens??e.used_tokens??e.usedTokens??e.used,a=r==null&&!!(t||n),s=cpuN(r??t+n),l=e.cache_read_known??e.cacheReadKnown,o=l!=null?!!l:cpuHas(e,"cache_read_input_tokens","cacheReadInputTokens")||cpuNestedHas(e,"prompt_tokens_details","cached_tokens")||cpuNestedHas(e,"promptTokensDetails","cachedTokens")||cpuNestedHas(e,"input_tokens_details","cached_tokens")||cpuNestedHas(e,"inputTokensDetails","cachedTokens"),i=cpuN(e.cache_read_input_tokens??e.cacheReadInputTokens??(l!=null&&o?e.cachedTokens:void 0)??e.prompt_tokens_details?.cached_tokens??e.promptTokensDetails?.cachedTokens??e.input_tokens_details?.cached_tokens??e.inputTokensDetails?.cachedTokens),m=e.cache_creation_known??e.cacheCreationKnown,d=m!=null?!!m:cpuHas(e,"cache_creation_input_tokens","cacheCreationInputTokens"),u=cpuN(e.cache_creation_input_tokens??e.cacheCreationInputTokens??(m!=null&&d?e.cacheCreationTokens:void 0)),p=cpuN(e.context_used??e.contextUsed??e.used_tokens??e.usedTokens??e.used),g=cpuN(e.context_limit??e.contextLimit??e.model_context_window??e.modelContextWindow??e.context_window??e.contextWindow??e.limit);if(!t&&!n&&!s&&!i&&!u&&!g)return null;return{id:cpuN(e.id),input:t,output:n,total:s,cached:0,cacheReadTokens:i,cacheCreationTokens:u,cachedReadTokens:i,cacheCreated:u,cacheReadKnown:o,cacheCreationKnown:d,contextUsed:p,contextLimit:g,elapsed:cpuN(e.elapsedMs??e.elapsed_ms),updatedAt:cpuN(e.updatedAtMs??e.updated_at_ms),totalEstimated:a}}
+function cpuNormalizeUsage(e){if(!e||typeof e!=="object")return null;const t=cpuN(e.input_tokens??e.inputTokens??e.prompt_tokens??e.promptTokens),n=cpuN(e.output_tokens??e.outputTokens??e.completion_tokens??e.completionTokens),r=e.total_tokens??e.totalTokens??e.used_tokens??e.usedTokens??e.used,a=r==null&&!!(t||n),s=cpuN(r??t+n),l=e.cache_read_known??e.cacheReadKnown,o=l!=null?!!l:cpuHas(e,"cache_read_input_tokens","cacheReadInputTokens")||cpuNestedHas(e,"prompt_tokens_details","cached_tokens")||cpuNestedHas(e,"promptTokensDetails","cachedTokens")||cpuNestedHas(e,"input_tokens_details","cached_tokens")||cpuNestedHas(e,"inputTokensDetails","cachedTokens"),i=cpuN(e.cache_read_input_tokens??e.cacheReadInputTokens??(l!=null&&o?e.cachedTokens:void 0)??e.prompt_tokens_details?.cached_tokens??e.promptTokensDetails?.cachedTokens??e.input_tokens_details?.cached_tokens??e.inputTokensDetails?.cachedTokens),m=e.cache_creation_known??e.cacheCreationKnown,d=m!=null?!!m:cpuHas(e,"cache_creation_input_tokens","cacheCreationInputTokens"),u=cpuN(e.cache_creation_input_tokens??e.cacheCreationInputTokens??(m!=null&&d?e.cacheCreationTokens:void 0)),p=cpuN(e.context_used??e.contextUsed??e.used_tokens??e.usedTokens??e.used),g=cpuN(e.context_limit??e.contextLimit??e.model_context_window??e.modelContextWindow??e.context_window??e.contextWindow??e.limit);if(!t&&!n&&!s&&!i&&!u&&!g)return null;return{id:cpuN(e.id),input:t,output:n,total:s,cached:0,cacheReadTokens:i,cacheCreationTokens:u,cachedReadTokens:i,cacheCreated:u,cacheReadKnown:o,cacheCreationKnown:d,contextUsed:p||s,contextLimit:g,elapsed:cpuN(e.elapsedMs??e.elapsed_ms),updatedAt:cpuN(e.updatedAtMs??e.updated_at_ms),totalEstimated:a}}
 function cpuCollectUsages(e,t=0,n=[]){if(!e||t>8)return n;if(Array.isArray(e)){e.forEach(e=>cpuCollectUsages(e,t+1,n));return n}if(typeof e!=="object")return n;for(const r of["usage","token_usage","tokenUsage","last","lastUsage","last_token_usage","lastTokenUsage"]){const t=cpuNormalizeUsage(e[r]);t&&n.push(t)}const r=cpuNormalizeUsage(e);if(r){n.push(r);return n}for(const r of["response","data","body","message","result","event","params","context_usage","contextUsage","info","completion","delta"])cpuCollectUsages(e[r],t+1,n);return n}
 function cpuExtractUsages(e){if(typeof e==="string"){const t=[];try{cpuCollectUsages(JSON.parse(e),0,t)}catch(n){}String(e||"").split(/\r?\n/).map(e=>e.trim()).filter(e=>e.startsWith("data:")).map(e=>e.slice(5).trim()).filter(e=>e&&e!=="[DONE]").forEach(e=>{try{cpuCollectUsages(JSON.parse(e),0,t)}catch(n){}});return t}return cpuCollectUsages(e)}
 function cpuMap(e){return cpuNormalizeUsage(e)}
@@ -256,8 +256,8 @@ function cpuInstallWebSocketObserver(){if(typeof window.WebSocket!=="function"||
 function cpuInstallPostMessageObserver(){if(window.__claudePlusTokenUsageMessageObserver)return;window.addEventListener?.("message",e=>{try{cpuPayload(e.data,0,"post-message")}catch(t){}},!0);window.__claudePlusTokenUsageMessageObserver=!0}
 function cpuCacheText(e,n){return e?cpuF(n):"未知"}
 function cpuRateText(e,n,t){return e&&t?cpuPct(n,t):"未知"}
-function cpuContextText(e){const r=e.contextUsed||0,a=e.contextLimit||0;if(!a)return "上下文占比 未知";return "上下文占比 "+cpuF(r)+"/"+cpuF(a)+" ("+cpuPct(r,a)+")"}
-function cpuHtml(e){const t=e.input||0,n=Math.min(e.cachedReadTokens||e.cacheReadTokens||0,t),o=e.totalEstimated?"(估算)":"";return'<div class="cpu-line">本轮调用合计 <strong>'+cpuF(e.total)+o+"</strong> · 输入 "+cpuF(e.input)+" · 输出 "+cpuF(e.output)+" · 缓存创建 "+cpuCacheText(e.cacheCreationKnown,e.cacheCreationTokens)+" · 缓存读取 "+cpuCacheText(e.cacheReadKnown,n)+" · 缓存命中率 "+cpuRateText(e.cacheReadKnown,n,t)+" · "+cpuContextText(e)+" · 调用 "+cpuF(e.callCount)+" 次 · 耗时 "+((e.elapsed||0)/1000).toFixed(1)+"s · 数据仅供参考</div>"}
+function cpuContextText(e){const r=e.contextUsed||e.total||0,a=e.contextLimit||0;if(!a)return "";return "上下文 "+cpuF(r)+"/"+cpuF(a)+" ("+cpuPct(r,a)+")"}
+function cpuHtml(e){const t=e.input||0,n=Math.min(e.cachedReadTokens||e.cacheReadTokens||0,t),o=e.totalEstimated?"(估算)":"",c=cpuContextText(e);return'<div class="cpu-line">本轮调用合计 <strong>'+cpuF(e.total)+o+"</strong> · 输入 "+cpuF(e.input)+" · 输出 "+cpuF(e.output)+" · 缓存写 "+cpuCacheText(e.cacheCreationKnown,e.cacheCreationTokens)+" · 缓存读 "+cpuCacheText(e.cacheReadKnown,n)+" · 缓存命中率 "+cpuRateText(e.cacheReadKnown,n,t)+(c?" · "+c:"")+" · 调用 "+cpuF(e.callCount)+" 次 · 耗时 "+((e.elapsed||0)/1000).toFixed(1)+"s · 数据仅供参考</div>"}
 function cpuRect(e){if(!(e instanceof Element))return null;const n=e.getBoundingClientRect();return n.width||n.height?n:null}
 function cpuAction(e){if(!(e instanceof Element))return!1;const n=e.getAttribute("aria-label")||"";return/^(复制|喜欢|不喜欢|从此处开始分叉|Copy|Good response|Bad response|Branch from here)$/i.test(n)}
 function cpuLooksLikeRunStatus(e){const n=E(e?.textContent||"");return/运行中|Running|tokens|List all|source code files|正在/i.test(n)&&!/复制|Copy|Good response|Bad response|喜欢|不喜欢/i.test(n)}
@@ -1500,18 +1500,19 @@ D();
             assert!(INJECT_SCRIPT.contains("本轮调用合计 "));
             assert!(INJECT_SCRIPT.contains("输入 "));
             assert!(INJECT_SCRIPT.contains("输出 "));
-            assert!(INJECT_SCRIPT.contains("缓存创建 "));
-            assert!(INJECT_SCRIPT.contains("缓存读取 "));
+            assert!(INJECT_SCRIPT.contains("缓存写 "));
+            assert!(INJECT_SCRIPT.contains("缓存读 "));
             assert!(INJECT_SCRIPT.contains("缓存命中率 "));
-            assert!(INJECT_SCRIPT.contains("上下文占比 "));
+            assert!(INJECT_SCRIPT.contains("上下文 "));
+            assert!(!INJECT_SCRIPT.contains("上下文占比 "));
             assert!(INJECT_SCRIPT.contains("数据仅供参考"));
             assert!(INJECT_SCRIPT.contains("调用 "));
             assert!(INJECT_SCRIPT.contains("耗时 "));
             assert!(INJECT_SCRIPT.contains("cacheCreationTokens"));
             assert!(INJECT_SCRIPT.contains("cachedReadTokens"));
             assert!(INJECT_SCRIPT.contains("e.callCount"));
-            assert!(!INJECT_SCRIPT.contains("缓存创建 token "));
-            assert!(!INJECT_SCRIPT.contains("缓存读取 token "));
+            assert!(!INJECT_SCRIPT.contains("缓存创建 "));
+            assert!(!INJECT_SCRIPT.contains("缓存读取 "));
         }
 
         #[test]
@@ -1557,15 +1558,16 @@ D();
             assert!(INJECT_SCRIPT.contains("cpuKnownAdd"));
             assert!(INJECT_SCRIPT.contains("function cpuCacheText"));
             assert!(INJECT_SCRIPT.contains("function cpuRateText"));
-            assert!(INJECT_SCRIPT.contains("缓存创建 "));
-            assert!(INJECT_SCRIPT.contains("缓存读取 "));
-            assert!(!INJECT_SCRIPT.contains("缓存创建 token "));
-            assert!(!INJECT_SCRIPT.contains("缓存读取 token "));
+            assert!(INJECT_SCRIPT.contains("缓存写 "));
+            assert!(INJECT_SCRIPT.contains("缓存读 "));
+            assert!(!INJECT_SCRIPT.contains("缓存创建 "));
+            assert!(!INJECT_SCRIPT.contains("缓存读取 "));
             assert!(INJECT_SCRIPT.contains("function cpuRateText"));
             assert!(INJECT_SCRIPT.contains("return e&&t?cpuPct(n,t):\"未知\""));
             assert!(INJECT_SCRIPT.contains("function cpuContextText"));
-            assert!(INJECT_SCRIPT.contains("if(!a)return \"上下文占比 未知\""));
-            assert!(INJECT_SCRIPT.contains("return \"上下文占比 \"+cpuF(r)+\"/\"+cpuF(a)"));
+            assert!(INJECT_SCRIPT.contains("if(!a)return \"\""));
+            assert!(INJECT_SCRIPT.contains("return \"上下文 \"+cpuF(r)+\"/\"+cpuF(a)"));
+            assert!(INJECT_SCRIPT.contains("c?\" · \"+c:\"\""));
             assert!(!INJECT_SCRIPT.contains("(0%)"));
             assert!(INJECT_SCRIPT.contains("cpuClear();return cpu.currentTurn"));
             assert!(INJECT_SCRIPT.contains("width:min(592px,calc(100% - 48px))"));
