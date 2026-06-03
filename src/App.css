@@ -322,6 +322,7 @@ select {
   min-width: 0;
   padding-left: 2px;
   padding-top: 0;
+  transform: translateY(50px);
 }
 
 .welcomeLogo {
@@ -365,6 +366,7 @@ select {
   align-items: start;
   justify-content: end;
   min-width: 0;
+  transform: translateY(50px);
 }
 
 .qrCard {
