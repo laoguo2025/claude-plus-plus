@@ -30,6 +30,7 @@ import "./App.css";
 const QQ_GROUP_QR_PATH = "/qq-group-qr.png";
 const ALIPAY_QR_PATH = "/alipay-qr.png";
 const CLAUDE_DESKTOP_DOWNLOAD_URL = "https://pan.baidu.com/s/1vESMbIYVKFRVFBgA_5ap7Q?pwd=4pfe";
+const CC_SWITCH_DOWNLOAD_URL = "https://pan.baidu.com/s/1iJsHuCsLcSh9kvhp75PKxQ?pwd=jyw9";
 
 interface Mapping {
   display: string;
@@ -957,6 +958,15 @@ function WelcomePage({
     }
   };
 
+  const downloadCcSwitch = async () => {
+    setErr("");
+    try {
+      await openExternalUrl(CC_SWITCH_DOWNLOAD_URL);
+    } catch (e) {
+      setErr(String(e));
+    }
+  };
+
   return (
     <div className="welcomePage">
       <section className="welcomeHero">
@@ -1023,7 +1033,17 @@ function WelcomePage({
           active={!!welcomeStatus?.cc_switch_installed}
           label="CC Switch"
           value={welcomeStatus?.cc_switch_installed ? "已安装" : "未安装"}
-          detail={welcomeStatus?.cc_switch_installed ? undefined : "未检测到 CC Switch 本地配置"}
+          detail={welcomeStatus?.cc_switch_installed ? undefined : "点击后从网盘下载"}
+          action={
+            welcomeStatus?.cc_switch_installed
+              ? undefined
+              : {
+                  label: "下载",
+                  onClick: () => void downloadCcSwitch(),
+                  disabled: busy,
+                  primary: true,
+                }
+          }
         />
       </section>
     </div>
