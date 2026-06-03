@@ -1592,6 +1592,19 @@ D();
                 languages.first().and_then(|value| value.as_str()),
                 Some("SimpChinese")
             );
+
+            assert_eq!(
+                config
+                    .pointer("/bundle/windows/nsis/customLanguageFiles/SimpChinese")
+                    .and_then(|value| value.as_str()),
+                Some("resources/nsis/SimpChinese.nsh")
+            );
+
+            let language = include_str!("../resources/nsis/SimpChinese.nsh");
+            assert!(language.contains("删除应用程序数据"));
+            assert!(language.contains("正在运行"));
+            assert!(language.contains("点击确定以终止运行"));
+            assert!(language.contains("卸载"));
         }
 
         #[test]

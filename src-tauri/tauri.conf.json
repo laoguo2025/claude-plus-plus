@@ -35,7 +35,10 @@
       "nsis": {
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
-        "languages": ["SimpChinese"]
+        "languages": ["SimpChinese"],
+        "customLanguageFiles": {
+          "SimpChinese": "resources/nsis/SimpChinese.nsh"
+        }
       }
     }
   }
