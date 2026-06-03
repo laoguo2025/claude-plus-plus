@@ -610,6 +610,7 @@ function OverviewPage({
   const ccswitchSwitchOn = ccswitchRoute?.configured === true;
   const ccswitchSwitchDetail =
     ccswitchSwitchOn && ccswitchRoute?.reachable === false ? "路由启动中" : "请在 CCS 开启路由";
+  const claudePlusTakenOver = !!status?.cd_applied && !!status?.running;
 
   return (
     <div className="pageGrid overviewPage">
@@ -646,15 +647,15 @@ function OverviewPage({
             detail={ccswitchSwitchOn && ccswitchRoute?.reachable !== false ? undefined : ccswitchSwitchDetail}
           />
           <RouteStatusCard
-            active={!!status?.cd_applied}
+            active={claudePlusTakenOver}
             label="Claude++ 接管"
-            value={status?.cd_applied ? "已接管" : "未接管"}
-            detail={status?.cd_applied ? undefined : "点击接管,让 Claude++ 生效"}
+            value={claudePlusTakenOver ? "已接管" : "未接管"}
+            detail={claudePlusTakenOver ? undefined : "点击接管,让 Claude++ 生效"}
             action={{
               label: status?.cd_applied ? "断开接管" : "接管",
               onClick: () => run(status?.cd_applied ? "use_ccs_route" : "use_claude_plus_route"),
               disabled: busy,
-              primary: !status?.cd_applied,
+              primary: !claudePlusTakenOver,
             }}
           />
           <RouteStatusCard
