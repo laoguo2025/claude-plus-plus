@@ -710,7 +710,7 @@ function OverviewPage({
         <span>
           Claude++ 会读取 CC Switch 当前映射，把更容易看懂的名字交给 Claude Desktop 显示；真正发送请求时，再转回 CC Switch 能识别的模型角色。
         </span>
-        <span>例如菜单显示“Opus - mimo-v2.5-pro”；选中后，Claude++ 会按 Opus 档位转发到实际模型。</span>
+        <span>Claude Desktop 菜单会按 CC Switch 的“菜单显示名”原样展示；同名模型由用户自己的命名决定。</span>
         <strong>使用期间请保持 Claude++ 运行；CC Switch 增/改/删模型或切换服务商后，重启 Claude Desktop 生效。</strong>
       </div>
 

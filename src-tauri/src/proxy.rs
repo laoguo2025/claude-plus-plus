@@ -426,6 +426,10 @@ fn menu_model_id(mapping: &Mapping) -> String {
 }
 
 fn menu_display_name(mapping: &Mapping) -> String {
+    mapping.display.clone()
+}
+
+fn legacy_role_display_name(mapping: &Mapping) -> String {
     format!("{} - {}", role_label(&mapping.role_kind), mapping.display)
 }
 
@@ -440,7 +444,7 @@ fn role_label(role_kind: &str) -> String {
 fn display_to_role_from_mappings(mappings: &[Mapping], model: &str) -> Option<String> {
     mappings
         .iter()
-        .find(|m| menu_model_id(m) == model || menu_display_name(m) == model)
+        .find(|m| menu_model_id(m) == model || legacy_role_display_name(m) == model)
         .or_else(|| mappings.iter().find(|m| m.display == model))
         .or_else(|| {
             mappings
@@ -1062,7 +1066,7 @@ mod tests {
     }
 
     #[test]
-    fn display_names_keep_role_and_model_visible() {
+    fn display_names_preserve_ccswitch_label() {
         let opus = mapping(
             "mimo-v2.5-pro",
             "claude-opus-4-7-r2",
@@ -1070,7 +1074,18 @@ mod tests {
             "mimo-v2.5-pro",
         );
 
-        assert_eq!(menu_display_name(&opus), "Opus - mimo-v2.5-pro");
+        assert_eq!(menu_display_name(&opus), "mimo-v2.5-pro");
+        assert_eq!(legacy_role_display_name(&opus), "Opus - mimo-v2.5-pro");
+    }
+
+    #[test]
+    fn display_names_allow_duplicate_user_labels() {
+        let sonnet = mapping("mimo-v2.5", "claude-sonnet-4-6", "sonnet", "mimo-v2.5");
+        let haiku = mapping("mimo-v2.5", "claude-haiku-4-5", "haiku", "mimo-v2.5");
+
+        assert_eq!(menu_display_name(&sonnet), "mimo-v2.5");
+        assert_eq!(menu_display_name(&haiku), "mimo-v2.5");
+        assert_ne!(menu_model_id(&sonnet), menu_model_id(&haiku));
     }
 
     #[test]
@@ -1093,6 +1108,10 @@ mod tests {
         assert_eq!(
             display_to_role_from_mappings(&mappings, "claude-haiku-4-5-20251001"),
             Some("claude-haiku-4-5".to_string())
+        );
+        assert_eq!(
+            display_to_role_from_mappings(&mappings, "Opus - mimo-v2.5-pro"),
+            Some("claude-opus-4-7-r2".to_string())
         );
     }
 
