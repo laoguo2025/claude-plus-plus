@@ -5,19 +5,20 @@
 </p>
 
 <p align="center">
-  <strong>Claude Desktop enhancement toolkit: page enhancements, Chinese localization, CC Switch routing, diagnostics, and cross-platform installers.</strong>
+  <a href="#中文">中文</a> | <a href="#english">English</a>
 </p>
 
 <p align="center">
   <a href="https://github.com/laoguo2025/claude-plus-plus/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/laoguo2025/claude-plus-plus?label=release&style=flat-square&labelColor=555&color=007ec6"></a>
-  <a href="https://github.com/laoguo2025/claude-plus-plus/actions/workflows/macos-dmg.yml"><img alt="Build macOS DMG" src="https://img.shields.io/github/actions/workflow/status/laoguo2025/claude-plus-plus/macos-dmg.yml?branch=main&label=Build%20macOS%20DMG&style=flat-square&labelColor=555"></a>
+  <a href="https://github.com/laoguo2025/claude-plus-plus/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/laoguo2025/claude-plus-plus?label=Stars&style=flat-square&labelColor=555&color=ffffff"></a>
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-97ca00?style=flat-square&labelColor=555"></a>
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24c8db?style=flat-square&labelColor=555">
   <img alt="Rust backend" src="https://img.shields.io/badge/Rust-backend-b7410e?style=flat-square&labelColor=555">
   <img alt="React frontend" src="https://img.shields.io/badge/React-frontend-61dafb?style=flat-square&labelColor=555">
 </p>
 
-[中文](#中文) · [English](#english)
+Claude++ 是一个 Claude Desktop 本地增强控制台，专注页面增强、汉化、token 用量、Markdown 导出、Skills/MCP 快捷入口。
+它还支持 CC Switch 模型名桥接、可逆接管、诊断日志和跨平台安装包。
 
 ---
 
