@@ -26,8 +26,8 @@
         height: 1920px;
         overflow: hidden;
         background:
-          radial-gradient(circle at 48% 12%, rgba(216, 111, 61, 0.24), transparent 28%),
-          radial-gradient(circle at 78% 78%, rgba(51, 213, 232, 0.11), transparent 30%),
+          radial-gradient(circle at 50% 10%, rgba(216, 111, 61, 0.28), transparent 30%),
+          radial-gradient(circle at 82% 76%, rgba(51, 213, 232, 0.12), transparent 34%),
           linear-gradient(180deg, #090d13 0%, #070a0f 62%, #05070b 100%);
       }
 
@@ -38,39 +38,31 @@
           linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
           linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
         background-size: 54px 54px;
-        mask-image: radial-gradient(circle at center, black, transparent 72%);
-        opacity: 0.28;
+        mask-image: radial-gradient(circle at center, black, transparent 76%);
+        opacity: 0.24;
       }
 
-      .scanline {
+      .halo {
         position: absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        height: 3px;
-        background: linear-gradient(90deg, transparent, #33d5e8, #d86f3d, transparent);
-        box-shadow: 0 0 28px rgba(51, 213, 232, 0.52);
-        opacity: 0.65;
-      }
-
-      .orb {
-        position: absolute;
-        width: 440px;
-        height: 440px;
         border-radius: 50%;
-        border: 1px solid rgba(216, 111, 61, 0.22);
-        box-shadow: 0 0 80px rgba(216, 111, 61, 0.18);
+        pointer-events: none;
       }
 
-      .orb.one {
+      .halo.orange {
         left: -210px;
-        top: 210px;
+        top: 220px;
+        width: 470px;
+        height: 470px;
+        border: 1px solid rgba(216, 111, 61, 0.24);
+        box-shadow: 0 0 86px rgba(216, 111, 61, 0.18);
       }
 
-      .orb.two {
+      .halo.cyan {
         right: -260px;
-        bottom: 220px;
-        border-color: rgba(51, 213, 232, 0.18);
+        bottom: 230px;
+        width: 520px;
+        height: 520px;
+        border: 1px solid rgba(51, 213, 232, 0.18);
         box-shadow: 0 0 90px rgba(51, 213, 232, 0.12);
       }
 
@@ -79,54 +71,71 @@
         inset: 0;
         width: 100%;
         height: 100%;
-        padding: 124px 70px 96px;
+        padding: 108px 68px 88px;
         display: flex;
         flex-direction: column;
         justify-content: center;
-        gap: 36px;
+        gap: 30px;
         opacity: 0;
-      }
-
-      .scene.hero {
-        align-items: center;
-        text-align: center;
       }
 
       #scene-hero {
         opacity: 1;
       }
 
-      .logo {
-        width: 190px;
-        height: 190px;
-        object-fit: contain;
-        filter: drop-shadow(0 0 42px rgba(216, 111, 61, 0.42));
+      .hero,
+      .final {
+        align-items: center;
+        text-align: center;
       }
 
       h1,
       h2,
+      h3,
       p {
         margin: 0;
       }
 
       h1 {
-        font-size: 92px;
-        line-height: 1;
+        font-size: 118px;
+        line-height: 0.98;
         letter-spacing: 0;
       }
 
       h2 {
-        max-width: 920px;
-        font-size: 62px;
-        line-height: 1.12;
+        max-width: 930px;
+        font-size: 60px;
+        line-height: 1.14;
         letter-spacing: 0;
       }
 
+      h3 {
+        font-size: 34px;
+        line-height: 1.2;
+        letter-spacing: 0;
+      }
+
+      .logo {
+        width: 248px;
+        height: 248px;
+        object-fit: contain;
+        filter: drop-shadow(0 0 56px rgba(216, 111, 61, 0.46));
+      }
+
+      .final .logo {
+        width: 300px;
+        height: 300px;
+      }
+
       .sub {
-        max-width: 850px;
+        max-width: 860px;
         color: #b8c0cc;
-        font-size: 28px;
-        line-height: 1.45;
+        font-size: 30px;
+        line-height: 1.42;
+      }
+
+      .hero .sub {
+        font-size: 34px;
       }
 
       .tag-row {
@@ -140,35 +149,52 @@
         border: 1px solid rgba(247, 243, 234, 0.16);
         border-radius: 999px;
         background: rgba(16, 21, 29, 0.78);
-        padding: 10px 18px;
+        padding: 11px 20px;
         color: #f7f3ea;
-        font-size: 22px;
+        font-size: 24px;
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
       }
 
       .tag.hot {
-        border-color: rgba(216, 111, 61, 0.65);
-        background: rgba(216, 111, 61, 0.18);
+        border-color: rgba(216, 111, 61, 0.68);
+        background: rgba(216, 111, 61, 0.2);
         color: #ffd7c4;
       }
 
-      .product-card {
+      .kicker {
+        color: #d86f3d;
+        font-size: 25px;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .scene-head {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .product-card,
+      .effect-card,
+      .metric-card {
         position: relative;
         border: 1px solid rgba(247, 243, 234, 0.12);
-        border-radius: 28px;
-        background: rgba(16, 21, 29, 0.74);
+        border-radius: 26px;
+        background: rgba(16, 21, 29, 0.78);
         box-shadow:
           0 36px 90px rgba(0, 0, 0, 0.42),
           inset 0 0 0 1px rgba(255, 255, 255, 0.04);
         overflow: hidden;
       }
 
-      .product-card::before {
+      .product-card::before,
+      .effect-card::before,
+      .metric-card::before {
         content: "";
         position: absolute;
         inset: 0;
         border-radius: inherit;
-        background: linear-gradient(135deg, rgba(216, 111, 61, 0.18), transparent 36%, rgba(51, 213, 232, 0.12));
+        background: linear-gradient(135deg, rgba(216, 111, 61, 0.16), transparent 38%, rgba(51, 213, 232, 0.1));
         pointer-events: none;
       }
 
@@ -183,49 +209,133 @@
         align-self: center;
       }
 
-      .screen-wrap.tall {
+      .screen-wrap.compact {
         width: 900px;
       }
 
-      .kicker {
-        color: #d86f3d;
-        font-size: 25px;
-        font-weight: 700;
-        letter-spacing: 0;
+      .split {
+        justify-content: center;
       }
 
-      .feature-list {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 14px;
+      .enhance-layout {
+        position: relative;
         width: 100%;
+        height: 1120px;
       }
 
-      .feature {
-        border: 1px solid rgba(247, 243, 234, 0.12);
-        border-radius: 18px;
-        background: rgba(16, 21, 29, 0.72);
+      .enhance-shot {
+        position: absolute;
+        left: 0;
+        top: 170px;
+        width: 940px;
+      }
+
+      .effect-card {
+        position: absolute;
+        z-index: 5;
         padding: 18px 20px;
         color: #f7f3ea;
-        font-size: 24px;
-        line-height: 1.25;
       }
 
-      .feature strong {
-        color: #33d5e8;
-        font-weight: 700;
+      .effect-label {
+        color: #d86f3d;
+        font-size: 20px;
+        font-weight: 800;
       }
 
-      .split {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 30px;
+      .menu-strip {
+        left: 30px;
+        top: 36px;
+        width: 880px;
       }
 
-      .footer-cta {
-        align-items: center;
+      .menu-items {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
+
+      .menu-items span {
+        border-radius: 12px;
+        background: rgba(247, 243, 234, 0.08);
+        padding: 10px 8px;
+        font-size: 21px;
         text-align: center;
+      }
+
+      .token-box {
+        right: 8px;
+        top: 505px;
+        width: 340px;
+      }
+
+      .token-row {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 11px;
+        color: #b8c0cc;
+        font-family: monospace;
+        font-size: 20px;
+      }
+
+      .token-row strong {
+        color: #33d5e8;
+        font-weight: 800;
+      }
+
+      .timeline-card {
+        left: 22px;
+        bottom: 18px;
+        width: 520px;
+      }
+
+      .timeline-row {
+        display: grid;
+        grid-template-columns: 64px 1fr;
+        gap: 10px;
+        align-items: center;
+        margin-top: 10px;
+        color: #b8c0cc;
+        font-size: 20px;
+      }
+
+      .timeline-row span:first-child {
+        color: #33d5e8;
+        font-family: monospace;
+      }
+
+      .matrix {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+
+      .metric-card {
+        min-height: 178px;
+        padding: 24px;
+      }
+
+      .metric-card strong {
+        display: block;
+        color: #33d5e8;
+        font-size: 44px;
+        line-height: 1.05;
+        margin-bottom: 12px;
+      }
+
+      .metric-card span {
+        color: #f7f3ea;
+        font-size: 27px;
+        line-height: 1.28;
+      }
+
+      .callout {
+        border-left: 5px solid #d86f3d;
+        padding: 18px 0 18px 24px;
+        color: #b8c0cc;
+        font-size: 28px;
+        line-height: 1.42;
       }
 
       .release {
@@ -235,16 +345,18 @@
         border-radius: 999px;
         background: #d86f3d;
         color: #fff7f0;
-        padding: 13px 24px;
-        font-size: 26px;
-        font-weight: 700;
-        box-shadow: 0 0 36px rgba(216, 111, 61, 0.42);
+        padding: 15px 28px;
+        font-size: 30px;
+        font-weight: 800;
+        box-shadow: 0 0 42px rgba(216, 111, 61, 0.46);
       }
 
       .download {
-        color: #b8c0cc;
+        color: #f7f3ea;
         font-family: monospace;
-        font-size: 22px;
+        font-size: 34px;
+        line-height: 1.22;
+        word-break: break-word;
       }
 
       .transition {
@@ -265,73 +377,103 @@
       id="root"
       data-composition-id="main"
       data-start="0"
-      data-duration="20"
+      data-duration="30"
       data-width="1080"
       data-height="1920"
     >
       <div class="bg-grid"></div>
-      <div class="scanline"></div>
-      <div class="orb one"></div>
-      <div class="orb two"></div>
+      <div class="halo orange"></div>
+      <div class="halo cyan"></div>
 
       <section id="scene-hero" class="scene hero">
         <img class="logo hero-logo" src="assets/icon.png" alt="Claude++" />
         <h1 class="hero-title">Claude++</h1>
-        <p class="sub hero-sub">Claude Desktop 本地增强控制台</p>
+        <p class="sub hero-sub">给 Claude Desktop 装上本地增强控制台</p>
         <div class="tag-row hero-tags">
           <span class="tag hot">页面增强</span>
           <span class="tag">一键汉化</span>
-          <span class="tag">路由桥接</span>
+          <span class="tag">模型路由</span>
         </div>
       </section>
 
       <section id="scene-enhance" class="scene split">
-        <div>
-          <div class="kicker enhance-kicker">01 / 页面增强</div>
-          <h2 class="enhance-title">把常用能力直接装进 Claude Desktop</h2>
+        <div class="scene-head">
+          <div class="kicker enhance-kicker">01 / Claude++ 页面增强</div>
+          <h2 class="enhance-title">主界面管理能力，局部增强回到 Claude Desktop</h2>
         </div>
-        <div class="product-card screen-wrap enhance-shot">
-          <img class="screen" src="assets/screen-enhance.png" alt="页面增强" />
+        <div class="enhance-layout">
+          <div class="product-card enhance-shot">
+            <img class="screen" src="assets/screen-enhance.png" alt="Claude++ 页面增强" />
+          </div>
+          <div class="effect-card menu-strip">
+            <div class="effect-label">Claude Desktop 菜单栏</div>
+            <div class="menu-items">
+              <span>Claude++</span>
+              <span>Skills</span>
+              <span>Markdown</span>
+              <span>Token</span>
+            </div>
+          </div>
+          <div class="effect-card token-box">
+            <div class="effect-label">Token 信息框</div>
+            <div class="token-row"><span>Input</span><strong>12.4K</strong></div>
+            <div class="token-row"><span>Output</span><strong>1.8K</strong></div>
+            <div class="token-row"><span>Cache</span><strong>9.6K</strong></div>
+          </div>
+          <div class="effect-card timeline-card">
+            <div class="effect-label">对话时间线</div>
+            <div class="timeline-row"><span>09:41</span><p>用户问题进入当前回合</p></div>
+            <div class="timeline-row"><span>09:42</span><p>Claude 回复可导出 Markdown</p></div>
+            <div class="timeline-row"><span>09:43</span><p>用量信息自动归档</p></div>
+          </div>
         </div>
-        <div class="feature-list enhance-features">
-          <div class="feature"><strong>Skills</strong> / MCP / 第三方 API</div>
-          <div class="feature">Markdown 导出与对话时间线</div>
-          <div class="feature">Token 用量信息</div>
-          <div class="feature">对话列表中文化</div>
+      </section>
+
+      <section id="scene-matrix" class="scene split">
+        <div class="scene-head">
+          <div class="kicker matrix-kicker">02 / 高频功能集中管理</div>
+          <h2 class="matrix-title">不是单点插件，是 Claude Desktop 的本地增强面板</h2>
+        </div>
+        <div class="matrix">
+          <div class="metric-card metric-one"><strong>Skills</strong><span>发现、管理、回收本地技能</span></div>
+          <div class="metric-card metric-two"><strong>MCP</strong><span>常用入口直接进入桌面端</span></div>
+          <div class="metric-card metric-three"><strong>API</strong><span>第三方能力统一接入</span></div>
+          <div class="metric-card metric-four"><strong>Export</strong><span>Markdown 与时间线导出</span></div>
+          <div class="metric-card metric-five"><strong>Token</strong><span>输入、输出、缓存用量可见</span></div>
+          <div class="metric-card metric-six"><strong>中文化</strong><span>对话列表与界面文案优化</span></div>
         </div>
       </section>
 
       <section id="scene-localization" class="scene split">
-        <div>
-          <div class="kicker loc-kicker">02 / 一键汉化</div>
-          <h2 class="loc-title">中文资源安装、备份、恢复，一页完成</h2>
+        <div class="scene-head">
+          <div class="kicker loc-kicker">03 / 一键汉化</div>
+          <h2 class="loc-title">安装、备份、恢复，都在 Claude++ 一页完成</h2>
         </div>
-        <div class="product-card screen-wrap loc-shot">
-          <img class="screen" src="assets/screen-localization.png" alt="一键汉化" />
+        <div class="product-card screen-wrap compact loc-shot">
+          <img class="screen" src="assets/screen-localization.png" alt="Claude++ 一键汉化" />
         </div>
-        <p class="sub loc-sub">完整汉化或安全汉化都可选，需要回退时直接恢复英文。</p>
+        <p class="callout loc-sub">完整汉化或安全汉化都可选；需要回退时，直接恢复英文资源。</p>
       </section>
 
       <section id="scene-route" class="scene split">
-        <div>
-          <div class="kicker route-kicker">03 / CC Switch 转接</div>
-          <h2 class="route-title">模型名看得懂，请求路由不改变</h2>
+        <div class="scene-head">
+          <div class="kicker route-kicker">04 / CC Switch 路由桥接</div>
+          <h2 class="route-title">模型名显示更清楚，请求仍按原链路转发</h2>
         </div>
         <div class="product-card screen-wrap route-shot">
-          <img class="screen" src="assets/screen-route.png" alt="CCS 转接" />
+          <img class="screen" src="assets/screen-route.png" alt="Claude++ 路由桥接" />
         </div>
-        <div class="feature-list route-features">
-          <div class="feature">显示自定义模型名</div>
-          <div class="feature">真实请求回到 CC Switch</div>
-          <div class="feature">独立配置接管</div>
-          <div class="feature">随时断开恢复</div>
+        <div class="tag-row route-tags">
+          <span class="tag hot">自定义模型名</span>
+          <span class="tag">真实请求转发</span>
+          <span class="tag">随时断开恢复</span>
         </div>
       </section>
 
-      <section id="scene-final" class="scene hero footer-cta">
+      <section id="scene-final" class="scene final">
         <img class="logo final-logo" src="assets/icon.png" alt="Claude++" />
-        <h2 class="final-title">页面增强 / 汉化 / 路由桥接 / 诊断日志</h2>
-        <span class="release final-release">Claude++ v1.0.0 已发布</span>
+        <h2 class="final-title">Claude++ v1.0.0</h2>
+        <span class="release final-release">页面增强 / 汉化 / 路由桥接 / 诊断日志</span>
         <p class="download final-download">github.com/laoguo2025/claude-plus-plus</p>
       </section>
 
@@ -340,10 +482,10 @@
       <audio
         id="bgm"
         data-start="0"
-        data-duration="20"
+        data-duration="30"
         data-track-index="5"
         src="assets/bgm.wav"
-        data-volume="0.9"
+        data-volume="1"
       ></audio>
     </div>
 
@@ -358,53 +500,59 @@
         tl.fromTo(
           "#wipe",
           { y: "100%" },
-          { y: "-100%", duration: 0.55, ease: "power4.inOut" },
+          { y: "-100%", duration: 0.45, ease: "power4.inOut" },
           time
         );
       };
 
-      show("#scene-hero", 0, 4.2);
-      show("#scene-enhance", 4.2, 4.7);
-      show("#scene-localization", 8.9, 3.9);
-      show("#scene-route", 12.8, 4.0);
-      show("#scene-final", 16.8, 3.2);
+      show("#scene-hero", 0, 5);
+      show("#scene-enhance", 5, 7);
+      show("#scene-matrix", 12, 6);
+      show("#scene-localization", 18, 5);
+      show("#scene-route", 23, 4);
+      show("#scene-final", 27, 3);
 
-      tl.to(".scanline", { y: 1920, duration: 20, ease: "none" }, 0);
-      tl.to(".orb.one", { rotation: 60, scale: 1.08, duration: 20, ease: "none" }, 0);
-      tl.to(".orb.two", { rotation: -50, scale: 1.12, duration: 20, ease: "none" }, 0);
+      tl.to(".halo.orange", { rotation: 60, scale: 1.08, duration: 30, ease: "none" }, 0);
+      tl.to(".halo.cyan", { rotation: -50, scale: 1.12, duration: 30, ease: "none" }, 0);
 
-      tl.from(".hero-logo", { scale: 0.7, opacity: 0, duration: 0.65, ease: "back.out(1.7)" }, 0.2);
-      tl.from(".hero-title", { y: 46, opacity: 0, duration: 0.58, ease: "power3.out" }, 0.45);
-      tl.from(".hero-sub", { y: 28, opacity: 0, duration: 0.48, ease: "expo.out" }, 0.72);
-      tl.from(".hero-tags .tag", { y: 28, opacity: 0, scale: 0.9, duration: 0.42, stagger: 0.08, ease: "power2.out" }, 1.05);
-      wipe(3.95);
+      tl.from(".hero-logo", { scale: 0.68, opacity: 0, duration: 0.58, ease: "back.out(1.7)" }, 0.2);
+      tl.from(".hero-title", { y: 46, opacity: 0, duration: 0.52, ease: "power3.out" }, 0.48);
+      tl.from(".hero-sub", { y: 28, opacity: 0, duration: 0.42, ease: "expo.out" }, 0.78);
+      tl.from(".hero-tags .tag", { y: 28, opacity: 0, scale: 0.9, duration: 0.36, stagger: 0.08, ease: "power2.out" }, 1.08);
+      wipe(4.78);
 
-      tl.from(".enhance-kicker", { x: -50, opacity: 0, duration: 0.45, ease: "power2.out" }, 4.45);
-      tl.from(".enhance-title", { y: 44, opacity: 0, duration: 0.58, ease: "expo.out" }, 4.65);
-      tl.from(".enhance-shot", { y: 80, opacity: 0, scale: 0.94, duration: 0.66, ease: "back.out(1.2)" }, 5.0);
-      tl.from(".enhance-features .feature", { y: 34, opacity: 0, duration: 0.42, stagger: 0.07, ease: "power3.out" }, 5.55);
-      wipe(8.65);
+      tl.from(".enhance-kicker", { x: -50, opacity: 0, duration: 0.42, ease: "power2.out" }, 5.22);
+      tl.from(".enhance-title", { y: 42, opacity: 0, duration: 0.54, ease: "expo.out" }, 5.42);
+      tl.from(".enhance-shot", { y: 78, opacity: 0, scale: 0.94, duration: 0.62, ease: "back.out(1.2)" }, 5.9);
+      tl.from(".menu-strip", { y: -48, opacity: 0, duration: 0.42, ease: "power3.out" }, 6.3);
+      tl.from(".token-box", { x: 58, opacity: 0, scale: 0.95, duration: 0.42, ease: "power3.out" }, 6.7);
+      tl.from(".timeline-card", { x: -58, opacity: 0, scale: 0.96, duration: 0.42, ease: "power3.out" }, 7.1);
+      wipe(11.78);
 
-      tl.from(".loc-kicker", { x: -48, opacity: 0, duration: 0.42, ease: "power2.out" }, 9.12);
-      tl.from(".loc-title", { y: 42, opacity: 0, duration: 0.56, ease: "expo.out" }, 9.32);
-      tl.from(".loc-shot", { x: 70, opacity: 0, scale: 0.95, duration: 0.62, ease: "back.out(1.1)" }, 9.7);
-      tl.from(".loc-sub", { y: 32, opacity: 0, duration: 0.46, ease: "power3.out" }, 10.22);
-      wipe(12.55);
+      tl.from(".matrix-kicker", { x: -50, opacity: 0, duration: 0.4, ease: "power2.out" }, 12.22);
+      tl.from(".matrix-title", { y: 42, opacity: 0, duration: 0.52, ease: "expo.out" }, 12.42);
+      tl.from(".metric-card", { y: 42, opacity: 0, scale: 0.96, duration: 0.44, stagger: 0.08, ease: "power3.out" }, 12.92);
+      wipe(17.78);
 
-      tl.from(".route-kicker", { x: -50, opacity: 0, duration: 0.42, ease: "power2.out" }, 13.02);
-      tl.from(".route-title", { y: 42, opacity: 0, duration: 0.54, ease: "expo.out" }, 13.22);
-      tl.from(".route-shot", { y: 74, opacity: 0, scale: 0.95, duration: 0.64, ease: "back.out(1.1)" }, 13.58);
-      tl.from(".route-features .feature", { y: 32, opacity: 0, duration: 0.4, stagger: 0.06, ease: "power3.out" }, 14.12);
-      wipe(16.55);
+      tl.from(".loc-kicker", { x: -48, opacity: 0, duration: 0.4, ease: "power2.out" }, 18.22);
+      tl.from(".loc-title", { y: 42, opacity: 0, duration: 0.52, ease: "expo.out" }, 18.42);
+      tl.from(".loc-shot", { x: 70, opacity: 0, scale: 0.95, duration: 0.58, ease: "back.out(1.1)" }, 18.85);
+      tl.from(".loc-sub", { y: 32, opacity: 0, duration: 0.42, ease: "power3.out" }, 19.4);
+      wipe(22.78);
 
-      tl.from(".final-logo", { scale: 0.78, opacity: 0, duration: 0.55, ease: "back.out(1.7)" }, 17.05);
-      tl.from(".final-title", { y: 44, opacity: 0, duration: 0.56, ease: "expo.out" }, 17.28);
-      tl.from(".final-release", { y: 30, opacity: 0, scale: 0.9, duration: 0.42, ease: "power2.out" }, 17.72);
-      tl.from(".final-download", { y: 24, opacity: 0, duration: 0.42, ease: "power3.out" }, 18.08);
-      tl.to("#scene-final", { opacity: 0, duration: 0.55, ease: "power2.in" }, 19.35);
+      tl.from(".route-kicker", { x: -50, opacity: 0, duration: 0.4, ease: "power2.out" }, 23.18);
+      tl.from(".route-title", { y: 42, opacity: 0, duration: 0.5, ease: "expo.out" }, 23.38);
+      tl.from(".route-shot", { y: 74, opacity: 0, scale: 0.95, duration: 0.58, ease: "back.out(1.1)" }, 23.78);
+      tl.from(".route-tags .tag", { y: 28, opacity: 0, scale: 0.9, duration: 0.34, stagger: 0.07, ease: "power2.out" }, 24.38);
+      wipe(26.78);
+
+      tl.from(".final-logo", { scale: 0.74, opacity: 0, duration: 0.5, ease: "back.out(1.7)" }, 27.12);
+      tl.from(".final-title", { y: 44, opacity: 0, duration: 0.5, ease: "expo.out" }, 27.38);
+      tl.from(".final-release", { y: 30, opacity: 0, scale: 0.92, duration: 0.36, ease: "power2.out" }, 27.82);
+      tl.from(".final-download", { y: 24, opacity: 0, duration: 0.38, ease: "power3.out" }, 28.22);
+      tl.to("#scene-final", { opacity: 0, duration: 0.45, ease: "power2.in" }, 29.55);
 
       window.__timelines["main"] = tl;
     </script>
   </body>
 </html>
-
