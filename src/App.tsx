@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef, type ComponentType, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Activity,
   CheckCircle2,
@@ -28,6 +29,7 @@ import "./App.css";
 
 const QQ_GROUP_QR_PATH = "/qq-group-qr.png";
 const ALIPAY_QR_PATH = "/alipay-qr.png";
+const CLAUDE_DESKTOP_DOWNLOAD_URL = "https://pan.baidu.com/s/1vESMbIYVKFRVFBgA_5ap7Q?pwd=4pfe";
 
 interface Mapping {
   display: string;
@@ -166,6 +168,14 @@ const isTauriRuntime = () =>
 async function callCommand<T>(cmd: string, args?: CommandArgs): Promise<T> {
   if (isTauriRuntime()) return invoke<T>(cmd, args);
   return previewCommand<T>(cmd);
+}
+
+async function openExternalUrl(url: string) {
+  if (isTauriRuntime()) {
+    await openUrl(url);
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 function previewCommand<T>(cmd: string): T {
@@ -582,6 +592,7 @@ function App() {
               busy={busy}
               zhStatus={zhStatus}
               welcomeStatus={welcomeStatus}
+              setErr={setErr}
               enableClaudeDeveloperMode={enableClaudeDeveloperMode}
             />
           )}
@@ -928,13 +939,24 @@ function WelcomePage({
   busy,
   zhStatus,
   welcomeStatus,
+  setErr,
   enableClaudeDeveloperMode,
 }: {
   busy: boolean;
   zhStatus: ClaudeZhStatus | null;
   welcomeStatus: WelcomeStatus | null;
+  setErr: (error: string) => void;
   enableClaudeDeveloperMode: () => Promise<void>;
 }) {
+  const downloadClaudeDesktop = async () => {
+    setErr("");
+    try {
+      await openExternalUrl(CLAUDE_DESKTOP_DOWNLOAD_URL);
+    } catch (e) {
+      setErr(String(e));
+    }
+  };
+
   return (
     <div className="welcomePage">
       <section className="welcomeHero">
@@ -969,7 +991,17 @@ function WelcomePage({
           active={!!zhStatus?.claude_found}
           label="Claude Desktop"
           value={zhStatus?.claude_found ? "已安装" : "未安装"}
-          detail={zhStatus?.claude_found ? undefined : "请先下载安装 Claude Desktop"}
+          detail={zhStatus?.claude_found ? undefined : "点击后从网盘下载"}
+          action={
+            zhStatus?.claude_found
+              ? undefined
+              : {
+                  label: "下载",
+                  onClick: () => void downloadClaudeDesktop(),
+                  disabled: busy,
+                  primary: true,
+                }
+          }
         />
         <RouteStatusCard
           active={!!welcomeStatus?.developer_mode_enabled}
