@@ -233,6 +233,22 @@ fn enable_claude_developer_mode() -> Result<(), String> {
 }
 
 #[tauri::command]
+fn install_claude_code() -> Result<(), String> {
+    let result = welcome::install_claude_code();
+    let _ = diagnostics::append_event(
+        if result.is_ok() {
+            "manager.install_claude_code.ok"
+        } else {
+            "manager.install_claude_code.failed"
+        },
+        serde_json::json!({
+            "error": result.as_ref().err()
+        }),
+    );
+    result
+}
+
+#[tauri::command]
 fn install_claude_zh(language: String, skip_asar_patch: bool) -> Result<(), String> {
     claude_zh::install(&language, skip_asar_patch)
 }
@@ -378,6 +394,7 @@ pub fn run() {
             claude_zh_status,
             welcome_status,
             enable_claude_developer_mode,
+            install_claude_code,
             install_claude_zh,
             backup_claude_zh,
             uninstall_claude_zh,

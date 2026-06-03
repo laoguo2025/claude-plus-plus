@@ -6,26 +6,74 @@ mod imp {
     use std::{
         env, fs,
         path::{Path, PathBuf},
+        process::{Command, Stdio},
         time::{SystemTime, UNIX_EPOCH},
     };
 
+    #[cfg(target_os = "windows")]
+    use std::os::windows::process::CommandExt;
+
+    #[cfg(target_os = "windows")]
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+    const WINDOWS_CLAUDE_CODE_INSTALL_COMMAND: &str =
+        "irm https://claude.ai/install.ps1 | iex; Write-Host ''; Write-Host 'Claude Code 安装脚本已结束。可关闭此窗口。'";
+
     #[derive(Serialize)]
     pub struct WelcomeStatus {
+        pub claude_code_installed: bool,
         pub developer_mode_enabled: bool,
         pub cc_switch_installed: bool,
     }
 
     pub fn status() -> WelcomeStatus {
         WelcomeStatus {
+            claude_code_installed: detect_claude_code_installed(),
             developer_mode_enabled: read_developer_mode_enabled(),
             cc_switch_installed: detect_cc_switch_installed(),
         }
+    }
+
+    pub fn install_claude_code() -> Result<(), String> {
+        let mut command = Command::new("powershell.exe");
+        command
+            .args([
+                "-NoExit",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                WINDOWS_CLAUDE_CODE_INSTALL_COMMAND,
+            ])
+            .stdin(Stdio::null());
+        command
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("启动 Claude Code 安装命令失败: {e}"))
     }
 
     pub fn enable_developer_mode() -> Result<(), String> {
         let path = developer_settings_write_path()
             .ok_or_else(|| "无法定位 Claude Desktop 开发者配置路径".to_string())?;
         enable_developer_mode_at_path(&path)
+    }
+
+    fn detect_claude_code_installed() -> bool {
+        hidden_command("cmd.exe")
+            .args(["/C", "where claude"])
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+    }
+
+    fn hidden_command(program: &str) -> Command {
+        let mut command = Command::new(program);
+        #[cfg(target_os = "windows")]
+        command.creation_flags(CREATE_NO_WINDOW);
+        command
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        command
     }
 
     fn read_developer_mode_enabled() -> bool {
@@ -147,7 +195,10 @@ mod imp {
 
     #[cfg(test)]
     mod tests {
-        use super::{developer_mode_from_json, enable_developer_mode_at_path};
+        use super::{
+            developer_mode_from_json, enable_developer_mode_at_path,
+            WINDOWS_CLAUDE_CODE_INSTALL_COMMAND,
+        };
         use serde_json::Value;
         use std::{
             fs,
@@ -165,6 +216,13 @@ mod imp {
             assert!(!developer_mode_from_json(r#"{"allowDevTools":false}"#));
             assert!(!developer_mode_from_json(r#"{"other":true}"#));
             assert!(!developer_mode_from_json("not json"));
+        }
+
+        #[test]
+        fn claude_code_windows_install_command_uses_official_script() {
+            assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("https://claude.ai/install.ps1"));
+            assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("irm "));
+            assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains(" | iex"));
         }
 
         #[test]
@@ -231,24 +289,106 @@ mod imp {
 
 #[cfg(not(target_os = "windows"))]
 mod imp {
+    use std::{
+        process::{Command, Stdio},
+        sync::LazyLock,
+    };
+
     use serde::Serialize;
+
+    #[cfg(target_os = "macos")]
+    const CLAUDE_CODE_INSTALL_COMMAND: &str = "curl -fsSL https://claude.ai/install.sh | bash";
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    const CLAUDE_CODE_INSTALL_COMMAND: &str = "curl -fsSL https://claude.ai/install.sh | bash";
+
+    #[cfg(target_os = "macos")]
+    static MACOS_TERMINAL_SCRIPT: LazyLock<String> = LazyLock::new(|| {
+        format!(
+            "tell application \"Terminal\" to do script \"{}\"",
+            CLAUDE_CODE_INSTALL_COMMAND
+        )
+    });
 
     #[derive(Serialize)]
     pub struct WelcomeStatus {
+        pub claude_code_installed: bool,
         pub developer_mode_enabled: bool,
         pub cc_switch_installed: bool,
     }
 
     pub fn status() -> WelcomeStatus {
         WelcomeStatus {
+            claude_code_installed: detect_claude_code_installed(),
             developer_mode_enabled: false,
             cc_switch_installed: false,
         }
     }
 
+    pub fn install_claude_code() -> Result<(), String> {
+        #[cfg(target_os = "macos")]
+        {
+            return Command::new("osascript")
+                .args(["-e", MACOS_TERMINAL_SCRIPT.as_str()])
+                .spawn()
+                .map(|_| ())
+                .map_err(|e| format!("启动 Claude Code 安装命令失败: {e}"));
+        }
+
+        #[cfg(all(unix, not(target_os = "macos")))]
+        {
+            return launch_linux_terminal();
+        }
+
+        #[allow(unreachable_code)]
+        Err("当前系统不支持自动启动 Claude Code 安装命令".to_string())
+    }
+
     pub fn enable_developer_mode() -> Result<(), String> {
         Err("当前只支持在 Windows 上开启 Claude Desktop 开发者模式".to_string())
     }
+
+    fn detect_claude_code_installed() -> bool {
+        Command::new("claude")
+            .arg("--version")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    fn launch_linux_terminal() -> Result<(), String> {
+        let candidates: &[(&str, &[&str])] = &[
+            (
+                "x-terminal-emulator",
+                &["-e", "sh", "-lc", CLAUDE_CODE_INSTALL_COMMAND],
+            ),
+            (
+                "gnome-terminal",
+                &["--", "sh", "-lc", CLAUDE_CODE_INSTALL_COMMAND],
+            ),
+            ("konsole", &["-e", "sh", "-lc", CLAUDE_CODE_INSTALL_COMMAND]),
+            (
+                "xfce4-terminal",
+                &["-e", "sh", "-lc", CLAUDE_CODE_INSTALL_COMMAND],
+            ),
+            ("xterm", &["-e", "sh", "-lc", CLAUDE_CODE_INSTALL_COMMAND]),
+        ];
+        for (program, args) in candidates {
+            if Command::new(program)
+                .args(*args)
+                .spawn()
+                .map(|_| ())
+                .is_ok()
+            {
+                return Ok(());
+            }
+        }
+        Err("未找到可用的 Linux 终端程序来启动 Claude Code 安装命令".to_string())
+    }
 }
 
-pub use imp::{enable_developer_mode, status, WelcomeStatus};
+pub use imp::{enable_developer_mode, install_claude_code, status, WelcomeStatus};

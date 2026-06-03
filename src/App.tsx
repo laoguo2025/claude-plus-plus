@@ -94,6 +94,7 @@ interface DiagnosticsPayload {
   report: string;
 }
 interface WelcomeStatus {
+  claude_code_installed: boolean;
   developer_mode_enabled: boolean;
   cc_switch_installed: boolean;
 }
@@ -129,6 +130,7 @@ const PREVIEW_ZH_STATUS: ClaudeZhStatus = {
   language_files: [],
 };
 const PREVIEW_WELCOME_STATUS: WelcomeStatus = {
+  claude_code_installed: false,
   developer_mode_enabled: true,
   cc_switch_installed: true,
 };
@@ -211,11 +213,15 @@ function previewCommand<T>(cmd: string): T {
     cmd === "use_ccs_route" ||
     cmd === "backup_claude_zh" ||
     cmd === "enable_claude_developer_mode" ||
+    cmd === "install_claude_code" ||
     cmd === "install_claude_enhance" ||
     cmd === "uninstall_claude_enhance"
   ) {
     if (cmd === "enable_claude_developer_mode") {
       PREVIEW_WELCOME_STATUS.developer_mode_enabled = true;
+    }
+    if (cmd === "install_claude_code") {
+      PREVIEW_WELCOME_STATUS.claude_code_installed = true;
     }
     return undefined as T;
   }
@@ -385,6 +391,19 @@ function App() {
     setErr("");
     try {
       await callCommand("enable_claude_developer_mode");
+      await refreshWelcomeStatus();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const installClaudeCode = async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      await callCommand("install_claude_code");
       await refreshWelcomeStatus();
     } catch (e) {
       setErr(String(e));
@@ -595,6 +614,7 @@ function App() {
               welcomeStatus={welcomeStatus}
               setErr={setErr}
               enableClaudeDeveloperMode={enableClaudeDeveloperMode}
+              installClaudeCode={installClaudeCode}
             />
           )}
 
@@ -942,12 +962,14 @@ function WelcomePage({
   welcomeStatus,
   setErr,
   enableClaudeDeveloperMode,
+  installClaudeCode,
 }: {
   busy: boolean;
   zhStatus: ClaudeZhStatus | null;
   welcomeStatus: WelcomeStatus | null;
   setErr: (error: string) => void;
   enableClaudeDeveloperMode: () => Promise<void>;
+  installClaudeCode: () => Promise<void>;
 }) {
   const downloadClaudeDesktop = async () => {
     setErr("");
@@ -997,6 +1019,22 @@ function WelcomePage({
       <p className="welcomeActionHint">如下方三项未安装/开启，可直接点击进行下载/开启。</p>
 
       <section className="welcomeStatusGrid" aria-label="环境状态检测">
+        <RouteStatusCard
+          active={!!welcomeStatus?.claude_code_installed}
+          label="Claude Code"
+          value={welcomeStatus?.claude_code_installed ? "已安装" : "未安装"}
+          detail={welcomeStatus?.claude_code_installed ? undefined : "点击后一键命令行安装"}
+          action={
+            welcomeStatus?.claude_code_installed
+              ? undefined
+              : {
+                  label: "一键安装",
+                  onClick: () => void installClaudeCode(),
+                  disabled: busy,
+                  primary: true,
+                }
+          }
+        />
         <RouteStatusCard
           active={!!zhStatus?.claude_found}
           label="Claude Desktop"

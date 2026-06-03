@@ -14,6 +14,7 @@
 - Model discovery IDs must be unique by role, not by CC Switch display label, because multiple roles can share the same labelOverride. Discovery display names should include role plus label, e.g. `Opus - mimo-v2.5-pro`, while request forwarding maps the discovered ID back to the CC Switch role key.
 - Windows Claude Desktop localization is an optional local patch surface. It writes only Claude Desktop resource/config files, keeps backups under Claude `resources\.zh-cn-backups`, and must preserve a recovery path before changing frontend bundles, `app.asar`, or `Claude.exe`.
 - Welcome page developer mode enablement mirrors Claude Desktop's own behavior: write `allowDevTools: true` to `%APPDATA%\Claude\developer_settings.json`, preserve other JSON fields, keep a `.bak-*` sibling backup for existing files, verify by reading back, and restart Claude Desktop only when it was already running so the cached setting reloads.
+- Welcome page Claude Code status checks for a local `claude` command. The install action launches a visible platform shell with the official Anthropic install command instead of running it silently in the background.
 
 ## Runtime Entry Points
 - Tauri lifecycle and commands: `src-tauri/src/lib.rs`.
@@ -22,7 +23,7 @@
 - Claude Desktop visible-copy audit: `npm run audit:claude-zh`.
 - Proxy lifecycle and CC Switch config field reads: `src-tauri/src/server.rs`.
 - Runtime settings, including proxy port resolution: `src-tauri/src/settings.rs`.
-- Welcome page environment checks and Claude Desktop developer mode enablement: `src-tauri/src/welcome.rs`.
+- Welcome page environment checks, Claude Code command install launcher, and Claude Desktop developer mode enablement: `src-tauri/src/welcome.rs`.
 - HTTP gateway routes and model rewrite: `src-tauri/src/proxy.rs`.
 - CC Switch DB mapping read: `src-tauri/src/ccswitch_db.rs`.
 - Claude Desktop configLibrary write/revert: `src-tauri/src/cd_config.rs`.
