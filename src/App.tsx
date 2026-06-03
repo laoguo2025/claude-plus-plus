@@ -199,9 +199,13 @@ function previewCommand<T>(cmd: string): T {
     cmd === "use_claude_plus_route" ||
     cmd === "use_ccs_route" ||
     cmd === "backup_claude_zh" ||
+    cmd === "enable_claude_developer_mode" ||
     cmd === "install_claude_enhance" ||
     cmd === "uninstall_claude_enhance"
   ) {
+    if (cmd === "enable_claude_developer_mode") {
+      PREVIEW_WELCOME_STATUS.developer_mode_enabled = true;
+    }
     return undefined as T;
   }
   if (cmd === "read_latest_logs" || cmd === "generate_diagnostics") {
@@ -358,6 +362,19 @@ function App() {
       await callCommand("restart_claude_desktop");
       setRestartNeeded(false);
       await refreshRouteState();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const enableClaudeDeveloperMode = async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      await callCommand("enable_claude_developer_mode");
+      await refreshWelcomeStatus();
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -561,7 +578,12 @@ function App() {
           {err && <div className="errorBanner">{err}</div>}
 
           {route === "welcome" && (
-            <WelcomePage zhStatus={zhStatus} welcomeStatus={welcomeStatus} />
+            <WelcomePage
+              busy={busy}
+              zhStatus={zhStatus}
+              welcomeStatus={welcomeStatus}
+              enableClaudeDeveloperMode={enableClaudeDeveloperMode}
+            />
           )}
 
           {route === "overview" && (
@@ -903,11 +925,15 @@ function EnhancePage({
 }
 
 function WelcomePage({
+  busy,
   zhStatus,
   welcomeStatus,
+  enableClaudeDeveloperMode,
 }: {
+  busy: boolean;
   zhStatus: ClaudeZhStatus | null;
   welcomeStatus: WelcomeStatus | null;
+  enableClaudeDeveloperMode: () => Promise<void>;
 }) {
   return (
     <div className="welcomePage">
@@ -949,7 +975,17 @@ function WelcomePage({
           active={!!welcomeStatus?.developer_mode_enabled}
           label="开发者模式"
           value={welcomeStatus?.developer_mode_enabled ? "已开启" : "未开启"}
-          detail={welcomeStatus?.developer_mode_enabled ? undefined : "请在 Claude Desktop 开启开发者模式"}
+          detail={welcomeStatus?.developer_mode_enabled ? undefined : "点击后一键开启"}
+          action={
+            welcomeStatus?.developer_mode_enabled
+              ? undefined
+              : {
+                  label: "一键开启",
+                  onClick: () => void enableClaudeDeveloperMode(),
+                  disabled: busy,
+                  primary: true,
+                }
+          }
         />
         <RouteStatusCard
           active={!!welcomeStatus?.cc_switch_installed}

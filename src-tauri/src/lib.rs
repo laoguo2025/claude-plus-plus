@@ -209,6 +209,30 @@ fn welcome_status() -> welcome::WelcomeStatus {
 }
 
 #[tauri::command]
+fn enable_claude_developer_mode() -> Result<(), String> {
+    let was_running = claude_desktop::is_running();
+    let result = welcome::enable_developer_mode().and_then(|_| {
+        if was_running {
+            claude_desktop::restart()
+        } else {
+            Ok(())
+        }
+    });
+    let _ = diagnostics::append_event(
+        if result.is_ok() {
+            "manager.enable_claude_developer_mode.ok"
+        } else {
+            "manager.enable_claude_developer_mode.failed"
+        },
+        serde_json::json!({
+            "claude_was_running": was_running,
+            "error": result.as_ref().err()
+        }),
+    );
+    result
+}
+
+#[tauri::command]
 fn install_claude_zh(language: String, skip_asar_patch: bool) -> Result<(), String> {
     claude_zh::install(&language, skip_asar_patch)
 }
@@ -353,6 +377,7 @@ pub fn run() {
             restart_claude_desktop,
             claude_zh_status,
             welcome_status,
+            enable_claude_developer_mode,
             install_claude_zh,
             backup_claude_zh,
             uninstall_claude_zh,

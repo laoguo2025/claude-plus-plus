@@ -25,9 +25,25 @@ pub fn restart() -> Result<(), String> {
     launch_claude()
 }
 
+#[cfg(target_os = "windows")]
+pub fn is_running() -> bool {
+    let Ok(output) = hidden_output_command("tasklist")
+        .args(["/FI", "IMAGENAME eq Claude.exe"])
+        .output()
+    else {
+        return false;
+    };
+    tasklist_contains_claude(&output.stdout) || tasklist_contains_claude(&output.stderr)
+}
+
 #[cfg(not(target_os = "windows"))]
 pub fn restart() -> Result<(), String> {
     Err("当前只支持在 Windows 上重启 Claude Desktop".to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn is_running() -> bool {
+    false
 }
 
 #[cfg(target_os = "windows")]
@@ -113,6 +129,13 @@ fn taskkill_means_not_running(stdout: &[u8], stderr: &[u8]) -> bool {
     text.contains("not found") || text.contains("没有找到") || text.contains("未找到")
 }
 
+#[cfg(target_os = "windows")]
+fn tasklist_contains_claude(output: &[u8]) -> bool {
+    String::from_utf8_lossy(output)
+        .to_ascii_lowercase()
+        .contains("claude.exe")
+}
+
 #[cfg(all(test, target_os = "windows"))]
 mod tests {
     use super::*;
@@ -128,6 +151,16 @@ mod tests {
             "错误: 没有找到进程 Claude.exe".as_bytes(),
             b"",
             None
+        ));
+    }
+
+    #[test]
+    fn tasklist_detects_claude_process_name() {
+        assert!(tasklist_contains_claude(
+            b"Claude.exe                    1234 Console"
+        ));
+        assert!(!tasklist_contains_claude(
+            b"INFO: No tasks are running which match the specified criteria."
         ));
     }
 }
@@ -176,6 +209,17 @@ fn hidden_command(program: &str) -> Command {
         .creation_flags(CREATE_NO_WINDOW)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
+        .stderr(Stdio::piped());
+    command
+}
+
+#[cfg(target_os = "windows")]
+fn hidden_output_command(program: &str) -> Command {
+    let mut command = Command::new(program);
+    command
+        .creation_flags(CREATE_NO_WINDOW)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     command
 }
