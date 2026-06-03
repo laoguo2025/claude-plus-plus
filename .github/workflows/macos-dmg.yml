@@ -1,0 +1,71 @@
+name: Build macOS DMG
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.arch }} DMG
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+            target: aarch64-apple-darwin
+          - arch: x64
+            runner: macos-15-intel
+            target: x86_64-apple-darwin
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build DMG
+        run: npx tauri build --bundles dmg --target ${{ matrix.target }} --no-sign
+
+      - name: Locate DMG
+        id: dmg
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg_dir="src-tauri/target/${{ matrix.target }}/release/bundle/dmg"
+          dmg_path="$(find "$dmg_dir" -maxdepth 1 -type f -name "*.dmg" | head -n 1)"
+          if [ -z "$dmg_path" ]; then
+            echo "No DMG found in $dmg_dir" >&2
+            exit 1
+          fi
+          echo "path=$dmg_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: Claude++-${{ matrix.arch }}-dmg
+          path: ${{ steps.dmg.outputs.path }}
+          if-no-files-found: error
