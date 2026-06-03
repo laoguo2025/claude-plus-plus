@@ -391,9 +391,9 @@ select {
 }
 
 .welcomeActionHint {
-  margin: 2px 0 0;
+  margin: 8px 0 0;
   color: var(--brand-strong);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
 }
