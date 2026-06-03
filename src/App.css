@@ -296,7 +296,7 @@ select {
 
 .welcomePage {
   display: grid;
-  grid-template-rows: minmax(0, 0.82fr) auto auto;
+  grid-template-rows: 450px auto auto;
   gap: 8px;
   height: 100%;
   min-height: 0;
@@ -354,7 +354,7 @@ select {
   color: var(--text-200);
   font-size: 15px;
   line-height: 1.65;
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .welcomeQrGroup {
