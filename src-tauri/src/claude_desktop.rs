@@ -13,6 +13,8 @@ use std::{
 use std::os::windows::process::CommandExt;
 
 #[cfg(target_os = "windows")]
+use crate::claude_patch_common as patch;
+#[cfg(target_os = "windows")]
 use crate::constants::CLAUDE_STORE_APP_ID;
 
 #[cfg(target_os = "windows")]
@@ -102,7 +104,7 @@ fn wait_for_process_state(expected_running: bool, timeout: Duration) -> bool {
 
 #[cfg(target_os = "windows")]
 fn run_taskkill(force: bool) -> Result<std::process::Output, String> {
-    let mut command = hidden_command("taskkill");
+    let mut command = patch::hidden_command("taskkill");
     command.args(["/IM", "Claude.exe", "/T"]);
     if force {
         command.arg("/F");
@@ -350,21 +352,10 @@ fn claude_desktop_shortcut() -> Option<PathBuf> {
 
 #[cfg(target_os = "windows")]
 fn launch_with_explorer(target: &std::ffi::OsStr) -> std::io::Result<()> {
-    hidden_command("explorer.exe")
+    patch::hidden_command("explorer.exe")
         .arg(target)
         .spawn()
         .map(|_| ())
-}
-
-#[cfg(target_os = "windows")]
-fn hidden_command(program: &str) -> Command {
-    let mut command = Command::new(program);
-    command
-        .creation_flags(CREATE_NO_WINDOW)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped());
-    command
 }
 
 #[cfg(target_os = "windows")]

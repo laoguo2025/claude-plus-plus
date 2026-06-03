@@ -1,6 +1,6 @@
 #[cfg(target_os = "windows")]
 mod imp {
-    use crate::{ccswitch_db, server};
+    use crate::{claude_patch_common as patch, server};
     use serde::Serialize;
     use serde_json::{Map, Value};
     use std::{
@@ -9,12 +9,6 @@ mod imp {
         process::{Command, Stdio},
         time::{SystemTime, UNIX_EPOCH},
     };
-
-    #[cfg(target_os = "windows")]
-    use std::os::windows::process::CommandExt;
-
-    #[cfg(target_os = "windows")]
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
 
     const WINDOWS_CLAUDE_CODE_INSTALL_COMMAND: &str =
         "irm https://claude.ai/install.ps1 | iex; Write-Host ''; Write-Host 'Claude Code 安装脚本已结束。可关闭此窗口。'";
@@ -58,22 +52,11 @@ mod imp {
     }
 
     fn detect_claude_code_installed() -> bool {
-        hidden_command("cmd.exe")
+        patch::hidden_command("cmd.exe")
             .args(["/C", "where claude"])
             .status()
             .map(|status| status.success())
             .unwrap_or(false)
-    }
-
-    fn hidden_command(program: &str) -> Command {
-        let mut command = Command::new(program);
-        #[cfg(target_os = "windows")]
-        command.creation_flags(CREATE_NO_WINDOW);
-        command
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        command
     }
 
     fn read_developer_mode_enabled() -> bool {
@@ -83,15 +66,15 @@ mod imp {
     }
 
     fn detect_cc_switch_installed() -> bool {
-        if server::default_db_path().is_file() {
-            return true;
-        }
-        if ccswitch_db::load_proxy_config(&server::default_db_path()).is_ok() {
-            return true;
-        }
-        env::var_os("USERPROFILE")
+        let db_path = server::default_db_path();
+        let state_dir_exists = env::var_os("USERPROFILE")
             .map(|home| Path::new(&home).join(".cc-switch").is_dir())
-            .unwrap_or(false)
+            .unwrap_or(false);
+        is_cc_switch_install_marker(db_path.is_file(), state_dir_exists)
+    }
+
+    fn is_cc_switch_install_marker(db_file_exists: bool, state_dir_exists: bool) -> bool {
+        db_file_exists || state_dir_exists
     }
 
     fn read_allow_dev_tools(path: &Path) -> bool {
@@ -196,7 +179,7 @@ mod imp {
     #[cfg(test)]
     mod tests {
         use super::{
-            developer_mode_from_json, enable_developer_mode_at_path,
+            developer_mode_from_json, enable_developer_mode_at_path, is_cc_switch_install_marker,
             WINDOWS_CLAUDE_CODE_INSTALL_COMMAND,
         };
         use serde_json::Value;
@@ -223,6 +206,13 @@ mod imp {
             assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("https://claude.ai/install.ps1"));
             assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("irm "));
             assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains(" | iex"));
+        }
+
+        #[test]
+        fn cc_switch_install_marker_accepts_db_file_or_state_dir() {
+            assert!(is_cc_switch_install_marker(true, false));
+            assert!(is_cc_switch_install_marker(false, true));
+            assert!(!is_cc_switch_install_marker(false, false));
         }
 
         #[test]

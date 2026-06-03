@@ -106,7 +106,7 @@ type Icon = ComponentType<LucideProps>;
 type CommandArgs = Record<string, unknown>;
 
 const PREVIEW_APP_VERSION = __APP_VERSION__;
-const PREVIEW_PROXY_PORT = 15722;
+const PREVIEW_PROXY_PORT = __DEFAULT_PROXY_PORT__;
 const PREVIEW_STATUS: StatusInfo = {
   running: true,
   port: PREVIEW_PROXY_PORT,
