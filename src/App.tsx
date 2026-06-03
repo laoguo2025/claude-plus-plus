@@ -1016,7 +1016,11 @@ function WelcomePage({
         </div>
       </section>
 
-      <p className="welcomeActionHint">如下方三项未安装/开启，可直接点击进行下载/开启。</p>
+      <p className="welcomeActionHint">
+        如果下方几项显示未安装/未开启，可直接点击卡片进行下载/开启。
+        <br />
+        下载会跳转百度网盘连接，无需魔法登录github。
+      </p>
 
       <section className="welcomeStatusGrid" aria-label="环境状态检测">
         <RouteStatusCard

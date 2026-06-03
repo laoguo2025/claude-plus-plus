@@ -324,7 +324,7 @@ select {
 }
 
 .welcomeLogo {
-  width: min(252px, 36vw);
+  width: min(300px, 40vw);
   max-width: 100%;
   aspect-ratio: 1;
   object-fit: contain;
