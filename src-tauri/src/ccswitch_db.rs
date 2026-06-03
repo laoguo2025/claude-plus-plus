@@ -56,7 +56,6 @@ pub struct CcSwitchUsageSnapshot {
     pub cache_creation_tokens: u64,
     pub elapsed_ms: u64,
     pub updated_at_ms: u64,
-    pub call_count: u64,
 }
 
 /// 默认数据库路径。
@@ -158,7 +157,8 @@ pub fn load_proxy_config(db_path: &std::path::Path) -> Result<ProxyConfig, Strin
 
 /// 只读读取 CC Switch 已落库的 Claude Desktop 用量。
 ///
-/// 传入 `since_ms` 时按本轮开始时间聚合；不传时取最新一条。
+/// 传入 `since_ms` 时只取本轮开始后的最新一条日志快照；不传时取最新一条。
+/// CC Switch 会把历史加载、标题、状态等后台请求也写入同表,这里不能按时间段求和。
 /// 只读打开数据库,不修改 CC Switch 的任何文件或配置。
 pub fn load_claude_desktop_usage(
     db_path: &std::path::Path,
@@ -195,7 +195,6 @@ pub fn load_claude_desktop_usage(
                         cache_creation_tokens: i64_to_u64(row.get(4)?),
                         elapsed_ms: i64_to_u64(row.get(5)?),
                         updated_at_ms: created_at_to_ms(row.get::<_, i64>(0)?),
-                        call_count: 1,
                     })
                 },
             )
@@ -213,38 +212,40 @@ pub fn load_claude_desktop_usage(
     let since_seconds = (since_ms / 1000) as i64;
     let row = conn
         .query_row(
-            "SELECT MAX(created_at), \
-                    COALESCE(SUM(input_tokens), 0), \
-                    COALESCE(SUM(output_tokens), 0), \
-                    COALESCE(SUM(cache_read_tokens), 0), \
-                    COALESCE(SUM(cache_creation_tokens), 0), \
-                    COALESCE(MAX(COALESCE(latency_ms, duration_ms, 0)), 0), \
-                    COUNT(*) \
+            "SELECT created_at, \
+                    COALESCE(input_tokens, 0), \
+                    COALESCE(output_tokens, 0), \
+                    COALESCE(cache_read_tokens, 0), \
+                    COALESCE(cache_creation_tokens, 0), \
+                    COALESCE(latency_ms, duration_ms, 0) \
              FROM proxy_request_logs \
              WHERE app_type = 'claude-desktop' \
                AND data_source = 'proxy' \
                AND status_code BETWEEN 200 AND 299 \
-               AND created_at >= ?1",
+               AND created_at >= ?1 \
+             ORDER BY created_at DESC, request_id DESC \
+             LIMIT 1",
             [since_seconds],
             |row| {
-                let call_count = i64_to_u64(row.get(6)?);
-                if call_count == 0 {
-                    return Ok(None);
-                }
                 let updated_at = row.get::<_, i64>(0)?;
                 Ok(Some(CcSwitchUsageSnapshot {
-                    id: created_at_to_ms(updated_at).saturating_add(call_count),
+                    id: created_at_to_ms(updated_at),
                     input_tokens: i64_to_u64(row.get(1)?),
                     output_tokens: i64_to_u64(row.get(2)?),
                     cache_read_tokens: i64_to_u64(row.get(3)?),
                     cache_creation_tokens: i64_to_u64(row.get(4)?),
                     elapsed_ms: i64_to_u64(row.get(5)?),
                     updated_at_ms: created_at_to_ms(updated_at),
-                    call_count,
                 }))
             },
         )
-        .map_err(|err| format!("query claude-desktop usage failed: {err}"))?;
+        .or_else(|err| {
+            if matches!(err, rusqlite::Error::QueryReturnedNoRows) {
+                Ok(None)
+            } else {
+                Err(format!("query claude-desktop usage failed: {err}"))
+            }
+        })?;
 
     Ok(row)
 }
@@ -313,24 +314,22 @@ mod tests {
         assert_eq!(usage.cache_creation_tokens, 7);
         assert_eq!(usage.elapsed_ms, 400);
         assert_eq!(usage.updated_at_ms, 103000);
-        assert_eq!(usage.call_count, 1);
     }
 
     #[test]
-    fn claude_desktop_usage_aggregates_proxy_rows_since_turn_start() {
+    fn claude_desktop_usage_since_turn_start_uses_latest_row_not_background_sum() {
         let path = usage_test_db();
         let usage = load_claude_desktop_usage(&path, Some(100000))
             .expect("query usage")
             .expect("usage");
         std::fs::remove_file(&path).ok();
 
-        assert_eq!(usage.id, 103002);
-        assert_eq!(usage.input_tokens, 30);
-        assert_eq!(usage.output_tokens, 10);
-        assert_eq!(usage.cache_read_tokens, 500);
-        assert_eq!(usage.cache_creation_tokens, 12);
+        assert_eq!(usage.id, 103000);
+        assert_eq!(usage.input_tokens, 20);
+        assert_eq!(usage.output_tokens, 6);
+        assert_eq!(usage.cache_read_tokens, 300);
+        assert_eq!(usage.cache_creation_tokens, 7);
         assert_eq!(usage.elapsed_ms, 400);
         assert_eq!(usage.updated_at_ms, 103000);
-        assert_eq!(usage.call_count, 2);
     }
 }

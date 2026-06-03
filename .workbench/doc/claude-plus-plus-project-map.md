@@ -5,7 +5,7 @@
 
 ## Stable Boundaries
 - Read-only source of model routes: `%USERPROFILE%\.cc-switch\cc-switch.db`, table `providers`, current row `app_type='claude-desktop' AND is_current=1`.
-- Read-only source of Claude Desktop token usage: `%USERPROFILE%\.cc-switch\cc-switch.db`, table `proxy_request_logs`, successful `app_type='claude-desktop' AND data_source='proxy'` rows. The page enhancement passes the current turn start time as `sinceMs`; the local gateway aggregates rows since that timestamp, with in-memory stream parsing only as fallback.
+- Read-only weak fallback for Claude Desktop token usage: `%USERPROFILE%\.cc-switch\cc-switch.db`, table `proxy_request_logs`, successful `app_type='claude-desktop' AND data_source='proxy'` rows. The page enhancement passes the current turn start time as `sinceMs`; the local gateway reads only the latest matching row after that timestamp and marks it `source='cc-switch'`. Do not aggregate CC Switch rows by time range, because the same table includes history-load, title/status, and other background requests. Page-captured usage wins over this fallback, and finalized token cards must not be refreshed by later CC Switch polling.
 - CC Switch route switch status is read from the CC Switch SQLite `proxy_config` table, not inferred from model mappings and not from stale `settings.json.enableLocalProxy`. Do not hardcode or display a fixed upstream route address in the status UI; users may configure different upstream addresses.
 - Claude Desktop integration writes a separate `Claude++` configLibrary entry and must not edit CC Switch's `00000000-0000-4000-8000-000000157210` entry.
 - The `Claude++` configLibrary entry must omit `inferenceModels` so Claude Desktop uses `/v1/models` discovery.

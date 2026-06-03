@@ -322,11 +322,6 @@ async fn handle_token_usage(
             token_usage.usage = Some(usage.clone());
             token_usage.pending = false;
             token_usage.last_error = None;
-            if let Ok(mut state) = state.token_usage.write() {
-                state.usage = Some(usage);
-                state.pending = false;
-                state.last_error = None;
-            }
         }
     }
     if let Some(usage) = token_usage.usage.as_ref() {
@@ -373,7 +368,7 @@ impl From<ccswitch_db::CcSwitchUsageSnapshot> for TokenUsageSnapshot {
             context_limit: 0,
             elapsed_ms: usage.elapsed_ms,
             updated_at_ms: usage.updated_at_ms,
-            call_count: usage.call_count,
+            call_count: 1,
             source: "cc-switch".to_string(),
         }
     }
@@ -1306,7 +1301,6 @@ mod tests {
             cache_creation_tokens: 45,
             elapsed_ms: 2345,
             updated_at_ms: 1700000000000,
-            call_count: 2,
         });
 
         assert_eq!(usage.id, 1700000000002);
@@ -1321,7 +1315,7 @@ mod tests {
         assert_eq!(usage.context_limit, 0);
         assert_eq!(usage.elapsed_ms, 2345);
         assert_eq!(usage.updated_at_ms, 1700000000000);
-        assert_eq!(usage.call_count, 2);
+        assert_eq!(usage.call_count, 1);
         assert_eq!(usage.source, "cc-switch");
     }
 
