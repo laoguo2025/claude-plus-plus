@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #070a0f;
+        color: #f7f3ea;
+        font-family: sans-serif;
+      }
+
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 48% 12%, rgba(216, 111, 61, 0.24), transparent 28%),
+          radial-gradient(circle at 78% 78%, rgba(51, 213, 232, 0.11), transparent 30%),
+          linear-gradient(180deg, #090d13 0%, #070a0f 62%, #05070b 100%);
+      }
+
+      .bg-grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+        background-size: 54px 54px;
+        mask-image: radial-gradient(circle at center, black, transparent 72%);
+        opacity: 0.28;
+      }
+
+      .scanline {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #33d5e8, #d86f3d, transparent);
+        box-shadow: 0 0 28px rgba(51, 213, 232, 0.52);
+        opacity: 0.65;
+      }
+
+      .orb {
+        position: absolute;
+        width: 440px;
+        height: 440px;
+        border-radius: 50%;
+        border: 1px solid rgba(216, 111, 61, 0.22);
+        box-shadow: 0 0 80px rgba(216, 111, 61, 0.18);
+      }
+
+      .orb.one {
+        left: -210px;
+        top: 210px;
+      }
+
+      .orb.two {
+        right: -260px;
+        bottom: 220px;
+        border-color: rgba(51, 213, 232, 0.18);
+        box-shadow: 0 0 90px rgba(51, 213, 232, 0.12);
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        padding: 124px 70px 96px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 36px;
+        opacity: 0;
+      }
+
+      .scene.hero {
+        align-items: center;
+        text-align: center;
+      }
+
+      #scene-hero {
+        opacity: 1;
+      }
+
+      .logo {
+        width: 190px;
+        height: 190px;
+        object-fit: contain;
+        filter: drop-shadow(0 0 42px rgba(216, 111, 61, 0.42));
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 92px;
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        max-width: 920px;
+        font-size: 62px;
+        line-height: 1.12;
+        letter-spacing: 0;
+      }
+
+      .sub {
+        max-width: 850px;
+        color: #b8c0cc;
+        font-size: 28px;
+        line-height: 1.45;
+      }
+
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+      }
+
+      .tag {
+        border: 1px solid rgba(247, 243, 234, 0.16);
+        border-radius: 999px;
+        background: rgba(16, 21, 29, 0.78);
+        padding: 10px 18px;
+        color: #f7f3ea;
+        font-size: 22px;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+      }
+
+      .tag.hot {
+        border-color: rgba(216, 111, 61, 0.65);
+        background: rgba(216, 111, 61, 0.18);
+        color: #ffd7c4;
+      }
+
+      .product-card {
+        position: relative;
+        border: 1px solid rgba(247, 243, 234, 0.12);
+        border-radius: 28px;
+        background: rgba(16, 21, 29, 0.74);
+        box-shadow:
+          0 36px 90px rgba(0, 0, 0, 0.42),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+        overflow: hidden;
+      }
+
+      .product-card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(135deg, rgba(216, 111, 61, 0.18), transparent 36%, rgba(51, 213, 232, 0.12));
+        pointer-events: none;
+      }
+
+      .screen {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .screen-wrap {
+        width: 940px;
+        align-self: center;
+      }
+
+      .screen-wrap.tall {
+        width: 900px;
+      }
+
+      .kicker {
+        color: #d86f3d;
+        font-size: 25px;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+
+      .feature-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        width: 100%;
+      }
+
+      .feature {
+        border: 1px solid rgba(247, 243, 234, 0.12);
+        border-radius: 18px;
+        background: rgba(16, 21, 29, 0.72);
+        padding: 18px 20px;
+        color: #f7f3ea;
+        font-size: 24px;
+        line-height: 1.25;
+      }
+
+      .feature strong {
+        color: #33d5e8;
+        font-weight: 700;
+      }
+
+      .split {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 30px;
+      }
+
+      .footer-cta {
+        align-items: center;
+        text-align: center;
+      }
+
+      .release {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: #d86f3d;
+        color: #fff7f0;
+        padding: 13px 24px;
+        font-size: 26px;
+        font-weight: 700;
+        box-shadow: 0 0 36px rgba(216, 111, 61, 0.42);
+      }
+
+      .download {
+        color: #b8c0cc;
+        font-family: monospace;
+        font-size: 22px;
+      }
+
+      .transition {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        transform: translateY(100%);
+        background: linear-gradient(180deg, rgba(216, 111, 61, 0.96), rgba(51, 213, 232, 0.86));
+      }
+
+      audio {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="20"
+      data-width="1080"
+      data-height="1920"
+    >
+      <div class="bg-grid"></div>
+      <div class="scanline"></div>
+      <div class="orb one"></div>
+      <div class="orb two"></div>
+
+      <section id="scene-hero" class="scene hero">
+        <img class="logo hero-logo" src="assets/icon.png" alt="Claude++" />
+        <h1 class="hero-title">Claude++</h1>
+        <p class="sub hero-sub">Claude Desktop 本地增强控制台</p>
+        <div class="tag-row hero-tags">
+          <span class="tag hot">页面增强</span>
+          <span class="tag">一键汉化</span>
+          <span class="tag">路由桥接</span>
+        </div>
+      </section>
+
+      <section id="scene-enhance" class="scene split">
+        <div>
+          <div class="kicker enhance-kicker">01 / 页面增强</div>
+          <h2 class="enhance-title">把常用能力直接装进 Claude Desktop</h2>
+        </div>
+        <div class="product-card screen-wrap enhance-shot">
+          <img class="screen" src="assets/screen-enhance.png" alt="页面增强" />
+        </div>
+        <div class="feature-list enhance-features">
+          <div class="feature"><strong>Skills</strong> / MCP / 第三方 API</div>
+          <div class="feature">Markdown 导出与对话时间线</div>
+          <div class="feature">Token 用量信息</div>
+          <div class="feature">对话列表中文化</div>
+        </div>
+      </section>
+
+      <section id="scene-localization" class="scene split">
+        <div>
+          <div class="kicker loc-kicker">02 / 一键汉化</div>
+          <h2 class="loc-title">中文资源安装、备份、恢复，一页完成</h2>
+        </div>
+        <div class="product-card screen-wrap loc-shot">
+          <img class="screen" src="assets/screen-localization.png" alt="一键汉化" />
+        </div>
+        <p class="sub loc-sub">完整汉化或安全汉化都可选，需要回退时直接恢复英文。</p>
+      </section>
+
+      <section id="scene-route" class="scene split">
+        <div>
+          <div class="kicker route-kicker">03 / CC Switch 转接</div>
+          <h2 class="route-title">模型名看得懂，请求路由不改变</h2>
+        </div>
+        <div class="product-card screen-wrap route-shot">
+          <img class="screen" src="assets/screen-route.png" alt="CCS 转接" />
+        </div>
+        <div class="feature-list route-features">
+          <div class="feature">显示自定义模型名</div>
+          <div class="feature">真实请求回到 CC Switch</div>
+          <div class="feature">独立配置接管</div>
+          <div class="feature">随时断开恢复</div>
+        </div>
+      </section>
+
+      <section id="scene-final" class="scene hero footer-cta">
+        <img class="logo final-logo" src="assets/icon.png" alt="Claude++" />
+        <h2 class="final-title">页面增强 / 汉化 / 路由桥接 / 诊断日志</h2>
+        <span class="release final-release">Claude++ v1.0.0 已发布</span>
+        <p class="download final-download">github.com/laoguo2025/claude-plus-plus</p>
+      </section>
+
+      <div id="wipe" class="transition"></div>
+
+      <audio
+        id="bgm"
+        data-start="0"
+        data-duration="20"
+        data-track-index="5"
+        src="assets/bgm.wav"
+        data-volume="0.9"
+      ></audio>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const show = (selector, time, duration) => {
+        tl.set(selector, { opacity: 1 }, time);
+        tl.set(selector, { opacity: 0 }, time + duration);
+      };
+      const wipe = (time) => {
+        tl.fromTo(
+          "#wipe",
+          { y: "100%" },
+          { y: "-100%", duration: 0.55, ease: "power4.inOut" },
+          time
+        );
+      };
+
+      show("#scene-hero", 0, 4.2);
+      show("#scene-enhance", 4.2, 4.7);
+      show("#scene-localization", 8.9, 3.9);
+      show("#scene-route", 12.8, 4.0);
+      show("#scene-final", 16.8, 3.2);
+
+      tl.to(".scanline", { y: 1920, duration: 20, ease: "none" }, 0);
+      tl.to(".orb.one", { rotation: 60, scale: 1.08, duration: 20, ease: "none" }, 0);
+      tl.to(".orb.two", { rotation: -50, scale: 1.12, duration: 20, ease: "none" }, 0);
+
+      tl.from(".hero-logo", { scale: 0.7, opacity: 0, duration: 0.65, ease: "back.out(1.7)" }, 0.2);
+      tl.from(".hero-title", { y: 46, opacity: 0, duration: 0.58, ease: "power3.out" }, 0.45);
+      tl.from(".hero-sub", { y: 28, opacity: 0, duration: 0.48, ease: "expo.out" }, 0.72);
+      tl.from(".hero-tags .tag", { y: 28, opacity: 0, scale: 0.9, duration: 0.42, stagger: 0.08, ease: "power2.out" }, 1.05);
+      wipe(3.95);
+
+      tl.from(".enhance-kicker", { x: -50, opacity: 0, duration: 0.45, ease: "power2.out" }, 4.45);
+      tl.from(".enhance-title", { y: 44, opacity: 0, duration: 0.58, ease: "expo.out" }, 4.65);
+      tl.from(".enhance-shot", { y: 80, opacity: 0, scale: 0.94, duration: 0.66, ease: "back.out(1.2)" }, 5.0);
+      tl.from(".enhance-features .feature", { y: 34, opacity: 0, duration: 0.42, stagger: 0.07, ease: "power3.out" }, 5.55);
+      wipe(8.65);
+
+      tl.from(".loc-kicker", { x: -48, opacity: 0, duration: 0.42, ease: "power2.out" }, 9.12);
+      tl.from(".loc-title", { y: 42, opacity: 0, duration: 0.56, ease: "expo.out" }, 9.32);
+      tl.from(".loc-shot", { x: 70, opacity: 0, scale: 0.95, duration: 0.62, ease: "back.out(1.1)" }, 9.7);
+      tl.from(".loc-sub", { y: 32, opacity: 0, duration: 0.46, ease: "power3.out" }, 10.22);
+      wipe(12.55);
+
+      tl.from(".route-kicker", { x: -50, opacity: 0, duration: 0.42, ease: "power2.out" }, 13.02);
+      tl.from(".route-title", { y: 42, opacity: 0, duration: 0.54, ease: "expo.out" }, 13.22);
+      tl.from(".route-shot", { y: 74, opacity: 0, scale: 0.95, duration: 0.64, ease: "back.out(1.1)" }, 13.58);
+      tl.from(".route-features .feature", { y: 32, opacity: 0, duration: 0.4, stagger: 0.06, ease: "power3.out" }, 14.12);
+      wipe(16.55);
+
+      tl.from(".final-logo", { scale: 0.78, opacity: 0, duration: 0.55, ease: "back.out(1.7)" }, 17.05);
+      tl.from(".final-title", { y: 44, opacity: 0, duration: 0.56, ease: "expo.out" }, 17.28);
+      tl.from(".final-release", { y: 30, opacity: 0, scale: 0.9, duration: 0.42, ease: "power2.out" }, 17.72);
+      tl.from(".final-download", { y: 24, opacity: 0, duration: 0.42, ease: "power3.out" }, 18.08);
+      tl.to("#scene-final", { opacity: 0, duration: 0.55, ease: "power2.in" }, 19.35);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
+
