@@ -29,8 +29,8 @@
 
 | 平台 | 安装包 |
 | --- | --- |
-| Windows x64 | `Claude++_1.0.0_x64-setup.exe` |
-| macOS Apple Silicon | `Claude++_1.0.0_aarch64.dmg` |
+| Windows x64 | `Claude++_1.0.0_x64_setup.exe` |
+| macOS Apple Silicon | `Claude++_1.0.0_arm64.dmg` |
 | macOS Intel | `Claude++_1.0.0_x64.dmg` |
 
 ### 这是什么
@@ -148,8 +148,8 @@ Download the latest installers from [GitHub Releases](https://github.com/laoguo2
 
 | Platform | Installer |
 | --- | --- |
-| Windows x64 | `Claude++_1.0.0_x64-setup.exe` |
-| macOS Apple Silicon | `Claude++_1.0.0_aarch64.dmg` |
+| Windows x64 | `Claude++_1.0.0_x64_setup.exe` |
+| macOS Apple Silicon | `Claude++_1.0.0_arm64.dmg` |
 | macOS Intel | `Claude++_1.0.0_x64.dmg` |
 
 ### What is this
@@ -256,3 +256,4 @@ Claude++ uses Tauri 2 for the desktop shell, React + TypeScript for the console 
 [MIT](LICENSE)
 
 > This project is not affiliated with Anthropic, Claude, or CC Switch. Use it only when you understand the impact of local resource patches and third-party routing configuration.
+
