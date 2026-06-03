@@ -404,7 +404,7 @@ function App() {
           {route === "about" && (
             <AboutPage
               appVersion={appVersion}
-              claudeDesktopVersion={zhStatus?.claude_version ?? (zhStatus?.claude_found ? "待补充" : "未检测到")}
+              claudeDesktopVersion={zhStatus?.claude_version ?? (zhStatus?.claude_found ? "版本未知" : "未检测到")}
             />
           )}
 

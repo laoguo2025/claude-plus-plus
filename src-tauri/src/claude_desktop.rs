@@ -16,6 +16,8 @@ use std::os::windows::process::CommandExt;
 use crate::claude_patch_common as patch;
 #[cfg(target_os = "windows")]
 use crate::constants::CLAUDE_STORE_APP_ID;
+#[cfg(target_os = "windows")]
+use crate::paths;
 
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
@@ -319,6 +321,14 @@ mod tests {
 
         assert_eq!(steps, vec![RestartStep::GracefulStop, RestartStep::Launch]);
     }
+
+    #[test]
+    fn claude_desktop_shortcut_from_home_uses_desktop_link() {
+        assert_eq!(
+            claude_desktop_shortcut_from_home(&PathBuf::from(r"C:\Users\Ada")),
+            PathBuf::from(r"C:\Users\Ada\Desktop\Claude.lnk")
+        );
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -336,18 +346,19 @@ pub(crate) fn launch_claude() -> Result<(), String> {
 #[cfg(target_os = "windows")]
 fn claude_desktop_shortcut() -> Option<PathBuf> {
     let mut candidates = Vec::new();
-    if let Some(user_profile) = env::var_os("USERPROFILE") {
-        candidates.push(
-            PathBuf::from(user_profile)
-                .join("Desktop")
-                .join("Claude.lnk"),
-        );
+    if let Some(home) = paths::home_dir() {
+        candidates.push(claude_desktop_shortcut_from_home(&home));
     }
     if let Some(public) = env::var_os("PUBLIC") {
         candidates.push(PathBuf::from(public).join("Desktop").join("Claude.lnk"));
     }
 
     candidates.into_iter().find(|path| path.is_file())
+}
+
+#[cfg(target_os = "windows")]
+fn claude_desktop_shortcut_from_home(home: &std::path::Path) -> PathBuf {
+    home.join("Desktop").join("Claude.lnk")
 }
 
 #[cfg(target_os = "windows")]
