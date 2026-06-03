@@ -304,8 +304,8 @@ select {
 
 .welcomeHero {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(360px, 0.9fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+  gap: 28px;
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--border-soft);
@@ -320,6 +320,7 @@ select {
   align-content: center;
   justify-items: start;
   min-width: 0;
+  padding-left: 2px;
 }
 
 .welcomeLogo {
@@ -331,8 +332,8 @@ select {
 
 .welcomeCopy {
   display: grid;
-  gap: 8px;
-  max-width: 520px;
+  gap: 10px;
+  max-width: 620px;
   margin-top: 18px;
 }
 
@@ -347,42 +348,45 @@ select {
 .welcomeCopy p {
   margin: 0;
   color: var(--text-200);
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 15px;
+  line-height: 1.65;
 }
 
 .welcomeQrGroup {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  align-content: center;
+  gap: 16px;
+  align-content: start;
+  align-items: start;
+  justify-content: end;
   min-width: 0;
 }
 
 .qrCard {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   align-content: start;
-  justify-items: center;
+  justify-items: end;
   min-width: 0;
 }
 
 .qrCard img {
-  width: min(100%, 178px);
+  width: 132px;
+  max-width: 100%;
   aspect-ratio: 1;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: #ffffff;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .qrCard p {
-  max-width: 220px;
+  max-width: 140px;
   margin: 0;
   color: var(--text-200);
   font-size: 13px;
   line-height: 1.45;
-  text-align: center;
+  text-align: right;
 }
 
 .welcomeStatusGrid {
@@ -986,7 +990,6 @@ select {
 .aboutPanel {
   display: grid;
   align-content: start;
-  gap: 14px;
 }
 
 .aboutInfoTable {

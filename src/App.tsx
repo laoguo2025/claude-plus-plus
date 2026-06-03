@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, type ComponentType, type ReactNode } from "react";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import {
   Activity,
   CheckCircle2,
@@ -26,8 +26,8 @@ import botLogo from "../src-tauri/icons/icon.png";
 import enhanceFeatureDefinitions from "./shared/enhance-features.json";
 import "./App.css";
 
-const QQ_GROUP_QR_PATH = "C:\\Users\\Administrator\\Desktop\\QQ交流群 二维码.jpg";
-const ALIPAY_QR_PATH = "C:\\Users\\Administrator\\Desktop\\个人支付宝 收款码.jpg";
+const QQ_GROUP_QR_PATH = "/qq-group-qr.png";
+const ALIPAY_QR_PATH = "/alipay-qr.png";
 
 interface Mapping {
   display: string;
@@ -922,14 +922,16 @@ function WelcomePage({
         </div>
         <div className="welcomeQrGroup">
           <QrCard
+            kind="qq"
             src={QQ_GROUP_QR_PATH}
             alt="QQ交流群二维码"
-            text="欢迎加入QQ群：582589880，反馈问题\\交流体验\\提出建议。"
+            text="欢迎加入Q群：582589880，反馈\\交流\\提建议。"
           />
           <QrCard
+            kind="alipay"
             src={ALIPAY_QR_PATH}
             alt="个人支付宝收款码"
-            text="如果 Claude++ 帮到了你，可以随手支持一下继续维护。"
+            text="如果 Claude++ 帮到了你，可用支付宝支持一下。"
           />
         </div>
       </section>
@@ -958,18 +960,23 @@ function WelcomePage({
   );
 }
 
-function QrCard({ src, alt, text }: { src: string; alt: string; text: string }) {
+function QrCard({
+  kind,
+  src,
+  alt,
+  text,
+}: {
+  kind: "qq" | "alipay";
+  src: string;
+  alt: string;
+  text: string;
+}) {
   return (
-    <div className="qrCard">
-      <img src={localImageSrc(src)} alt={alt} />
+    <div className={`qrCard ${kind}`}>
+      <img src={src} alt={alt} />
       <p>{text}</p>
     </div>
   );
-}
-
-function localImageSrc(path: string) {
-  if (isTauriRuntime()) return convertFileSrc(path);
-  return `file:///${path.replace(/\\/g, "/")}`;
 }
 
 function EnhanceCard({
@@ -1037,12 +1044,6 @@ function AboutPage({
   return (
     <div className="pageGrid aboutPage">
       <section className="panel aboutPanel">
-        <div className="panelHead">
-          <div>
-            <h2>Github仓库</h2>
-          </div>
-        </div>
-
         <div className="aboutInfoTable">
           <AboutInfoRow label="Claude++ 版本" value={appVersion} />
           <AboutInfoRow label="Claude Desktop 版本" value={claudeDesktopVersion} />
