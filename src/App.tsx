@@ -925,7 +925,7 @@ function WelcomePage({
             kind="qq"
             src={QQ_GROUP_QR_PATH}
             alt="QQ交流群二维码"
-            text="欢迎加入Q群：582589880，反馈\\交流\\提建议。"
+            text="QQ群：582589880，欢迎交流反馈，提出建议。"
           />
           <QrCard
             kind="alipay"
@@ -935,6 +935,8 @@ function WelcomePage({
           />
         </div>
       </section>
+
+      <p className="welcomeActionHint">如下方三项未安装/开启，可直接点击进行下载/开启。</p>
 
       <section className="welcomeStatusGrid" aria-label="环境状态检测">
         <RouteStatusCard
