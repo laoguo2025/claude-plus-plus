@@ -57,7 +57,7 @@
     "id": "token_usage",
     "category": "对话增强",
     "label": "Token使用信息",
-    "version": "v0.3",
+    "version": "v0.1",
     "description": "在对话页面显示本次响应的 Token、缓存、上下文占用与耗时信息。",
     "available": true,
     "note": "响应用量统计"

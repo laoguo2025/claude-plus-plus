@@ -65,7 +65,7 @@ pub struct AppState {
     pub client: reqwest::Client,
     /// 上次成功读取的映射缓存(读 DB 失败时回退)
     pub cache: Arc<RwLock<Vec<Mapping>>>,
-    pub token_usage: Arc<RwLock<Option<TokenUsageSnapshot>>>,
+    pub token_usage: Arc<RwLock<TokenUsageState>>,
     title_i18n_rate_limit: Arc<RwLock<RateLimiter>>,
 }
 
@@ -75,7 +75,7 @@ impl AppState {
             db_path,
             client: reqwest::Client::new(),
             cache: Arc::new(RwLock::new(Vec::new())),
-            token_usage: Arc::new(RwLock::new(None)),
+            token_usage: Arc::new(RwLock::new(TokenUsageState::default())),
             title_i18n_rate_limit: Arc::new(RwLock::new(RateLimiter::default())),
         }
     }
@@ -121,6 +121,15 @@ pub struct TokenUsageSnapshot {
     pub context_limit: u64,
     pub elapsed_ms: u64,
     pub updated_at_ms: u64,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenUsageState {
+    pub usage: Option<TokenUsageSnapshot>,
+    pub pending: bool,
+    pub last_empty_at_ms: u64,
+    pub last_error: Option<String>,
 }
 
 pub fn router(state: AppState) -> Router {
@@ -283,16 +292,20 @@ async fn handle_trash_skill(Path(id): Path<String>) -> Response {
 }
 
 async fn handle_token_usage(State(state): State<AppState>) -> Response {
-    let usage = state
+    let token_usage = state
         .token_usage
         .read()
         .ok()
-        .and_then(|usage| usage.clone());
+        .map(|state| state.clone())
+        .unwrap_or_default();
     let mut response = (
         StatusCode::OK,
         axum::Json(serde_json::json!({
-            "ok": usage.is_some(),
-            "usage": usage
+            "ok": token_usage.usage.is_some(),
+            "usage": token_usage.usage,
+            "pending": token_usage.pending,
+            "lastEmptyAtMs": token_usage.last_empty_at_ms,
+            "lastError": token_usage.last_error
         })),
     )
         .into_response();
@@ -559,14 +572,15 @@ async fn handle_proxy(
 
 fn track_token_usage_stream<S>(
     stream: S,
-    store: Arc<RwLock<Option<TokenUsageSnapshot>>>,
+    store: Arc<RwLock<TokenUsageState>>,
     started_at: Instant,
 ) -> impl Stream<Item = Result<Bytes, reqwest::Error>>
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>>,
 {
     if let Ok(mut stored) = store.write() {
-        *stored = None;
+        stored.pending = true;
+        stored.last_error = None;
     }
     TokenUsageTrackedStream {
         stream: Box::pin(stream),
@@ -580,7 +594,7 @@ where
 struct TokenUsageTrackedStream<S> {
     stream: Pin<Box<S>>,
     tracker: TokenUsageStreamTracker,
-    store: Arc<RwLock<Option<TokenUsageSnapshot>>>,
+    store: Arc<RwLock<TokenUsageState>>,
     started_at: Instant,
     published: bool,
 }
@@ -597,8 +611,14 @@ impl<S> TokenUsageTrackedStream<S> {
             usage.updated_at_ms = now_ms();
             usage.id = usage.updated_at_ms;
             if let Ok(mut stored) = self.store.write() {
-                *stored = Some(usage);
+                stored.usage = Some(usage);
+                stored.pending = false;
+                stored.last_error = None;
             }
+        } else if let Ok(mut stored) = self.store.write() {
+            stored.pending = false;
+            stored.last_empty_at_ms = now_ms();
+            stored.last_error = Some("stream ended without token usage".to_string());
         }
     }
 }
@@ -1196,11 +1216,14 @@ mod tests {
     async fn token_usage_stream_publishes_only_after_stream_end() {
         use futures_util::{StreamExt, stream};
 
-        let store = Arc::new(RwLock::new(Some(TokenUsageSnapshot {
-            id: 1,
-            input_tokens: 1,
-            ..TokenUsageSnapshot::default()
-        })));
+        let store = Arc::new(RwLock::new(TokenUsageState {
+            usage: Some(TokenUsageSnapshot {
+                id: 1,
+                input_tokens: 1,
+                ..TokenUsageSnapshot::default()
+            }),
+            ..TokenUsageState::default()
+        }));
         let chunks: Vec<Result<Bytes, reqwest::Error>> = vec![Ok(Bytes::from_static(
             b"data: {\"usage\":{\"input_tokens\":42,\"output_tokens\":8}}\n",
         ))];
@@ -1210,18 +1233,93 @@ mod tests {
             Instant::now(),
         ));
 
-        assert!(store.read().expect("store").is_none());
+        assert_eq!(
+            store
+                .read()
+                .expect("store")
+                .usage
+                .as_ref()
+                .map(|usage| usage.id),
+            Some(1)
+        );
+        assert!(store.read().expect("store").pending);
         assert!(tracked.next().await.expect("chunk").is_ok());
-        assert!(store.read().expect("store").is_none());
+        assert_eq!(
+            store
+                .read()
+                .expect("store")
+                .usage
+                .as_ref()
+                .map(|usage| usage.id),
+            Some(1)
+        );
         assert!(tracked.next().await.is_none());
 
         let usage = store
             .read()
             .expect("store")
+            .usage
             .clone()
             .expect("final token usage");
         assert_eq!(usage.input_tokens, 42);
         assert_eq!(usage.output_tokens, 8);
         assert_eq!(usage.total_tokens, 50);
+        assert!(!store.read().expect("store").pending);
+        assert!(store.read().expect("store").last_error.is_none());
+    }
+
+    #[tokio::test]
+    async fn token_usage_stream_without_usage_keeps_previous_snapshot() {
+        use futures_util::{StreamExt, stream};
+
+        let previous = TokenUsageSnapshot {
+            id: 7,
+            input_tokens: 123,
+            output_tokens: 45,
+            total_tokens: 168,
+            ..TokenUsageSnapshot::default()
+        };
+        let store = Arc::new(RwLock::new(TokenUsageState {
+            usage: Some(previous.clone()),
+            ..TokenUsageState::default()
+        }));
+        let chunks: Vec<Result<Bytes, reqwest::Error>> =
+            vec![Ok(Bytes::from_static(b"data: {\"type\":\"ping\"}\n"))];
+        let mut tracked = Box::pin(track_token_usage_stream(
+            stream::iter(chunks),
+            store.clone(),
+            Instant::now(),
+        ));
+
+        assert_eq!(
+            store
+                .read()
+                .expect("store")
+                .usage
+                .as_ref()
+                .map(|usage| usage.id),
+            Some(7)
+        );
+        assert!(store.read().expect("store").pending);
+        assert!(tracked.next().await.expect("chunk").is_ok());
+        assert!(tracked.next().await.is_none());
+
+        let usage = store
+            .read()
+            .expect("store")
+            .usage
+            .clone()
+            .expect("previous token usage");
+        assert_eq!(usage.id, previous.id);
+        assert_eq!(usage.input_tokens, previous.input_tokens);
+        assert_eq!(usage.output_tokens, previous.output_tokens);
+        assert_eq!(usage.total_tokens, previous.total_tokens);
+        let state = store.read().expect("store");
+        assert!(!state.pending);
+        assert!(state.last_empty_at_ms > 0);
+        assert_eq!(
+            state.last_error.as_deref(),
+            Some("stream ended without token usage")
+        );
     }
 }

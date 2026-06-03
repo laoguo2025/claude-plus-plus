@@ -1077,12 +1077,7 @@ D();
 
             assert_eq!(list.len(), 7);
             for feature in list {
-                let expected = if feature.id == "token_usage" {
-                    "v0.3"
-                } else {
-                    "v0.1"
-                };
-                assert_eq!(feature.version, expected);
+                assert_eq!(feature.version, "v0.1");
             }
         }
 
