@@ -4,6 +4,7 @@
 // 其它 /claude-desktop/*           -> 含 model 则改写后透传,否则原样透传
 use crate::ccswitch_db::{self, Mapping};
 use crate::constants::UPSTREAM_FALLBACK_URL;
+use crate::settings::ProxyRuntimeTuning;
 use crate::time_utils::now_ms;
 use axum::{
     Router,
@@ -26,10 +27,6 @@ use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
 const MODEL_ID_PREFIX: &str = "claude-plus-plus";
-const TITLE_I18N_RATE_LIMIT_WINDOW: Duration = Duration::from_secs(60);
-const TITLE_I18N_RATE_LIMIT_MAX: u32 = 90;
-const TOKEN_USAGE_MAX_PENDING_LINE: usize = 64 * 1024;
-const TOKEN_USAGE_DB_FRESH_WINDOW_MS: u64 = 15_000;
 
 #[derive(Debug)]
 struct RateLimiter {
@@ -68,6 +65,7 @@ pub struct AppState {
     pub cache: Arc<RwLock<Vec<Mapping>>>,
     pub token_usage: Arc<RwLock<TokenUsageState>>,
     title_i18n_rate_limit: Arc<RwLock<RateLimiter>>,
+    tuning: ProxyRuntimeTuning,
 }
 
 impl AppState {
@@ -78,6 +76,7 @@ impl AppState {
             cache: Arc::new(RwLock::new(Vec::new())),
             token_usage: Arc::new(RwLock::new(TokenUsageState::default())),
             title_i18n_rate_limit: Arc::new(RwLock::new(RateLimiter::default())),
+            tuning: crate::settings::proxy_runtime_tuning(),
         }
     }
 
@@ -254,8 +253,8 @@ fn allow_title_i18n_request(state: &AppState) -> bool {
         .map(|mut limiter| {
             limiter.allow(
                 Instant::now(),
-                TITLE_I18N_RATE_LIMIT_WINDOW,
-                TITLE_I18N_RATE_LIMIT_MAX,
+                state.tuning.title_i18n_rate_limit_window(),
+                state.tuning.title_i18n_rate_limit_max,
             )
         })
         .unwrap_or(false)
@@ -317,7 +316,11 @@ async fn handle_token_usage(
         })
         .flatten();
     if let Some(db_usage) = db_usage {
-        if token_usage_fresh_for_query(db_usage.updated_at_ms, query.since_ms) {
+        if token_usage_fresh_for_query(
+            db_usage.updated_at_ms,
+            query.since_ms,
+            state.tuning.token_usage_db_fresh_window_ms,
+        ) {
             let usage = TokenUsageSnapshot::from(db_usage);
             token_usage.usage = Some(usage.clone());
             token_usage.pending = false;
@@ -325,7 +328,11 @@ async fn handle_token_usage(
         }
     }
     if let Some(usage) = token_usage.usage.as_ref() {
-        if !token_usage_fresh_for_query(usage.updated_at_ms, query.since_ms) {
+        if !token_usage_fresh_for_query(
+            usage.updated_at_ms,
+            query.since_ms,
+            state.tuning.token_usage_db_fresh_window_ms,
+        ) {
             token_usage.usage = None;
             token_usage.pending = false;
             token_usage.last_error = None;
@@ -346,9 +353,13 @@ async fn handle_token_usage(
     response
 }
 
-fn token_usage_fresh_for_query(updated_at_ms: u64, since_ms: Option<u64>) -> bool {
+fn token_usage_fresh_for_query(
+    updated_at_ms: u64,
+    since_ms: Option<u64>,
+    fresh_window_ms: u64,
+) -> bool {
     since_ms
-        .map(|since_ms| updated_at_ms.saturating_add(TOKEN_USAGE_DB_FRESH_WINDOW_MS) >= since_ms)
+        .map(|since_ms| updated_at_ms.saturating_add(fresh_window_ms) >= since_ms)
         .unwrap_or(true)
 }
 
@@ -471,7 +482,11 @@ fn select_title_translation_model(mappings: &[Mapping]) -> Option<String> {
     mappings
         .iter()
         .find(|mapping| mapping.role_kind.eq_ignore_ascii_case("sonnet"))
-        .or_else(|| mappings.first())
+        .or_else(|| {
+            mappings
+                .iter()
+                .find(|mapping| mapping.role_kind.eq_ignore_ascii_case("opus"))
+        })
         .map(|mapping| mapping.role.clone())
 }
 
@@ -715,8 +730,9 @@ impl TokenUsageStreamTracker {
             self.pending_line.drain(..=newline);
             self.ingest_line(&line);
         }
-        if self.pending_line.len() > TOKEN_USAGE_MAX_PENDING_LINE {
-            let keep_from = self.pending_line.len() - TOKEN_USAGE_MAX_PENDING_LINE;
+        let max_pending_line = crate::settings::proxy_runtime_tuning().token_usage_max_pending_line;
+        if self.pending_line.len() > max_pending_line {
+            let keep_from = self.pending_line.len() - max_pending_line;
             self.pending_line.drain(..keep_from);
         }
         self.snapshot()
@@ -1142,6 +1158,25 @@ mod tests {
     }
 
     #[test]
+    fn title_translation_model_prefers_sonnet_then_opus_and_skips_haiku_only() {
+        let mappings = vec![
+            mapping("mimo-haiku", "claude-haiku-4-5", "haiku", "mimo-haiku"),
+            mapping("mimo-opus", "claude-opus-4-7", "opus", "mimo-opus"),
+            mapping("mimo-sonnet", "claude-sonnet-4-6", "sonnet", "mimo-sonnet"),
+        ];
+
+        assert_eq!(
+            select_title_translation_model(&mappings),
+            Some("claude-sonnet-4-6".to_string())
+        );
+        assert_eq!(
+            select_title_translation_model(&mappings[..2]),
+            Some("claude-opus-4-7".to_string())
+        );
+        assert_eq!(select_title_translation_model(&mappings[..1]), None);
+    }
+
+    #[test]
     fn extracts_openai_style_title_translation_response() {
         let payload = serde_json::json!({
             "choices": [
@@ -1308,9 +1343,10 @@ mod tests {
 
     #[test]
     fn token_usage_requires_fresh_snapshot_for_since_query() {
-        assert!(token_usage_fresh_for_query(100_000, None));
-        assert!(token_usage_fresh_for_query(100_000, Some(115_000)));
-        assert!(!token_usage_fresh_for_query(100_000, Some(115_001)));
+        assert!(token_usage_fresh_for_query(100_000, None, 15_000));
+        assert!(token_usage_fresh_for_query(100_000, Some(115_000), 15_000));
+        assert!(!token_usage_fresh_for_query(100_000, Some(115_001), 15_000));
+        assert!(token_usage_fresh_for_query(100_000, Some(130_000), 30_000));
     }
 
     #[test]
