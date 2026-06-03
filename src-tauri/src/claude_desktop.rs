@@ -1,10 +1,12 @@
+use std::time::Duration;
+
 #[cfg(target_os = "windows")]
 use std::{
     env,
     path::PathBuf,
     process::{Command, Stdio},
     thread,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 #[cfg(target_os = "windows")]
@@ -20,9 +22,22 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 const GRACEFUL_STOP_TIMEOUT: Duration = Duration::from_secs(8);
 
 #[cfg(target_os = "windows")]
+const PROCESS_EXIT_TIMEOUT: Duration = Duration::from_secs(10);
+
+#[cfg(target_os = "windows")]
+const PROCESS_START_TIMEOUT: Duration = Duration::from_secs(10);
+
+const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(200);
+
+#[cfg(target_os = "windows")]
 pub fn restart() -> Result<(), String> {
     stop_claude_processes()?;
-    launch_claude()
+    launch_claude()?;
+    if wait_for_process_state(true, PROCESS_START_TIMEOUT) {
+        Ok(())
+    } else {
+        Err("启动 Claude Desktop 后未检测到 Claude.exe 进程".to_string())
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -49,16 +64,39 @@ pub fn is_running() -> bool {
 #[cfg(target_os = "windows")]
 pub(crate) fn stop_claude_processes() -> Result<(), String> {
     let graceful = run_taskkill(false)?;
+    if taskkill_means_not_running(&graceful.stdout, &graceful.stderr) {
+        return Ok(());
+    }
     if taskkill_succeeded_or_not_running(&graceful.stdout, &graceful.stderr, graceful.status.code())
+        && wait_for_process_state(false, PROCESS_EXIT_TIMEOUT)
     {
         return Ok(());
     }
 
     let forced = run_taskkill(true)?;
-    if taskkill_succeeded_or_not_running(&forced.stdout, &forced.stderr, forced.status.code()) {
+    if taskkill_means_not_running(&forced.stdout, &forced.stderr) {
+        return Ok(());
+    }
+    if taskkill_succeeded_or_not_running(&forced.stdout, &forced.stderr, forced.status.code())
+        && wait_for_process_state(false, PROCESS_EXIT_TIMEOUT)
+    {
         Ok(())
     } else {
         Err(taskkill_error_message(&forced.stdout, &forced.stderr))
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn wait_for_process_state(expected_running: bool, timeout: Duration) -> bool {
+    let started = Instant::now();
+    loop {
+        if is_running() == expected_running {
+            return true;
+        }
+        if started.elapsed() >= timeout {
+            return false;
+        }
+        thread::sleep(PROCESS_POLL_INTERVAL);
     }
 }
 
@@ -137,6 +175,59 @@ fn tasklist_contains_claude(output: &[u8]) -> bool {
 }
 
 #[cfg(all(test, target_os = "windows"))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RestartStep {
+    GracefulStop,
+    ForceStop,
+    Launch,
+}
+
+#[cfg(all(test, target_os = "windows"))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StopCommandResult {
+    Stopped,
+    NotRunning,
+    Failed,
+}
+
+#[cfg(all(test, target_os = "windows"))]
+fn restart_plan(
+    graceful: StopCommandResult,
+    exited_after_graceful: bool,
+    forced: StopCommandResult,
+    exited_after_forced: bool,
+    running_after_launch: bool,
+) -> Result<Vec<RestartStep>, &'static str> {
+    let mut steps = vec![RestartStep::GracefulStop];
+    match graceful {
+        StopCommandResult::NotRunning => {
+            steps.push(RestartStep::Launch);
+        }
+        StopCommandResult::Stopped if exited_after_graceful => {
+            steps.push(RestartStep::Launch);
+        }
+        _ => {
+            steps.push(RestartStep::ForceStop);
+            match forced {
+                StopCommandResult::NotRunning => {
+                    steps.push(RestartStep::Launch);
+                }
+                StopCommandResult::Stopped if exited_after_forced => {
+                    steps.push(RestartStep::Launch);
+                }
+                _ => return Err("stop-failed"),
+            }
+        }
+    }
+
+    if running_after_launch {
+        Ok(steps)
+    } else {
+        Err("launch-not-detected")
+    }
+}
+
+#[cfg(all(test, target_os = "windows"))]
 mod tests {
     use super::*;
 
@@ -162,6 +253,69 @@ mod tests {
         assert!(!tasklist_contains_claude(
             b"INFO: No tasks are running which match the specified criteria."
         ));
+    }
+
+    #[test]
+    fn restart_plan_forces_stop_when_graceful_taskkill_returns_before_process_exits() {
+        let steps = restart_plan(
+            StopCommandResult::Stopped,
+            false,
+            StopCommandResult::Stopped,
+            true,
+            true,
+        )
+        .expect("restart plan");
+
+        assert_eq!(
+            steps,
+            vec![
+                RestartStep::GracefulStop,
+                RestartStep::ForceStop,
+                RestartStep::Launch
+            ]
+        );
+    }
+
+    #[test]
+    fn restart_plan_does_not_launch_until_process_exit_is_observed() {
+        let error = restart_plan(
+            StopCommandResult::Stopped,
+            false,
+            StopCommandResult::Stopped,
+            false,
+            true,
+        )
+        .expect_err("still running");
+
+        assert_eq!(error, "stop-failed");
+    }
+
+    #[test]
+    fn restart_plan_requires_process_after_launch() {
+        let error = restart_plan(
+            StopCommandResult::Stopped,
+            true,
+            StopCommandResult::Failed,
+            false,
+            false,
+        )
+        .expect_err("launch not detected");
+
+        assert_eq!(error, "launch-not-detected");
+    }
+
+    #[test]
+    fn restart_plan_launches_when_claude_was_not_running() {
+        let steps = restart_plan(
+            StopCommandResult::NotRunning,
+            false,
+            StopCommandResult::Failed,
+            false,
+            true,
+        )
+        .expect("restart plan");
+
+        assert_eq!(steps, vec![RestartStep::GracefulStop, RestartStep::Launch]);
     }
 }
 
