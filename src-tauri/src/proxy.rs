@@ -6,15 +6,15 @@ use crate::ccswitch_db::{self, Mapping};
 use crate::constants::UPSTREAM_FALLBACK_URL;
 use crate::time_utils::now_ms;
 use axum::{
+    Router,
     body::Body,
     extract::{Path, Query, State},
     http::{
-        header::{CACHE_CONTROL, EXPIRES, PRAGMA},
         HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri,
+        header::{CACHE_CONTROL, EXPIRES, PRAGMA},
     },
     response::{IntoResponse, Response},
     routing::{any, get, post},
-    Router,
 };
 use bytes::Bytes;
 use futures_util::Stream;
@@ -424,22 +424,10 @@ fn menu_display_name(mapping: &Mapping) -> String {
     mapping.display.clone()
 }
 
-fn legacy_role_display_name(mapping: &Mapping) -> String {
-    format!("{} - {}", role_label(&mapping.role_kind), mapping.display)
-}
-
-fn role_label(role_kind: &str) -> String {
-    let mut chars = role_kind.chars();
-    match chars.next() {
-        Some(first) => format!("{}{}", first.to_uppercase(), chars.as_str()),
-        None => "Model".to_string(),
-    }
-}
-
 fn display_to_role_from_mappings(mappings: &[Mapping], model: &str) -> Option<String> {
     mappings
         .iter()
-        .find(|m| menu_model_id(m) == model || legacy_role_display_name(m) == model)
+        .find(|m| menu_model_id(m) == model)
         .or_else(|| mappings.iter().find(|m| m.display == model))
         .or_else(|| {
             mappings
@@ -1070,7 +1058,6 @@ mod tests {
         );
 
         assert_eq!(menu_display_name(&opus), "mimo-v2.5-pro");
-        assert_eq!(legacy_role_display_name(&opus), "Opus - mimo-v2.5-pro");
     }
 
     #[test]
@@ -1106,7 +1093,7 @@ mod tests {
         );
         assert_eq!(
             display_to_role_from_mappings(&mappings, "Opus - mimo-v2.5-pro"),
-            Some("claude-opus-4-7-r2".to_string())
+            None
         );
     }
 
@@ -1342,7 +1329,7 @@ mod tests {
 
     #[tokio::test]
     async fn token_usage_stream_publishes_only_after_stream_end() {
-        use futures_util::{stream, StreamExt};
+        use futures_util::{StreamExt, stream};
 
         let store = Arc::new(RwLock::new(TokenUsageState {
             usage: Some(TokenUsageSnapshot {
@@ -1398,7 +1385,7 @@ mod tests {
 
     #[tokio::test]
     async fn token_usage_stream_without_usage_keeps_previous_snapshot() {
-        use futures_util::{stream, StreamExt};
+        use futures_util::{StreamExt, stream};
 
         let previous = TokenUsageSnapshot {
             id: 7,

@@ -1,13 +1,12 @@
 use crate::time_utils::now_ms;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::{
     fs,
     io::{Read, Seek, SeekFrom, Write},
     path::PathBuf,
 };
 
-const APP_STATE_DIR: &str = ".claude-plus-plus";
 const DIAGNOSTIC_LOG_FILE: &str = "claude-plus-plus.log";
 
 #[derive(Debug, Clone, Serialize)]
@@ -111,14 +110,7 @@ pub fn report(
 }
 
 fn diagnostic_log_path() -> PathBuf {
-    default_app_state_dir().join(DIAGNOSTIC_LOG_FILE)
-}
-
-fn default_app_state_dir() -> PathBuf {
-    if let Some(home) = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")) {
-        return PathBuf::from(home).join(APP_STATE_DIR);
-    }
-    PathBuf::from(APP_STATE_DIR)
+    crate::paths::app_state_dir().join(DIAGNOSTIC_LOG_FILE)
 }
 
 fn read_tail(path: &PathBuf, lines: usize) -> std::io::Result<String> {

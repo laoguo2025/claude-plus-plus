@@ -2,7 +2,6 @@ use crate::constants::DEFAULT_PROXY_PORT;
 use serde::Deserialize;
 use std::path::PathBuf;
 
-const APP_STATE_DIR: &str = ".claude-plus-plus";
 const SETTINGS_FILE: &str = "settings.json";
 const PROXY_PORT_ENV: &str = "CLAUDE_PLUS_PROXY_PORT";
 
@@ -19,11 +18,8 @@ pub fn proxy_port() -> u16 {
         .unwrap_or(DEFAULT_PROXY_PORT)
 }
 
-pub fn settings_path() -> Option<PathBuf> {
-    let home = std::env::var_os("USERPROFILE")
-        .or_else(|| std::env::var_os("HOME"))
-        .map(PathBuf::from)?;
-    Some(home.join(APP_STATE_DIR).join(SETTINGS_FILE))
+pub fn settings_path() -> PathBuf {
+    crate::paths::app_state_dir().join(SETTINGS_FILE)
 }
 
 fn proxy_port_from_env() -> Option<u16> {
@@ -33,9 +29,7 @@ fn proxy_port_from_env() -> Option<u16> {
 }
 
 fn proxy_port_from_file() -> Result<Option<u16>, String> {
-    let Some(path) = settings_path() else {
-        return Ok(None);
-    };
+    let path = settings_path();
     if !path.is_file() {
         return Ok(None);
     }

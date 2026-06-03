@@ -60,18 +60,8 @@ pub struct CcSwitchUsageSnapshot {
 
 /// 默认数据库路径。
 pub fn default_db_path() -> PathBuf {
-    // <home>\.cc-switch\cc-switch.db
-    if let Some(home) = dirs_home() {
-        return home.join(".cc-switch").join("cc-switch.db");
-    }
-    // 兜底:相对路径(正常情况下 USERPROFILE/HOME 总能取到,不会走到这里)
-    PathBuf::from(".cc-switch").join("cc-switch.db")
-}
-
-fn dirs_home() -> Option<PathBuf> {
-    std::env::var_os("USERPROFILE")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
+    crate::paths::ccswitch_db_path()
+        .unwrap_or_else(|| PathBuf::from(".cc-switch").join("cc-switch.db"))
 }
 
 /// 只读读取当前生效 claude-desktop 服务商的映射。

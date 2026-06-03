@@ -7,6 +7,7 @@ mod claude_skills;
 mod claude_zh;
 mod constants;
 mod diagnostics;
+mod paths;
 mod proxy;
 mod server;
 mod settings;
