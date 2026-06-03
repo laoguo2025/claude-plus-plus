@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import botLogo from "../src-tauri/icons/icon.png";
 import { previewCommand, previewEnhanceFeatures, PREVIEW_APP_VERSION } from "./previewCommands";
+import { routeSummaryText, ccswitchRouteDetailText } from "./routeStatus";
 import "./App.css";
 
 const QQ_GROUP_QR_PATH = "/qq-group-qr.png";
@@ -180,7 +181,6 @@ function App() {
   }, [theme]);
 
   const refreshRouteState = useCallback(async () => {
-    setErr("");
     try {
       setAppVersion(await callCommand<string>("app_version"));
     } catch (e) {
@@ -529,13 +529,10 @@ function OverviewPage({
   restartClaudeDesktop: () => Promise<void>;
 }) {
   const ccswitchRoute = status?.ccswitch_route;
-  const routeSummary = status?.cd_applied
-    ? "Claude Desktop 当前接入 Claude++ 本地代理"
-    : "Claude Desktop 当前未接入 Claude++";
+  const routeSummary = routeSummaryText(status);
   const providerConfigured = !!pm;
   const ccswitchSwitchOn = ccswitchRoute?.configured === true;
-  const ccswitchSwitchDetail =
-    ccswitchSwitchOn && ccswitchRoute?.reachable === false ? "路由启动中" : "请在 CCS 开启路由";
+  const ccswitchSwitchDetail = ccswitchRouteDetailText(ccswitchRoute);
   const claudePlusTakenOver = !!status?.cd_applied && !!status?.running;
 
   return (
@@ -564,7 +561,7 @@ function OverviewPage({
             active={ccswitchSwitchOn}
             label="CC Switch 路由开关"
             value={ccswitchSwitchOn ? "已开启" : "未开启"}
-            detail={ccswitchSwitchOn && ccswitchRoute?.reachable !== false ? undefined : ccswitchSwitchDetail}
+            detail={ccswitchSwitchDetail}
           />
           <RouteStatusCard
             active={claudePlusTakenOver}
