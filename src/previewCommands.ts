@@ -1,67 +1,15 @@
 import enhanceFeatureDefinitions from "./shared/enhance-features.json";
+import type {
+  ClaudeEnhanceFeature,
+  ClaudeEnhanceStatus,
+  ClaudeZhStatus,
+  DiagnosticsPayload,
+  LogsPayload,
+  StatusInfo,
+  WelcomeStatus,
+} from "./appTypes";
 
 export const PREVIEW_APP_VERSION = __APP_VERSION__;
-
-interface StatusInfo {
-  running: boolean;
-  port: number | null;
-  cd_applied: boolean;
-  ccswitch_route: {
-    enabled: boolean;
-    configured: boolean | null;
-    has_mappings: boolean;
-    reachable: boolean;
-  };
-}
-
-interface ClaudeZhStatus {
-  supported: boolean;
-  claude_found: boolean;
-  installed: boolean;
-  backup_available: boolean;
-  claude_version: string | null;
-  install_path: string | null;
-  resources_path: string | null;
-  locale: string | null;
-  language_files: string[];
-}
-
-interface WelcomeStatus {
-  claude_code_installed: boolean;
-  developer_mode_enabled: boolean;
-  cc_switch_installed: boolean;
-}
-
-interface ClaudeEnhanceFeature {
-  id: string;
-  category: string;
-  label: string;
-  version: string;
-  description: string;
-  enabled: boolean;
-  available: boolean;
-  note: string;
-}
-
-interface ClaudeEnhanceStatus {
-  supported: boolean;
-  claude_found: boolean;
-  installed: boolean;
-  backup_available: boolean;
-  install_path: string | null;
-  resources_path: string | null;
-  features: ClaudeEnhanceFeature[];
-}
-
-interface LogsPayload {
-  path: string;
-  text: string;
-  lines: number;
-}
-
-interface DiagnosticsPayload {
-  report: string;
-}
 
 const previewStatus: StatusInfo = {
   running: true,

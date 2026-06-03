@@ -1,6 +1,4 @@
 import { useEffect, useState, useCallback, useRef, type ComponentType, type ReactNode } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Activity,
   CheckCircle2,
@@ -9,11 +7,6 @@ import {
   Gauge,
   ListRestart,
   FileText,
-  Hammer,
-  Info,
-  House,
-  Languages,
-  Link2,
   Network,
   PackageCheck,
   Plug,
@@ -24,133 +17,27 @@ import {
   type LucideProps,
 } from "lucide-react";
 import botLogo from "../src-tauri/icons/icon.png";
-import { previewCommand, previewEnhanceFeatures, PREVIEW_APP_VERSION } from "./previewCommands";
+import type {
+  ClaudeEnhanceFeature,
+  ClaudeEnhanceStatus,
+  ClaudeZhStatus,
+  DiagnosticsPayload,
+  LocalizationScope,
+  LogsPayload,
+  Mapping,
+  ProviderMappings,
+  Route,
+  StatusInfo,
+  Theme,
+  WelcomeStatus,
+} from "./appTypes";
+import { ALIPAY_QR_PATH, CC_SWITCH_DOWNLOAD_URL, CLAUDE_DESKTOP_DOWNLOAD_URL, QQ_GROUP_QR_PATH, routeMeta, routes } from "./appConstants";
+import { previewEnhanceFeatures, PREVIEW_APP_VERSION } from "./previewCommands";
 import { routeSummaryText, ccswitchRouteDetailText } from "./routeStatus";
+import { callCommand, openExternalUrl } from "./tauriClient";
 import "./App.css";
 
-const QQ_GROUP_QR_PATH = "/qq-group-qr.png";
-const ALIPAY_QR_PATH = "/alipay-qr.png";
-const CLAUDE_DESKTOP_DOWNLOAD_URL = "https://pan.baidu.com/s/1vESMbIYVKFRVFBgA_5ap7Q?pwd=4pfe";
-const CC_SWITCH_DOWNLOAD_URL = "https://pan.baidu.com/s/1iJsHuCsLcSh9kvhp75PKxQ?pwd=jyw9";
-
-interface Mapping {
-  display: string;
-  role: string;
-  role_kind: string;
-  model: string;
-}
-interface ProviderMappings {
-  provider_name: string;
-  provider_id: string;
-  mappings: Mapping[];
-}
-interface StatusInfo {
-  running: boolean;
-  port: number | null;
-  cd_applied: boolean;
-  ccswitch_route: CcSwitchRouteStatus;
-}
-interface CcSwitchRouteStatus {
-  enabled: boolean;
-  configured: boolean | null;
-  has_mappings: boolean;
-  reachable: boolean;
-}
-interface ClaudeZhStatus {
-  supported: boolean;
-  claude_found: boolean;
-  installed: boolean;
-  backup_available: boolean;
-  claude_version: string | null;
-  install_path: string | null;
-  resources_path: string | null;
-  locale: string | null;
-  language_files: string[];
-}
-interface ClaudeEnhanceFeature {
-  id: string;
-  category: string;
-  label: string;
-  version: string;
-  description: string;
-  enabled: boolean;
-  available: boolean;
-  note: string;
-}
-interface ClaudeEnhanceStatus {
-  supported: boolean;
-  claude_found: boolean;
-  installed: boolean;
-  backup_available: boolean;
-  install_path: string | null;
-  resources_path: string | null;
-  features: ClaudeEnhanceFeature[];
-}
-interface LogsPayload {
-  path: string;
-  text: string;
-  lines: number;
-}
-interface DiagnosticsPayload {
-  report: string;
-}
-interface WelcomeStatus {
-  claude_code_installed: boolean;
-  developer_mode_enabled: boolean;
-  cc_switch_installed: boolean;
-}
-
-type Route = "welcome" | "overview" | "localization" | "enhance" | "about" | "diagnostics";
-type Theme = "light" | "dark";
-type LocalizationScope = "complete" | "safe";
 type Icon = ComponentType<LucideProps>;
-type CommandArgs = Record<string, unknown>;
-
-const routes: Array<{ id: Route; label: string; icon: Icon }> = [
-  { id: "welcome", label: "欢迎使用", icon: House },
-  { id: "overview", label: "CCS转接", icon: Link2 },
-  { id: "localization", label: "一键汉化", icon: Languages },
-  { id: "enhance", label: "页面增强", icon: Hammer },
-  { id: "diagnostics", label: "诊断日志", icon: FileText },
-  { id: "about", label: "Github仓库", icon: Info },
-];
-
-const routeMeta: Record<Route, { title: string }> = {
-  welcome: {
-    title: "欢迎使用",
-  },
-  overview: {
-    title: "CCS转接",
-  },
-  localization: {
-    title: "一键汉化",
-  },
-  enhance: {
-    title: "页面增强",
-  },
-  about: {
-    title: "Github仓库",
-  },
-  diagnostics: {
-    title: "诊断日志",
-  },
-};
-
-const isTauriRuntime = () =>
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
-async function callCommand<T>(cmd: string, args?: CommandArgs): Promise<T> {
-  if (isTauriRuntime()) return invoke<T>(cmd, args);
-  return previewCommand<T>(cmd);
-}
-
-async function openExternalUrl(url: string) {
-  if (isTauriRuntime()) {
-    await openUrl(url);
-    return;
-  }
-  window.open(url, "_blank", "noopener,noreferrer");
-}
 
 function loadInitialTheme(): Theme {
   if (typeof window === "undefined") return "light";

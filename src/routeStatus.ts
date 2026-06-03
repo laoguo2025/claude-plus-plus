@@ -1,16 +1,4 @@
-interface CcSwitchRouteStatus {
-  enabled: boolean;
-  configured: boolean | null;
-  has_mappings: boolean;
-  reachable: boolean;
-}
-
-interface StatusInfo {
-  running: boolean;
-  port: number | null;
-  cd_applied: boolean;
-  ccswitch_route: CcSwitchRouteStatus;
-}
+import type { CcSwitchRouteStatus, StatusInfo } from "./appTypes";
 
 export function routeSummaryText(status: StatusInfo | null): string {
   if (!status?.cd_applied) {
