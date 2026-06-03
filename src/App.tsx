@@ -24,7 +24,7 @@ import {
   type LucideProps,
 } from "lucide-react";
 import botLogo from "../src-tauri/icons/icon.png";
-import enhanceFeatureDefinitions from "./shared/enhance-features.json";
+import { previewCommand, previewEnhanceFeatures, PREVIEW_APP_VERSION } from "./previewCommands";
 import "./App.css";
 
 const QQ_GROUP_QR_PATH = "/qq-group-qr.png";
@@ -105,36 +105,6 @@ type LocalizationScope = "complete" | "safe";
 type Icon = ComponentType<LucideProps>;
 type CommandArgs = Record<string, unknown>;
 
-const PREVIEW_APP_VERSION = __APP_VERSION__;
-const PREVIEW_PROXY_PORT = __DEFAULT_PROXY_PORT__;
-const PREVIEW_STATUS: StatusInfo = {
-  running: true,
-  port: PREVIEW_PROXY_PORT,
-  cd_applied: true,
-  ccswitch_route: {
-    enabled: true,
-    configured: true,
-    has_mappings: true,
-    reachable: true,
-  },
-};
-const PREVIEW_ZH_STATUS: ClaudeZhStatus = {
-  supported: true,
-  claude_found: true,
-  installed: false,
-  backup_available: true,
-  claude_version: "未检测到",
-  install_path: null,
-  resources_path: null,
-  locale: "en-US",
-  language_files: [],
-};
-const PREVIEW_WELCOME_STATUS: WelcomeStatus = {
-  claude_code_installed: false,
-  developer_mode_enabled: true,
-  cc_switch_installed: true,
-};
-
 const routes: Array<{ id: Route; label: string; icon: Icon }> = [
   { id: "welcome", label: "欢迎使用", icon: House },
   { id: "overview", label: "CCS转接", icon: Link2 },
@@ -179,87 +149,6 @@ async function openExternalUrl(url: string) {
     return;
   }
   window.open(url, "_blank", "noopener,noreferrer");
-}
-
-function previewCommand<T>(cmd: string): T {
-  if (cmd === "app_version") {
-    return PREVIEW_APP_VERSION as T;
-  }
-  if (cmd === "proxy_status") {
-    return PREVIEW_STATUS as T;
-  }
-  if (cmd === "get_mappings") {
-    throw new Error("浏览器预览无法读取 CC Switch 数据库；请在 Claude++ EXE 中查看真实服务商和模型映射。");
-  }
-  if (cmd === "claude_zh_status") {
-    return PREVIEW_ZH_STATUS as T;
-  }
-  if (cmd === "welcome_status") {
-    return PREVIEW_WELCOME_STATUS as T;
-  }
-  if (cmd === "claude_enhance_status") {
-    return {
-      supported: PREVIEW_ZH_STATUS.supported,
-      claude_found: PREVIEW_ZH_STATUS.claude_found,
-      installed: false,
-      backup_available: true,
-      install_path: null,
-      resources_path: null,
-      features: previewEnhanceFeatures(),
-    } as T;
-  }
-  if (
-    cmd === "use_claude_plus_route" ||
-    cmd === "use_ccs_route" ||
-    cmd === "backup_claude_zh" ||
-    cmd === "enable_claude_developer_mode" ||
-    cmd === "install_claude_code" ||
-    cmd === "install_claude_enhance" ||
-    cmd === "uninstall_claude_enhance"
-  ) {
-    if (cmd === "enable_claude_developer_mode") {
-      PREVIEW_WELCOME_STATUS.developer_mode_enabled = true;
-    }
-    if (cmd === "install_claude_code") {
-      PREVIEW_WELCOME_STATUS.claude_code_installed = true;
-    }
-    return undefined as T;
-  }
-  if (cmd === "read_latest_logs" || cmd === "generate_diagnostics") {
-    const report = JSON.stringify(
-      {
-        generatedAtMs: Date.now(),
-        version: PREVIEW_APP_VERSION,
-        overview: {
-          app: "Claude++",
-          status: PREVIEW_STATUS,
-        },
-        paths: {
-          ccSwitchDb: "C:\\Users\\Administrator\\.cc-switch\\cc-switch.db",
-          diagnosticLog: "C:\\Users\\Administrator\\.claude-plus-plus\\claude-plus-plus.log",
-        },
-      },
-      null,
-      2,
-    );
-    if (cmd === "generate_diagnostics") {
-      return { report } as T;
-    }
-    return {
-      path: "C:\\Users\\Administrator\\.claude-plus-plus\\claude-plus-plus.log",
-      text: [
-        JSON.stringify({
-          timestamp_ms: Date.now(),
-          pid: 18896,
-          event: "manager.proxy_status",
-          detail: PREVIEW_STATUS,
-        }),
-        '{"timestamp_ms":1780394329499,"pid":18896,"event":"manager.generate_diagnostics","detail":{}}',
-      ].join("\n"),
-      lines: 200,
-    } as T;
-  }
-  return undefined as T;
 }
 
 function loadInitialTheme(): Theme {
@@ -359,131 +248,80 @@ function App() {
     return () => clearInterval(t);
   }, [detectClaudeDesktopOnce, refreshEnhanceStatus, refreshRouteState, refreshWelcomeStatus]);
 
-  const run = async (cmd: string) => {
+  const runBusy = useCallback(async (action: () => Promise<void>) => {
     setBusy(true);
     setErr("");
     try {
-      await callCommand(cmd);
-      await refreshRouteState();
+      await action();
     } catch (e) {
       setErr(String(e));
     } finally {
       setBusy(false);
     }
-  };
+  }, []);
 
-  const restartClaudeDesktop = async () => {
-    setBusy(true);
-    setErr("");
-    try {
+  const run = (cmd: string) =>
+    runBusy(async () => {
+      await callCommand(cmd);
+      await refreshRouteState();
+    });
+
+  const restartClaudeDesktop = () =>
+    runBusy(async () => {
       await callCommand("restart_claude_desktop");
       setRestartNeeded(false);
       await refreshRouteState();
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
-  const enableClaudeDeveloperMode = async () => {
-    setBusy(true);
-    setErr("");
-    try {
+  const enableClaudeDeveloperMode = () =>
+    runBusy(async () => {
       await callCommand("enable_claude_developer_mode");
       await refreshWelcomeStatus();
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
-  const installClaudeCode = async () => {
-    setBusy(true);
-    setErr("");
-    try {
+  const installClaudeCode = () =>
+    runBusy(async () => {
       await callCommand("install_claude_code");
       await refreshWelcomeStatus();
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   const toggleTheme = () => {
     setTheme((current) => (current === "dark" ? "light" : "dark"));
   };
 
-  const installClaudeZh = async () => {
-    setBusy(true);
-    setErr("");
-    try {
+  const installClaudeZh = () =>
+    runBusy(async () => {
       await callCommand("install_claude_zh", {
         language: "zh-CN",
         skipAsarPatch: zhScope === "safe",
       });
       await detectClaudeDesktopOnce();
       await refreshRouteState();
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
-  const backupClaudeZh = async () => {
-    setBusy(true);
-    setErr("");
-    try {
+  const backupClaudeZh = () =>
+    runBusy(async () => {
       await callCommand("backup_claude_zh");
       await detectClaudeDesktopOnce();
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
-  const uninstallClaudeZh = async () => {
-    setBusy(true);
-    setErr("");
-    try {
+  const uninstallClaudeZh = () =>
+    runBusy(async () => {
       await callCommand("uninstall_claude_zh");
       await detectClaudeDesktopOnce();
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
-  const installClaudeEnhance = async (feature: string) => {
-    setBusy(true);
-    setErr("");
-    try {
+  const installClaudeEnhance = (feature: string) =>
+    runBusy(async () => {
       await callCommand("install_claude_enhance", { feature });
       await refreshEnhanceStatus();
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
-  const uninstallClaudeEnhance = async (feature: string) => {
-    setBusy(true);
-    setErr("");
-    try {
+  const uninstallClaudeEnhance = (feature: string) =>
+    runBusy(async () => {
       await callCommand("uninstall_claude_enhance", { feature });
       await refreshEnhanceStatus();
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   const refreshLogs = useCallback(async () => {
     setErr("");
@@ -1149,10 +987,6 @@ function EnhanceCard({
       </div>
     </div>
   );
-}
-
-function previewEnhanceFeatures(): ClaudeEnhanceFeature[] {
-  return enhanceFeatureDefinitions.map((feature) => ({ ...feature, enabled: false }));
 }
 
 function enhanceIcon(id: string): Icon {
