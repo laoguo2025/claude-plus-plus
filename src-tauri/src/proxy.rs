@@ -310,18 +310,14 @@ async fn handle_token_usage(
         .ok()
         .map(|state| state.clone())
         .unwrap_or_default();
-    let db_usage = ccswitch_db::load_claude_desktop_usage(&state.db_path, query.since_ms).ok();
-    if let Some(Some(db_usage)) = db_usage {
-        let fresh_enough = query
-            .since_ms
-            .map(|since_ms| {
-                db_usage
-                    .updated_at_ms
-                    .saturating_add(TOKEN_USAGE_DB_FRESH_WINDOW_MS)
-                    >= since_ms
-            })
-            .unwrap_or(true);
-        if fresh_enough {
+    let db_usage = query
+        .since_ms
+        .and_then(|since_ms| {
+            ccswitch_db::load_claude_desktop_usage(&state.db_path, Some(since_ms)).ok()
+        })
+        .flatten();
+    if let Some(db_usage) = db_usage {
+        if token_usage_fresh_for_query(db_usage.updated_at_ms, query.since_ms) {
             let usage = TokenUsageSnapshot::from(db_usage);
             token_usage.usage = Some(usage.clone());
             token_usage.pending = false;
@@ -331,6 +327,13 @@ async fn handle_token_usage(
                 state.pending = false;
                 state.last_error = None;
             }
+        }
+    }
+    if let Some(usage) = token_usage.usage.as_ref() {
+        if !token_usage_fresh_for_query(usage.updated_at_ms, query.since_ms) {
+            token_usage.usage = None;
+            token_usage.pending = false;
+            token_usage.last_error = None;
         }
     }
     let mut response = (
@@ -346,6 +349,12 @@ async fn handle_token_usage(
         .into_response();
     apply_json_headers(response.headers_mut());
     response
+}
+
+fn token_usage_fresh_for_query(updated_at_ms: u64, since_ms: Option<u64>) -> bool {
+    since_ms
+        .map(|since_ms| updated_at_ms.saturating_add(TOKEN_USAGE_DB_FRESH_WINDOW_MS) >= since_ms)
+        .unwrap_or(true)
 }
 
 impl From<ccswitch_db::CcSwitchUsageSnapshot> for TokenUsageSnapshot {
@@ -1295,6 +1304,13 @@ mod tests {
         assert_eq!(usage.updated_at_ms, 1700000000000);
         assert_eq!(usage.call_count, 2);
         assert_eq!(usage.source, "cc-switch");
+    }
+
+    #[test]
+    fn token_usage_requires_fresh_snapshot_for_since_query() {
+        assert!(token_usage_fresh_for_query(100_000, None));
+        assert!(token_usage_fresh_for_query(100_000, Some(115_000)));
+        assert!(!token_usage_fresh_for_query(100_000, Some(115_001)));
     }
 
     #[test]
