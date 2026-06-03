@@ -1,0 +1,49 @@
+name: Bug report
+description: Report a reproducible Claude++ problem.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Please include enough local context to reproduce it.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened? What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Start CC Switch...
+        2. Open Claude++...
+        3. Click...
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows x64
+        - macOS Apple Silicon
+        - macOS Intel
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Claude++, Claude Desktop, CC Switch versions if known.
+      placeholder: "Claude++ 1.0.0, Claude Desktop ..., CC Switch ..."
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Paste the Claude++ diagnostics report or relevant logs if available.
+      render: text

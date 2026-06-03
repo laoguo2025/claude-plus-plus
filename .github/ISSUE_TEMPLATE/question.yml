@@ -1,0 +1,17 @@
+name: Question
+description: Ask for usage or setup help.
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What are you trying to do?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Include platform, Claude++ version, CC Switch status, or screenshots if relevant.

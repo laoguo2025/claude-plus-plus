@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Releases
+    url: https://github.com/laoguo2025/claude-plus-plus/releases
+    about: Download the latest Claude++ installers.
