@@ -11,6 +11,7 @@ mod proxy;
 mod server;
 mod settings;
 mod time_utils;
+mod welcome;
 
 use constants::CC_SWITCH_CLAUDE_DESKTOP_ENTRY_ID;
 use server::ServerHandle;
@@ -203,6 +204,11 @@ fn claude_zh_status() -> claude_zh::ClaudeZhStatus {
 }
 
 #[tauri::command]
+fn welcome_status() -> welcome::WelcomeStatus {
+    welcome::status()
+}
+
+#[tauri::command]
 fn install_claude_zh(language: String, skip_asar_patch: bool) -> Result<(), String> {
     claude_zh::install(&language, skip_asar_patch)
 }
@@ -346,6 +352,7 @@ pub fn run() {
             revert_cd_config,
             restart_claude_desktop,
             claude_zh_status,
+            welcome_status,
             install_claude_zh,
             backup_claude_zh,
             uninstall_claude_zh,

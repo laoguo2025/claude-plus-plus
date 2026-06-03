@@ -294,6 +294,103 @@ select {
   grid-template-rows: auto auto auto;
 }
 
+.welcomePage {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+}
+
+.welcomeHero {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(360px, 0.9fr);
+  gap: 20px;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--bg-000);
+  box-shadow: var(--shadow-panel);
+  padding: 24px;
+}
+
+.welcomeIntro {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  min-width: 0;
+}
+
+.welcomeLogo {
+  width: min(210px, 34vw);
+  max-width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
+.welcomeCopy {
+  display: grid;
+  gap: 8px;
+  max-width: 520px;
+  margin-top: 18px;
+}
+
+.welcomeCopy h2 {
+  margin: 0;
+  color: var(--text-000);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.welcomeCopy p {
+  margin: 0;
+  color: var(--text-200);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.welcomeQrGroup {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-content: center;
+  min-width: 0;
+}
+
+.qrCard {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  justify-items: center;
+  min-width: 0;
+}
+
+.qrCard img {
+  width: min(100%, 178px);
+  aspect-ratio: 1;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: #ffffff;
+  object-fit: cover;
+}
+
+.qrCard p {
+  max-width: 220px;
+  margin: 0;
+  color: var(--text-200);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.welcomeStatusGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .mechanismNote {
   display: grid;
   align-content: start;
@@ -389,7 +486,7 @@ select {
 
 .routeCardBody {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   align-items: stretch;
 }
@@ -1004,10 +1101,21 @@ select {
   }
 
   .routeCardBody,
+  .welcomeHero,
+  .welcomeQrGroup,
+  .welcomeStatusGrid,
   .routeSummary,
   .routeActions,
   .enhanceCards {
     grid-template-columns: 1fr;
+  }
+
+  .welcomePage {
+    overflow: auto;
+  }
+
+  .welcomeHero {
+    overflow: visible;
   }
 
   .miniTable div,

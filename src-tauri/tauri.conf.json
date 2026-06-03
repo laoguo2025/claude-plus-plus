@@ -18,7 +18,14 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$HOME/Desktop/QQ交流群 二维码.jpg",
+          "$HOME/Desktop/个人支付宝 收款码.jpg"
+        ]
+      }
     }
   },
   "bundle": {

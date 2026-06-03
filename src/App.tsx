@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, type ComponentType, type ReactNode } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import {
   Activity,
   CheckCircle2,
@@ -10,6 +10,7 @@ import {
   FileText,
   Hammer,
   Info,
+  House,
   Languages,
   Link2,
   Network,
@@ -24,6 +25,9 @@ import {
 import botLogo from "../src-tauri/icons/icon.png";
 import enhanceFeatureDefinitions from "./shared/enhance-features.json";
 import "./App.css";
+
+const QQ_GROUP_QR_PATH = "C:\\Users\\Administrator\\Desktop\\QQ交流群 二维码.jpg";
+const ALIPAY_QR_PATH = "C:\\Users\\Administrator\\Desktop\\个人支付宝 收款码.jpg";
 
 interface Mapping {
   display: string;
@@ -86,8 +90,12 @@ interface LogsPayload {
 interface DiagnosticsPayload {
   report: string;
 }
+interface WelcomeStatus {
+  developer_mode_enabled: boolean;
+  cc_switch_installed: boolean;
+}
 
-type Route = "overview" | "localization" | "enhance" | "about" | "diagnostics";
+type Route = "welcome" | "overview" | "localization" | "enhance" | "about" | "diagnostics";
 type Theme = "light" | "dark";
 type LocalizationScope = "complete" | "safe";
 type Icon = ComponentType<LucideProps>;
@@ -117,16 +125,24 @@ const PREVIEW_ZH_STATUS: ClaudeZhStatus = {
   locale: "en-US",
   language_files: [],
 };
+const PREVIEW_WELCOME_STATUS: WelcomeStatus = {
+  developer_mode_enabled: true,
+  cc_switch_installed: true,
+};
 
 const routes: Array<{ id: Route; label: string; icon: Icon }> = [
+  { id: "welcome", label: "欢迎使用", icon: House },
   { id: "overview", label: "CCS转接", icon: Link2 },
   { id: "localization", label: "一键汉化", icon: Languages },
   { id: "enhance", label: "页面增强", icon: Hammer },
   { id: "diagnostics", label: "诊断日志", icon: FileText },
-  { id: "about", label: "关于工具", icon: Info },
+  { id: "about", label: "Github仓库", icon: Info },
 ];
 
 const routeMeta: Record<Route, { title: string }> = {
+  welcome: {
+    title: "欢迎使用",
+  },
   overview: {
     title: "CCS转接",
   },
@@ -137,7 +153,7 @@ const routeMeta: Record<Route, { title: string }> = {
     title: "页面增强",
   },
   about: {
-    title: "关于工具",
+    title: "Github仓库",
   },
   diagnostics: {
     title: "诊断日志",
@@ -164,6 +180,9 @@ function previewCommand<T>(cmd: string): T {
   }
   if (cmd === "claude_zh_status") {
     return PREVIEW_ZH_STATUS as T;
+  }
+  if (cmd === "welcome_status") {
+    return PREVIEW_WELCOME_STATUS as T;
   }
   if (cmd === "claude_enhance_status") {
     return {
@@ -228,7 +247,7 @@ function loadInitialTheme(): Theme {
 }
 
 function App() {
-  const [route, setRoute] = useState<Route>("overview");
+  const [route, setRoute] = useState<Route>("welcome");
   const [theme, setTheme] = useState<Theme>(() => loadInitialTheme());
   const [status, setStatus] = useState<StatusInfo | null>(null);
   const [pm, setPm] = useState<ProviderMappings | null>(null);
@@ -241,6 +260,7 @@ function App() {
   const [restartNeeded, setRestartNeeded] = useState(false);
   const [logs, setLogs] = useState<LogsPayload | null>(null);
   const [diagnostics, setDiagnostics] = useState<DiagnosticsPayload | null>(null);
+  const [welcomeStatus, setWelcomeStatus] = useState<WelcomeStatus | null>(null);
   const [appVersion, setAppVersion] = useState(PREVIEW_APP_VERSION);
   const lastMappingFingerprint = useRef<string | null>(null);
 
@@ -291,6 +311,15 @@ function App() {
     }
   }, []);
 
+  const refreshWelcomeStatus = useCallback(async () => {
+    try {
+      setWelcomeStatus(await callCommand<WelcomeStatus>("welcome_status"));
+    } catch (e) {
+      setErr(String(e));
+      setWelcomeStatus(null);
+    }
+  }, []);
+
   const refreshEnhanceStatus = useCallback(async () => {
     try {
       setEnhanceStatus(await callCommand<ClaudeEnhanceStatus>("claude_enhance_status"));
@@ -302,11 +331,12 @@ function App() {
 
   useEffect(() => {
     detectClaudeDesktopOnce();
+    refreshWelcomeStatus();
     refreshRouteState();
     refreshEnhanceStatus();
     const t = setInterval(refreshRouteState, 4000);
     return () => clearInterval(t);
-  }, [detectClaudeDesktopOnce, refreshEnhanceStatus, refreshRouteState]);
+  }, [detectClaudeDesktopOnce, refreshEnhanceStatus, refreshRouteState, refreshWelcomeStatus]);
 
   const run = async (cmd: string) => {
     setBusy(true);
@@ -438,6 +468,7 @@ function App() {
     try {
       await refreshRouteState();
       await detectClaudeDesktopOnce();
+      await refreshWelcomeStatus();
       await refreshEnhanceStatus();
       if (route === "diagnostics") {
         await refreshLogs();
@@ -452,6 +483,7 @@ function App() {
     refreshEnhanceStatus,
     refreshLogs,
     refreshRouteState,
+    refreshWelcomeStatus,
     route,
   ]);
 
@@ -528,13 +560,16 @@ function App() {
         <section className="screen">
           {err && <div className="errorBanner">{err}</div>}
 
+          {route === "welcome" && (
+            <WelcomePage zhStatus={zhStatus} welcomeStatus={welcomeStatus} />
+          )}
+
           {route === "overview" && (
             <OverviewPage
               busy={busy}
               status={status}
               pm={pm}
               mappingError={mappingError}
-              zhStatus={zhStatus}
               restartNeeded={restartNeeded}
               run={run}
               restartClaudeDesktop={restartClaudeDesktop}
@@ -589,7 +624,6 @@ function OverviewPage({
   status,
   pm,
   mappingError,
-  zhStatus,
   restartNeeded,
   run,
   restartClaudeDesktop,
@@ -598,7 +632,6 @@ function OverviewPage({
   status: StatusInfo | null;
   pm: ProviderMappings | null;
   mappingError: string;
-  zhStatus: ClaudeZhStatus | null;
   restartNeeded: boolean;
   run: (cmd: string) => Promise<void>;
   restartClaudeDesktop: () => Promise<void>;
@@ -635,12 +668,6 @@ function OverviewPage({
           <span className="routeHint">{routeSummary}</span>
         </div>
         <div className="routeCardBody">
-          <RouteStatusCard
-            active={!!zhStatus?.claude_found}
-            label="Claude Desktop"
-            value={zhStatus?.claude_found ? "已安装" : "未安装"}
-            detail={zhStatus?.claude_found ? undefined : "请先下载安装 Claude Desktop"}
-          />
           <RouteStatusCard
             active={ccswitchSwitchOn}
             label="CC Switch 路由开关"
@@ -875,6 +902,76 @@ function EnhancePage({
   );
 }
 
+function WelcomePage({
+  zhStatus,
+  welcomeStatus,
+}: {
+  zhStatus: ClaudeZhStatus | null;
+  welcomeStatus: WelcomeStatus | null;
+}) {
+  return (
+    <div className="welcomePage">
+      <section className="welcomeHero">
+        <div className="welcomeIntro">
+          <img className="welcomeLogo" src={botLogo} alt="Claude++" />
+          <div className="welcomeCopy">
+            <h2>Claude++</h2>
+            <p>本地 Claude Desktop 增强，并优化与 CC Switch 桥接的工具。</p>
+            <p>包含 CCS 转接、一键安装、一键汉化、页面增强、诊断日志等能力。</p>
+          </div>
+        </div>
+        <div className="welcomeQrGroup">
+          <QrCard
+            src={QQ_GROUP_QR_PATH}
+            alt="QQ交流群二维码"
+            text="欢迎加入QQ群：582589880，反馈问题\\交流体验\\提出建议。"
+          />
+          <QrCard
+            src={ALIPAY_QR_PATH}
+            alt="个人支付宝收款码"
+            text="如果 Claude++ 帮到了你，可以随手支持一下继续维护。"
+          />
+        </div>
+      </section>
+
+      <section className="welcomeStatusGrid" aria-label="环境状态检测">
+        <RouteStatusCard
+          active={!!zhStatus?.claude_found}
+          label="Claude Desktop"
+          value={zhStatus?.claude_found ? "已安装" : "未安装"}
+          detail={zhStatus?.claude_found ? undefined : "请先下载安装 Claude Desktop"}
+        />
+        <RouteStatusCard
+          active={!!welcomeStatus?.developer_mode_enabled}
+          label="开发者模式"
+          value={welcomeStatus?.developer_mode_enabled ? "已开启" : "未开启"}
+          detail={welcomeStatus?.developer_mode_enabled ? undefined : "请在 Claude Desktop 开启开发者模式"}
+        />
+        <RouteStatusCard
+          active={!!welcomeStatus?.cc_switch_installed}
+          label="CC Switch"
+          value={welcomeStatus?.cc_switch_installed ? "已安装" : "未安装"}
+          detail={welcomeStatus?.cc_switch_installed ? undefined : "未检测到 CC Switch 本地配置"}
+        />
+      </section>
+    </div>
+  );
+}
+
+function QrCard({ src, alt, text }: { src: string; alt: string; text: string }) {
+  return (
+    <div className="qrCard">
+      <img src={localImageSrc(src)} alt={alt} />
+      <p>{text}</p>
+    </div>
+  );
+}
+
+function localImageSrc(path: string) {
+  if (isTauriRuntime()) return convertFileSrc(path);
+  return `file:///${path.replace(/\\/g, "/")}`;
+}
+
 function EnhanceCard({
   feature,
   disabled,
@@ -942,11 +1039,8 @@ function AboutPage({
       <section className="panel aboutPanel">
         <div className="panelHead">
           <div>
-            <h2>Claude++</h2>
-            <p>本地 Claude Desktop 增强，并优化与 CC Switch 桥接的工具。</p>
-            <p>包含 CCS 转接、一键安装、一键汉化、页面增强、诊断日志等能力</p>
+            <h2>Github仓库</h2>
           </div>
-          <Info size={20} />
         </div>
 
         <div className="aboutInfoTable">
