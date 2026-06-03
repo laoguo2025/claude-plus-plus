@@ -7,15 +7,15 @@ use crate::constants::UPSTREAM_FALLBACK_URL;
 use crate::settings::ProxyRuntimeTuning;
 use crate::time_utils::now_ms;
 use axum::{
-    Router,
     body::Body,
     extract::{Path, Query, State},
     http::{
-        HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri,
         header::{CACHE_CONTROL, EXPIRES, PRAGMA},
+        HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri,
     },
     response::{IntoResponse, Response},
     routing::{any, get, post},
+    Router,
 };
 use bytes::Bytes;
 use futures_util::Stream;
@@ -80,7 +80,7 @@ impl AppState {
         }
     }
 
-    /// 上游网关地址,实时跟随 CC Switch(读 157210.json 的 inferenceGatewayBaseUrl)。
+    /// 上游网关地址,实时跟随 CC Switch(读配置条目 157210 的 inferenceGatewayBaseUrl)。
     fn upstream(&self) -> String {
         crate::server::read_ccswitch_base_url().unwrap_or_else(|| UPSTREAM_FALLBACK_URL.to_string())
     }
@@ -632,6 +632,7 @@ async fn handle_proxy(
         stream,
         state.token_usage.clone(),
         Instant::now(),
+        state.tuning.token_usage_max_pending_line,
     ));
     builder.body(body).unwrap_or_else(|_| {
         (StatusCode::INTERNAL_SERVER_ERROR, "build response failed").into_response()
@@ -642,6 +643,7 @@ fn track_token_usage_stream<S>(
     stream: S,
     store: Arc<RwLock<TokenUsageState>>,
     started_at: Instant,
+    max_pending_line: usize,
 ) -> impl Stream<Item = Result<Bytes, reqwest::Error>>
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>>,
@@ -652,7 +654,7 @@ where
     }
     TokenUsageTrackedStream {
         stream: Box::pin(stream),
-        tracker: TokenUsageStreamTracker::default(),
+        tracker: TokenUsageStreamTracker::with_max_pending_line(max_pending_line),
         store,
         started_at,
         published: false,
@@ -713,14 +715,31 @@ where
     }
 }
 
-#[derive(Default)]
 struct TokenUsageStreamTracker {
     pending_line: String,
     aggregate: TokenUsageSnapshot,
     found: bool,
+    max_pending_line: usize,
+}
+
+impl Default for TokenUsageStreamTracker {
+    fn default() -> Self {
+        Self::with_max_pending_line(
+            crate::settings::ProxyRuntimeTuning::default().token_usage_max_pending_line,
+        )
+    }
 }
 
 impl TokenUsageStreamTracker {
+    fn with_max_pending_line(max_pending_line: usize) -> Self {
+        Self {
+            pending_line: String::new(),
+            aggregate: TokenUsageSnapshot::default(),
+            found: false,
+            max_pending_line: max_pending_line.max(1),
+        }
+    }
+
     fn ingest_text(&mut self, text: &str) -> Option<TokenUsageSnapshot> {
         self.pending_line.push_str(text);
         while let Some(newline) = self.pending_line.find('\n') {
@@ -730,7 +749,7 @@ impl TokenUsageStreamTracker {
             self.pending_line.drain(..=newline);
             self.ingest_line(&line);
         }
-        let max_pending_line = crate::settings::proxy_runtime_tuning().token_usage_max_pending_line;
+        let max_pending_line = self.max_pending_line.max(1);
         if self.pending_line.len() > max_pending_line {
             let keep_from = self.pending_line.len() - max_pending_line;
             self.pending_line.drain(..keep_from);
@@ -770,7 +789,9 @@ impl TokenUsageStreamTracker {
 
 #[cfg(test)]
 fn extract_token_usage_from_text(text: &str) -> Option<TokenUsageSnapshot> {
-    let mut tracker = TokenUsageStreamTracker::default();
+    let mut tracker = TokenUsageStreamTracker::with_max_pending_line(
+        crate::settings::ProxyRuntimeTuning::default().token_usage_max_pending_line,
+    );
     tracker.ingest_text(text).or_else(|| tracker.finish())
 }
 
@@ -1363,9 +1384,18 @@ mod tests {
         assert_eq!(usage.total_tokens, 50);
     }
 
+    #[test]
+    fn token_usage_tracker_uses_configured_pending_line_limit() {
+        let mut tracker = TokenUsageStreamTracker::with_max_pending_line(8);
+
+        assert!(tracker.ingest_text("data: {\"usage\":{\"input_").is_none());
+
+        assert_eq!(tracker.pending_line, "{\"input_");
+    }
+
     #[tokio::test]
     async fn token_usage_stream_publishes_only_after_stream_end() {
-        use futures_util::{StreamExt, stream};
+        use futures_util::{stream, StreamExt};
 
         let store = Arc::new(RwLock::new(TokenUsageState {
             usage: Some(TokenUsageSnapshot {
@@ -1382,6 +1412,7 @@ mod tests {
             stream::iter(chunks),
             store.clone(),
             Instant::now(),
+            crate::settings::ProxyRuntimeTuning::default().token_usage_max_pending_line,
         ));
 
         assert_eq!(
@@ -1421,7 +1452,7 @@ mod tests {
 
     #[tokio::test]
     async fn token_usage_stream_without_usage_keeps_previous_snapshot() {
-        use futures_util::{StreamExt, stream};
+        use futures_util::{stream, StreamExt};
 
         let previous = TokenUsageSnapshot {
             id: 7,
@@ -1440,6 +1471,7 @@ mod tests {
             stream::iter(chunks),
             store.clone(),
             Instant::now(),
+            crate::settings::ProxyRuntimeTuning::default().token_usage_max_pending_line,
         ));
 
         assert_eq!(

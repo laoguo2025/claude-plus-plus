@@ -44,6 +44,10 @@ function loadInitialTheme(): Theme {
   return window.localStorage.getItem("claude-plus-theme") === "dark" ? "dark" : "light";
 }
 
+function shouldPollRouteState(welcomeStatus: WelcomeStatus | null): boolean {
+  return welcomeStatus?.cc_switch_installed === true;
+}
+
 function App() {
   const [route, setRoute] = useState<Route>("welcome");
   const [theme, setTheme] = useState<Theme>(() => loadInitialTheme());
@@ -61,6 +65,7 @@ function App() {
   const [welcomeStatus, setWelcomeStatus] = useState<WelcomeStatus | null>(null);
   const [appVersion, setAppVersion] = useState(PREVIEW_APP_VERSION);
   const lastMappingFingerprint = useRef<string | null>(null);
+  const routeStatePollingEnabled = shouldPollRouteState(welcomeStatus);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -131,9 +136,13 @@ function App() {
     refreshWelcomeStatus();
     refreshRouteState();
     refreshEnhanceStatus();
+  }, [detectClaudeDesktopOnce, refreshEnhanceStatus, refreshRouteState, refreshWelcomeStatus]);
+
+  useEffect(() => {
+    if (!routeStatePollingEnabled) return;
     const t = setInterval(refreshRouteState, 4000);
     return () => clearInterval(t);
-  }, [detectClaudeDesktopOnce, refreshEnhanceStatus, refreshRouteState, refreshWelcomeStatus]);
+  }, [refreshRouteState, routeStatePollingEnabled]);
 
   const runBusy = useCallback(async (action: () => Promise<void>) => {
     setBusy(true);

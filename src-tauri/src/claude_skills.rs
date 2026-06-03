@@ -2,7 +2,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    env, fs,
+    fs,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::UNIX_EPOCH,
@@ -247,10 +247,10 @@ fn project_paths() -> Vec<PathBuf> {
 }
 
 fn projects_from_claude_json() -> Vec<PathBuf> {
-    let Some(profile) = env::var_os("USERPROFILE").map(PathBuf::from) else {
+    let Some(path) = crate::paths::home_dir().map(|home| claude_config_path_from_home(&home))
+    else {
         return Vec::new();
     };
-    let path = profile.join(".claude.json");
     let Ok(text) = fs::read_to_string(path) else {
         return Vec::new();
     };
@@ -337,7 +337,15 @@ fn decode_project_cache_name(name: &str) -> Option<PathBuf> {
 }
 
 fn claude_home() -> Option<PathBuf> {
-    env::var_os("USERPROFILE").map(|profile| PathBuf::from(profile).join(".claude"))
+    crate::paths::home_dir().map(|home| claude_home_from_home(&home))
+}
+
+fn claude_config_path_from_home(home: &Path) -> PathBuf {
+    home.join(".claude.json")
+}
+
+fn claude_home_from_home(home: &Path) -> PathBuf {
+    home.join(".claude")
 }
 
 fn canonical_or_self(path: PathBuf) -> PathBuf {
@@ -447,6 +455,26 @@ mod tests {
         assert_eq!(
             summarize_zh("demo", ""),
             "该技能用于处理「demo」相关工作流。"
+        );
+    }
+
+    #[test]
+    fn claude_config_path_uses_home_path() {
+        let home = PathBuf::from(r"C:\Users\Ada");
+
+        assert_eq!(
+            claude_config_path_from_home(&home),
+            PathBuf::from(r"C:\Users\Ada\.claude.json")
+        );
+    }
+
+    #[test]
+    fn claude_home_path_uses_home_path() {
+        let home = PathBuf::from(r"C:\Users\Ada");
+
+        assert_eq!(
+            claude_home_from_home(&home),
+            PathBuf::from(r"C:\Users\Ada\.claude")
         );
     }
 

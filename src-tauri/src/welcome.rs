@@ -1,6 +1,6 @@
 #[cfg(target_os = "windows")]
 mod imp {
-    use crate::{claude_patch_common as patch, server};
+    use crate::{claude_patch_common as patch, paths, server};
     use serde::Serialize;
     use serde_json::{Map, Value};
     use std::{
@@ -67,10 +67,14 @@ mod imp {
 
     fn detect_cc_switch_installed() -> bool {
         let db_path = server::default_db_path();
-        let state_dir_exists = env::var_os("USERPROFILE")
-            .map(|home| Path::new(&home).join(".cc-switch").is_dir())
+        let state_dir_exists = paths::home_dir()
+            .map(|home| cc_switch_state_dir_from_home(&home).is_dir())
             .unwrap_or(false);
         is_cc_switch_install_marker(db_path.is_file(), state_dir_exists)
+    }
+
+    fn cc_switch_state_dir_from_home(home: &Path) -> PathBuf {
+        home.join(".cc-switch")
     }
 
     fn is_cc_switch_install_marker(db_file_exists: bool, state_dir_exists: bool) -> bool {
@@ -179,8 +183,8 @@ mod imp {
     #[cfg(test)]
     mod tests {
         use super::{
-            developer_mode_from_json, enable_developer_mode_at_path, is_cc_switch_install_marker,
-            WINDOWS_CLAUDE_CODE_INSTALL_COMMAND,
+            cc_switch_state_dir_from_home, developer_mode_from_json, enable_developer_mode_at_path,
+            is_cc_switch_install_marker, WINDOWS_CLAUDE_CODE_INSTALL_COMMAND,
         };
         use serde_json::Value;
         use std::{
@@ -213,6 +217,16 @@ mod imp {
             assert!(is_cc_switch_install_marker(true, false));
             assert!(is_cc_switch_install_marker(false, true));
             assert!(!is_cc_switch_install_marker(false, false));
+        }
+
+        #[test]
+        fn cc_switch_state_dir_uses_home_path() {
+            let home = PathBuf::from(r"C:\Users\Ada");
+
+            assert_eq!(
+                cc_switch_state_dir_from_home(&home),
+                PathBuf::from(r"C:\Users\Ada\.cc-switch")
+            );
         }
 
         #[test]
