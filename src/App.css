@@ -371,7 +371,7 @@ select {
 
 .routePanel {
   display: grid;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto auto auto;
 }
 
 .routePanelHead {
@@ -403,7 +403,7 @@ select {
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--bg-100);
-  min-height: 74px;
+  min-height: 104px;
   padding: 13px 14px;
   text-align: center;
 }
@@ -440,10 +440,19 @@ select {
 
 .routeStatusCard small {
   display: block;
-  margin-top: 8px;
-  color: var(--warning);
-  font-size: 13px;
+  max-width: 100%;
+  overflow: hidden;
+  margin-top: 6px;
+  color: var(--text-400);
+  font-size: 11px;
   line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.routeCardButton {
+  min-height: 28px;
+  margin-top: 8px;
 }
 
 .providerStrip small {
@@ -472,67 +481,26 @@ select {
   background: var(--text-400);
 }
 
-.routeActionCard {
-  position: relative;
-  display: grid;
-  gap: 8px;
-  align-content: center;
-  justify-items: center;
-  width: 100%;
+.routeRestartNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--warning-border);
+  border-radius: 8px;
+  background: var(--warning-bg);
+  padding: 10px 12px;
+}
+
+.routeRestartNotice span {
   min-width: 0;
-  min-height: 74px;
-  padding: 10px;
-  text-align: center;
-}
-
-.routeActionCard.on {
-  border-color: var(--success-border);
-  background: var(--brand-soft);
-  color: var(--text-000);
-}
-
-.routeActionCard.off {
-  border-color: var(--border-soft);
-  background: var(--bg-100);
-  color: var(--text-000);
-}
-
-.routeActionCard.neutral {
-  background: var(--bg-000);
-}
-
-.routeActionCard span,
-.routeActionCard strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.stepBadge {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  display: grid !important;
-  width: 20px;
-  height: 20px;
-  place-items: center;
-  border: 1px solid var(--border-soft);
-  border-radius: 6px;
-  background: var(--bg-000);
   color: var(--text-200);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
-  text-align: center;
-  text-overflow: clip;
-  white-space: normal;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
-.routeActionCard strong {
-  color: inherit;
-  font-size: 13px;
-  font-weight: 600;
+.routeRestartNotice button {
+  flex: 0 0 auto;
 }
 
 .errorBanner {

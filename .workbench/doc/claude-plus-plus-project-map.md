@@ -5,6 +5,7 @@
 
 ## Stable Boundaries
 - Read-only source of model routes: `%USERPROFILE%\.cc-switch\cc-switch.db`, table `providers`, current row `app_type='claude-desktop' AND is_current=1`.
+- CC Switch route switch status is read from CC Switch local settings, not inferred from model mappings. Do not hardcode or display a fixed upstream route address in the status UI; users may configure different upstream addresses.
 - Claude Desktop integration writes a separate `Claude++` configLibrary entry and must not edit CC Switch's `00000000-0000-4000-8000-000000157210` entry.
 - The `Claude++` configLibrary entry must omit `inferenceModels` so Claude Desktop uses `/v1/models` discovery.
 - The proxy must stay running while Claude Desktop is configured to use `Claude++`; otherwise Claude Desktop cannot load model discovery.

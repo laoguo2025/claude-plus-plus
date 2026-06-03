@@ -40,6 +40,12 @@ interface StatusInfo {
   running: boolean;
   port: number | null;
   cd_applied: boolean;
+  ccswitch_route: CcSwitchRouteStatus;
+}
+interface CcSwitchRouteStatus {
+  enabled: boolean;
+  configured: boolean | null;
+  has_mappings: boolean;
 }
 interface ClaudeZhStatus {
   supported: boolean;
@@ -87,7 +93,16 @@ type CommandArgs = Record<string, unknown>;
 
 const PREVIEW_APP_VERSION = __APP_VERSION__;
 const PREVIEW_PROXY_PORT = 15722;
-const PREVIEW_STATUS: StatusInfo = { running: true, port: PREVIEW_PROXY_PORT, cd_applied: true };
+const PREVIEW_STATUS: StatusInfo = {
+  running: true,
+  port: PREVIEW_PROXY_PORT,
+  cd_applied: true,
+  ccswitch_route: {
+    enabled: true,
+    configured: true,
+    has_mappings: true,
+  },
+};
 const PREVIEW_ZH_STATUS: ClaudeZhStatus = {
   supported: true,
   claude_found: true,
@@ -231,7 +246,7 @@ function App() {
     window.localStorage.setItem("claude-plus-theme", theme);
   }, [theme]);
 
-  const refresh = useCallback(async () => {
+  const refreshRouteState = useCallback(async () => {
     setErr("");
     try {
       setAppVersion(await callCommand<string>("app_version"));
@@ -262,12 +277,18 @@ function App() {
       setPm(null);
       setMappingError(String(e));
     }
+  }, []);
+
+  const detectClaudeDesktopOnce = useCallback(async () => {
     try {
       setZhStatus(await callCommand<ClaudeZhStatus>("claude_zh_status"));
     } catch (e) {
       setErr(String(e));
       setZhStatus(null);
     }
+  }, []);
+
+  const refreshEnhanceStatus = useCallback(async () => {
     try {
       setEnhanceStatus(await callCommand<ClaudeEnhanceStatus>("claude_enhance_status"));
     } catch (e) {
@@ -277,17 +298,19 @@ function App() {
   }, []);
 
   useEffect(() => {
-    refresh();
-    const t = setInterval(refresh, 4000);
+    detectClaudeDesktopOnce();
+    refreshRouteState();
+    refreshEnhanceStatus();
+    const t = setInterval(refreshRouteState, 4000);
     return () => clearInterval(t);
-  }, [refresh]);
+  }, [detectClaudeDesktopOnce, refreshEnhanceStatus, refreshRouteState]);
 
   const run = async (cmd: string) => {
     setBusy(true);
     setErr("");
     try {
       await callCommand(cmd);
-      await refresh();
+      await refreshRouteState();
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -301,7 +324,7 @@ function App() {
     try {
       await callCommand("restart_claude_desktop");
       setRestartNeeded(false);
-      await refresh();
+      await refreshRouteState();
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -321,7 +344,8 @@ function App() {
         language: "zh-CN",
         skipAsarPatch: zhScope === "safe",
       });
-      await refresh();
+      await detectClaudeDesktopOnce();
+      await refreshRouteState();
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -334,7 +358,7 @@ function App() {
     setErr("");
     try {
       await callCommand("backup_claude_zh");
-      await refresh();
+      await detectClaudeDesktopOnce();
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -347,7 +371,7 @@ function App() {
     setErr("");
     try {
       await callCommand("uninstall_claude_zh");
-      await refresh();
+      await detectClaudeDesktopOnce();
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -360,7 +384,7 @@ function App() {
     setErr("");
     try {
       await callCommand("install_claude_enhance", { feature });
-      await refresh();
+      await refreshEnhanceStatus();
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -373,7 +397,7 @@ function App() {
     setErr("");
     try {
       await callCommand("uninstall_claude_enhance", { feature });
-      await refresh();
+      await refreshEnhanceStatus();
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -469,7 +493,7 @@ function App() {
               <Power size={16} />
               <span>重启 Claude Desktop</span>
             </button>
-            <button className="iconButton square" disabled={busy} onClick={refresh} title="刷新本页" aria-label="刷新本页">
+            <button className="iconButton square" disabled={busy} onClick={refreshRouteState} title="刷新本页" aria-label="刷新本页">
               <RefreshCw size={16} />
             </button>
           </div>
@@ -485,6 +509,7 @@ function App() {
               pm={pm}
               mappingError={mappingError}
               zhStatus={zhStatus}
+              restartNeeded={restartNeeded}
               run={run}
               restartClaudeDesktop={restartClaudeDesktop}
             />
@@ -539,6 +564,7 @@ function OverviewPage({
   pm,
   mappingError,
   zhStatus,
+  restartNeeded,
   run,
   restartClaudeDesktop,
 }: {
@@ -547,9 +573,16 @@ function OverviewPage({
   pm: ProviderMappings | null;
   mappingError: string;
   zhStatus: ClaudeZhStatus | null;
+  restartNeeded: boolean;
   run: (cmd: string) => Promise<void>;
   restartClaudeDesktop: () => Promise<void>;
 }) {
+  const ccswitchRoute = status?.ccswitch_route;
+  const routeSummary = status?.cd_applied
+    ? "Claude Desktop 当前接入 Claude++ 本地代理"
+    : "Claude Desktop 当前未接入 Claude++";
+  const providerConfigured = !!pm;
+
   return (
     <div className="pageGrid overviewPage">
       <div className="mechanismNote">
@@ -567,35 +600,50 @@ function OverviewPage({
       <section className="panel routePanel">
         <div className="panelHead routePanelHead">
           <div>
-            <h2>路由转接步骤</h2>
+            <h2>路由转接状态</h2>
           </div>
-          <span className="routeHint">CC Switch 增/改/删模型或切换服务商时，需重启 Claude Desktop</span>
+          <span className="routeHint">{routeSummary}</span>
         </div>
         <div className="routeCardBody">
           <RouteStatusCard
             active={!!zhStatus?.claude_found}
             label="Claude Desktop"
-            step={1}
             value={zhStatus?.claude_found ? "已安装" : "未安装"}
+            detail={zhStatus?.claude_found ? undefined : "请先下载安装 Claude Desktop"}
           />
-          <RouteStatusCard active={!!pm} label="CC Switch 路由" step={2} value={pm ? "已开启" : "已断开"} />
-          <RouteActionCard
-            state={status?.cd_applied ? "on" : "off"}
-            disabled={busy}
-            label="Claude++ 路由"
-            step={3}
-            value={status?.cd_applied ? "开启" : "断开"}
-            onClick={() => run("use_claude_plus_route")}
+          <RouteStatusCard
+            active={!!ccswitchRoute?.enabled}
+            label="CC Switch 路由开关"
+            value={ccswitchRoute?.enabled ? "已开启" : "未开启"}
+            detail={ccswitchRoute?.enabled ? undefined : "请在 CC Switch 中开启路由开关"}
           />
-          <RouteActionCard
-            state="neutral"
-            disabled={busy}
-            label="Claude Desktop"
-            step={4}
-            value="重启"
-            onClick={restartClaudeDesktop}
+          <RouteStatusCard
+            active={!!status?.cd_applied}
+            label="Claude++ 接管"
+            value={status?.cd_applied ? "已接管" : "未接管"}
+            detail={status?.cd_applied ? undefined : "点击接管后 Claude Desktop 才会走 Claude++"}
+            action={{
+              label: status?.cd_applied ? "断开接管" : "接管",
+              onClick: () => run(status?.cd_applied ? "use_ccs_route" : "use_claude_plus_route"),
+              disabled: busy,
+              primary: !status?.cd_applied,
+            }}
+          />
+          <RouteStatusCard
+            active={providerConfigured}
+            label="模型服务商配置"
+            value={providerConfigured ? "已配置" : "未配置"}
+            detail={providerConfigured ? pm.provider_name : mappingError || "请在 CC Switch 中配置模型服务商"}
           />
         </div>
+        {restartNeeded && (
+          <div className="routeRestartNotice">
+            <span>模型映射或路由配置已变化,需要重启 Claude Desktop 后菜单才会刷新。</span>
+            <button disabled={busy} onClick={restartClaudeDesktop}>
+              重启 Claude Desktop
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="panel mappingPanel">
@@ -983,47 +1031,39 @@ function splitLogLines(text: string) {
 function RouteStatusCard({
   active,
   label,
-  step,
   value,
+  detail,
+  action,
 }: {
   active: boolean;
   label: string;
-  step: number;
   value: string;
+  detail?: string;
+  action?: {
+    label: string;
+    onClick: () => void;
+    disabled: boolean;
+    primary?: boolean;
+  };
 }) {
   return (
     <div className={`routeStatusCard ${active ? "active" : "inactive"}`}>
-      <span className="stepBadge">{step}</span>
       <span className={`dot ${active ? "on" : "off"}`} />
       <div>
         <span>{label}</span>
         <strong>{value}</strong>
+        {detail && <small>{detail}</small>}
+        {action && (
+          <button
+            className={action.primary ? "primary routeCardButton" : "routeCardButton"}
+            disabled={action.disabled}
+            onClick={action.onClick}
+          >
+            {action.label}
+          </button>
+        )}
       </div>
     </div>
-  );
-}
-
-function RouteActionCard({
-  state,
-  disabled,
-  label,
-  step,
-  value,
-  onClick,
-}: {
-  state: "on" | "off" | "neutral";
-  disabled: boolean;
-  label: string;
-  step: number;
-  value?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button className={`routeActionCard ${state}`} disabled={disabled} onClick={onClick}>
-      <span className="stepBadge">{step}</span>
-      <span>{label}</span>
-      {value && <strong>{value}</strong>}
-    </button>
   );
 }
 

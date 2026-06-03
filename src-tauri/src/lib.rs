@@ -26,6 +26,14 @@ struct StatusInfo {
     running: bool,
     port: Option<u16>,
     cd_applied: bool,
+    ccswitch_route: CcSwitchRouteStatus,
+}
+
+#[derive(serde::Serialize)]
+struct CcSwitchRouteStatus {
+    enabled: bool,
+    configured: Option<bool>,
+    has_mappings: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -42,6 +50,18 @@ fn proxy_status(state: tauri::State<ServerHandle>) -> StatusInfo {
         running: state.is_healthy_on(port),
         port: Some(port),
         cd_applied: cd_config::is_applied(),
+        ccswitch_route: ccswitch_route_status(),
+    }
+}
+
+fn ccswitch_route_status() -> CcSwitchRouteStatus {
+    let configured = server::read_ccswitch_local_proxy_enabled();
+    let has_mappings = ccswitch_db::load_mappings(&server::default_db_path()).is_ok();
+
+    CcSwitchRouteStatus {
+        enabled: configured.unwrap_or(false),
+        configured,
+        has_mappings,
     }
 }
 
@@ -223,6 +243,7 @@ fn generate_diagnostics(
             "running": status.running,
             "port": status.port,
             "cd_applied": status.cd_applied,
+            "ccswitch_route": status.ccswitch_route,
             "restart_needed": request.and_then(|r| r.restart_needed).unwrap_or(false)
         }),
         mappings,
