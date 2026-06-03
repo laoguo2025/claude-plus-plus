@@ -1075,7 +1075,8 @@ D();
         fn feature_definitions_include_versions() {
             let list = super::feature_list(&[]);
 
-            assert_eq!(list.len(), 7);
+            assert_eq!(list.len(), 6);
+            assert!(!list.iter().any(|feature| feature.id == "token_usage"));
             for feature in list {
                 assert_eq!(feature.version, "v0.1");
             }
