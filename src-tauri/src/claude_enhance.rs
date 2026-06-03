@@ -217,7 +217,7 @@ function cpuAggregateTurn(){const e=cpuEnsureTurn(),t=e.calls.reduce((e,t)=>({id
 function cpuRememberUsage(e,t){const n=cpuEnsureTurn();n.calls.push({...e,id:++cpu.seq,elapsed:t||e.elapsed,updatedAt:Date.now()});n.elapsed=Math.max(n.elapsed||0,t||0);const r=cpuAggregateTurn();cpu.lastId=r.id;cpu.last=r;cpu.pending=!1;cpu.recent.unshift(r);cpu.recent=cpu.recent.slice(0,20);window.__claudePlusTokenUsage={last:r,currentTurn:{id:n.id,callCount:n.calls.length,startedAt:n.startedAt},recent:cpu.recent,debug:cpu.debug};cpuRender();return!0}
 function cpuRemember(e,t){const n=cpuExtractUsages(e);if(!n.length)return!1;n.forEach(e=>cpuRememberUsage(e,t));return!0}
 function cpuPayload(e,t,n){try{return cpuRemember(e,t)}catch(r){cpu.debug.unshift({at:new Date().toISOString(),source:n||"",error:String(r?.message||r)});cpu.debug=cpu.debug.slice(0,30);return!1}}
-function cpuApiUrl(e){return/\/(responses|chat\/completions|conversation|thread|api|claude-desktop)\b|codex|claude/i.test(String(e||""))}
+function cpuApiUrl(e){const t=String(e||"");return!/\/claude-plus\/token-usage\b/i.test(t)&&(/\/(responses|chat\/completions|conversation|thread|api|claude-desktop)\b|codex|claude/i.test(t))}
 function cpuReqUrl(e){return typeof e==="string"?e:e?.url?e.url:String(e||"")}
 function cpuInstallFetchObserver(){if(typeof window.fetch!=="function"||window.fetch.__claudePlusTokenUsageWrapped)return;const e=window.fetch.__claudePlusTokenUsageOriginal||window.fetch,n=e.bind(window);window.fetch=function(e,r){const a=cpuReqUrl(e),s=performance.now();cpuApiUrl(a)&&(cpu.pending=!0);return n(e,r).then(response=>(cpuApiUrl(a)&&response?.clone&&response.clone().text().then(e=>cpuPayload(e,performance.now()-s,a)).catch(()=>{}),response))};window.fetch.__claudePlusTokenUsageOriginal=e;window.fetch.__claudePlusTokenUsageWrapped=!0}
 function cpuInstallXhrObserver(){const e=window.XMLHttpRequest;if(!e||e.prototype.__claudePlusTokenUsageWrapped)return;const t=e.prototype.open,n=e.prototype.send;e.prototype.open=function(e,n,...r){this.__claudePlusTokenUsageUrl=n;return t.call(this,e,n,...r)};XMLHttpRequest.prototype.send=function(...e){const t=performance.now(),r=this.__claudePlusTokenUsageUrl;cpuApiUrl(r)&&(cpu.pending=!0);this.addEventListener?.("loadend",()=>{if(!cpuApiUrl(r))return;try{cpuPayload(this.responseText||"",performance.now()-t,r)}catch(e){}});return n.apply(this,e)};e.prototype.__claudePlusTokenUsageWrapped=!0}
@@ -245,7 +245,7 @@ window.addEventListener("resize",()=>{Y()},{passive:!0});
 D();
 })();"####;
 
-    #[derive(Clone, Copy, PartialEq, Eq)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     enum EnhanceFeatureId {
         ThirdPartyApi,
         Plugins,
@@ -281,6 +281,18 @@ D();
                 Self::TokenUsage => TOKEN_USAGE_MARKER,
             }
         }
+
+        fn id(self) -> &'static str {
+            match self {
+                Self::ThirdPartyApi => "third_party_api",
+                Self::Plugins => "plugins",
+                Self::Mcp => "mcp",
+                Self::ConversationTitleI18n => "conversation_title_i18n",
+                Self::Markdown => "markdown",
+                Self::Timeline => "timeline",
+                Self::TokenUsage => "token_usage",
+            }
+        }
     }
 
     #[derive(Serialize)]
@@ -299,10 +311,25 @@ D();
         pub id: String,
         pub category: String,
         pub label: String,
+        pub version: String,
         pub description: String,
         pub enabled: bool,
         pub available: bool,
         pub note: String,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    struct FeatureState {
+        feature: EnhanceFeatureId,
+        enabled: bool,
+        installed_version: Option<String>,
+        current_version: String,
+    }
+
+    impl FeatureState {
+        fn needs_upgrade(&self) -> bool {
+            self.enabled && self.installed_version.as_deref() != Some(self.current_version.as_str())
+        }
     }
 
     #[derive(Deserialize)]
@@ -310,6 +337,7 @@ D();
         id: String,
         category: String,
         label: String,
+        version: String,
         description: String,
         available: bool,
         note: String,
@@ -320,9 +348,12 @@ D();
         let resources_path = paths.as_ref().map(|p| p.resources.clone());
         let enabled = resources_path
             .as_ref()
-            .map(|path| feature_states(path))
+            .map(|path| {
+                migrate_feature_versions(path);
+                feature_states(path)
+            })
             .unwrap_or_default();
-        let installed = enabled.iter().any(|(_, is_enabled)| *is_enabled);
+        let installed = enabled.iter().any(|state| state.enabled);
 
         ClaudeEnhanceStatus {
             supported: true,
@@ -379,7 +410,7 @@ D();
         Ok(())
     }
 
-    fn feature_list(enabled: &[(EnhanceFeatureId, bool)]) -> Vec<EnhanceFeature> {
+    fn feature_list(enabled: &[FeatureState]) -> Vec<EnhanceFeature> {
         feature_definitions()
             .into_iter()
             .filter_map(|definition| {
@@ -388,6 +419,7 @@ D();
                     id: definition.id,
                     category: definition.category,
                     label: definition.label,
+                    version: definition.version,
                     description: definition.description,
                     enabled: is_enabled(enabled, feature),
                     available: definition.available,
@@ -402,32 +434,38 @@ D();
             .expect("embedded enhance feature definitions should be valid")
     }
 
-    fn is_enabled(enabled: &[(EnhanceFeatureId, bool)], feature: EnhanceFeatureId) -> bool {
+    fn is_enabled(enabled: &[FeatureState], feature: EnhanceFeatureId) -> bool {
         enabled
             .iter()
-            .find_map(|(candidate, value)| (*candidate == feature).then_some(*value))
+            .find_map(|state| (state.feature == feature).then_some(state.enabled))
             .unwrap_or(false)
     }
 
-    fn feature_states(resources_path: &Path) -> Vec<(EnhanceFeatureId, bool)> {
+    fn feature_states(resources_path: &Path) -> Vec<FeatureState> {
         let text = read_index_bundle(resources_path).unwrap_or_default();
         let mut states = feature_states_from_text(&text);
-        if let Some((_, enabled)) = states
+        if let Some(state) = states
             .iter_mut()
-            .find(|(feature, _)| *feature == EnhanceFeatureId::Plugins)
+            .find(|state| state.feature == EnhanceFeatureId::Plugins)
         {
-            *enabled = *enabled && skills_bridge_installed(resources_path);
+            state.enabled = state.enabled && skills_bridge_installed(resources_path);
         }
-        if let Some((_, enabled)) = states
+        if let Some(state) = states
             .iter_mut()
-            .find(|(feature, _)| *feature == EnhanceFeatureId::TokenUsage)
+            .find(|state| state.feature == EnhanceFeatureId::ConversationTitleI18n)
         {
-            *enabled = *enabled && token_usage_bridge_installed(resources_path);
+            state.enabled = state.enabled && title_i18n_bridge_installed(resources_path);
+        }
+        if let Some(state) = states
+            .iter_mut()
+            .find(|state| state.feature == EnhanceFeatureId::TokenUsage)
+        {
+            state.enabled = state.enabled && token_usage_bridge_installed(resources_path);
         }
         states
     }
 
-    fn feature_states_from_text(text: &str) -> Vec<(EnhanceFeatureId, bool)> {
+    fn feature_states_from_text(text: &str) -> Vec<FeatureState> {
         [
             EnhanceFeatureId::ThirdPartyApi,
             EnhanceFeatureId::Plugins,
@@ -438,8 +476,61 @@ D();
             EnhanceFeatureId::TokenUsage,
         ]
         .into_iter()
-        .map(|feature| (feature, text.contains(&feature_payload(feature.marker()))))
+        .map(|feature| {
+            let current_version = feature_version(feature);
+            let installed_version = feature_payload_version(text, feature.marker());
+            let enabled = installed_version.is_some()
+                || text.contains(&legacy_feature_payload(feature.marker()));
+            FeatureState {
+                feature,
+                enabled,
+                installed_version,
+                current_version,
+            }
+        })
         .collect()
+    }
+
+    fn migrate_feature_versions(resources_path: &Path) {
+        if let Err(e) = migrate_feature_versions_inner(resources_path) {
+            tracing::warn!("Claude Desktop enhance migration skipped: {e}");
+        }
+    }
+
+    fn migrate_feature_versions_inner(resources_path: &Path) -> Result<(), String> {
+        let states = feature_states(resources_path);
+        let needs_upgrade: Vec<_> = states
+            .into_iter()
+            .filter(FeatureState::needs_upgrade)
+            .map(|state| state.feature)
+            .collect();
+        if needs_upgrade.is_empty() {
+            return Ok(());
+        }
+
+        claude_desktop::stop_claude_processes()?;
+        patch::enable_write_access(resources_path, false);
+        apply_feature_version_upgrades(resources_path, &needs_upgrade)
+    }
+
+    fn apply_feature_version_upgrades(
+        resources_path: &Path,
+        needs_upgrade: &[EnhanceFeatureId],
+    ) -> Result<(), String> {
+        let mut backup = patch::BackupContext::new(resources_path, BACKUP_DIR_NAME);
+        for feature in needs_upgrade {
+            update_feature_marker(resources_path, &mut backup, *feature, true)?;
+            if matches!(feature, EnhanceFeatureId::Plugins) {
+                update_skills_bridge(resources_path, &mut backup, true)?;
+            }
+            if matches!(feature, EnhanceFeatureId::ConversationTitleI18n) {
+                update_title_i18n_bridge(resources_path, &mut backup, true)?;
+            }
+            if matches!(feature, EnhanceFeatureId::TokenUsage) {
+                update_token_usage_bridge(resources_path, &mut backup, true)?;
+            }
+        }
+        Ok(())
     }
 
     fn update_feature_marker(
@@ -491,18 +582,66 @@ D();
     }
 
     fn set_marker(mut text: String, marker: &str, enabled: bool) -> String {
-        let payload = feature_payload(marker);
+        text = remove_feature_payloads(&text, marker);
         if enabled {
-            if !text.contains(marker) {
-                text.push_str(&payload);
-            }
-            return text;
+            text.push_str(&feature_payload(marker));
         }
-        text.replace(&payload, "")
+        text
     }
 
     fn feature_payload(marker: &str) -> String {
+        format!(
+            r#";window.{marker}={{version:"{}"}};"#,
+            feature_version_by_marker(marker)
+        )
+    }
+
+    fn legacy_feature_payload(marker: &str) -> String {
         format!(";window.{marker}=true;")
+    }
+
+    fn remove_feature_payloads(text: &str, marker: &str) -> String {
+        let prefix = format!(";window.{marker}=");
+        let mut next = text.to_string();
+        while let Some(start) = next.find(&prefix) {
+            let Some(relative_end) = next[start + prefix.len()..].find(';') else {
+                break;
+            };
+            let end = start + prefix.len() + relative_end + 1;
+            next.replace_range(start..end, "");
+        }
+        next
+    }
+
+    fn feature_payload_version(text: &str, marker: &str) -> Option<String> {
+        let prefix = format!(";window.{marker}={{version:\"");
+        let start = text.find(&prefix)? + prefix.len();
+        let end = text[start..].find('"')?;
+        Some(text[start..start + end].to_string())
+    }
+
+    fn feature_version_by_marker(marker: &str) -> String {
+        [
+            EnhanceFeatureId::ThirdPartyApi,
+            EnhanceFeatureId::Plugins,
+            EnhanceFeatureId::Mcp,
+            EnhanceFeatureId::ConversationTitleI18n,
+            EnhanceFeatureId::Markdown,
+            EnhanceFeatureId::Timeline,
+            EnhanceFeatureId::TokenUsage,
+        ]
+        .into_iter()
+        .find(|feature| feature.marker() == marker)
+        .map(feature_version)
+        .unwrap_or_else(|| "v0.1".to_string())
+    }
+
+    fn feature_version(feature: EnhanceFeatureId) -> String {
+        let id = feature.id();
+        feature_definitions()
+            .into_iter()
+            .find_map(|definition| (definition.id == id).then_some(definition.version))
+            .unwrap_or_else(|| "v0.1".to_string())
     }
 
     fn update_skills_bridge(
@@ -683,6 +822,20 @@ D();
         preload_installed && main_installed
     }
 
+    fn title_i18n_bridge_installed(resources_path: &Path) -> bool {
+        let preload_installed = read_asar_file(resources_path, SKILLS_PRELOAD_BRIDGE_TARGET)
+            .ok()
+            .and_then(|content| String::from_utf8(content).ok())
+            .map(|text| text.contains(TITLE_I18N_BRIDGE_MARKER))
+            .unwrap_or(false);
+        let main_installed = read_asar_file(resources_path, SKILLS_MAIN_BRIDGE_TARGET)
+            .ok()
+            .and_then(|content| String::from_utf8(content).ok())
+            .map(|text| text.contains(TITLE_I18N_MAIN_BRIDGE_MARKER))
+            .unwrap_or(false);
+        preload_installed && main_installed
+    }
+
     fn token_usage_bridge_installed(resources_path: &Path) -> bool {
         let preload_installed = read_asar_file(resources_path, SKILLS_PRELOAD_BRIDGE_TARGET)
             .ok()
@@ -699,7 +852,12 @@ D();
 
     #[cfg(test)]
     mod tests {
-        use std::sync::LazyLock;
+        use std::{
+            fs,
+            path::PathBuf,
+            sync::LazyLock,
+            time::{SystemTime, UNIX_EPOCH},
+        };
 
         use super::{
             feature_payload, feature_states_from_text, remove_skills_bridge, EnhanceFeatureId,
@@ -711,11 +869,33 @@ D();
 
         static INJECT_SCRIPT: LazyLock<String> = LazyLock::new(super::inject_script);
 
-        fn state(states: &[(EnhanceFeatureId, bool)], feature: EnhanceFeatureId) -> bool {
+        fn temp_resources(name: &str) -> PathBuf {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let root = std::env::temp_dir().join(format!("claude-plus-{name}-{unique}"));
+            let assets = root.join("ion-dist").join("assets").join("v1");
+            fs::create_dir_all(&assets).unwrap();
+            root
+        }
+
+        fn state(states: &[super::FeatureState], feature: EnhanceFeatureId) -> bool {
             states
                 .iter()
-                .find_map(|(candidate, enabled)| (*candidate == feature).then_some(*enabled))
+                .find_map(|state| (state.feature == feature).then_some(state.enabled))
                 .unwrap_or(false)
+        }
+
+        fn feature_state(
+            states: &[super::FeatureState],
+            feature: EnhanceFeatureId,
+        ) -> super::FeatureState {
+            states
+                .iter()
+                .find(|state| state.feature == feature)
+                .expect("feature state")
+                .clone()
         }
 
         #[test]
@@ -747,6 +927,114 @@ D();
             assert!(!state(&states, EnhanceFeatureId::TokenUsage));
             assert!(!text.contains(&feature_payload(NAV_PLUGINS_MARKER)));
             assert!(!text.contains(&feature_payload(CONVERSATION_TITLE_I18N_MARKER)));
+        }
+
+        #[test]
+        fn feature_definitions_include_versions() {
+            let list = super::feature_list(&[]);
+
+            assert_eq!(list.len(), 7);
+            for feature in list {
+                assert_eq!(feature.version, "v0.1");
+            }
+        }
+
+        #[test]
+        fn feature_payload_writes_current_version() {
+            let payload = feature_payload(NAV_API_MARKER);
+
+            assert!(payload.contains(NAV_API_MARKER));
+            assert!(payload.contains("version:\"v0.1\""));
+            assert!(!payload.contains("=true"));
+        }
+
+        #[test]
+        fn legacy_feature_payload_still_counts_as_enabled() {
+            let legacy = format!(";window.{NAV_API_MARKER}=true;");
+            let states = feature_states_from_text(&legacy);
+
+            assert!(state(&states, EnhanceFeatureId::ThirdPartyApi));
+        }
+
+        #[test]
+        fn legacy_feature_payload_needs_upgrade_when_enabled() {
+            let legacy = format!(";window.{NAV_API_MARKER}=true;");
+            let states = feature_states_from_text(&legacy);
+            let nav_api = feature_state(&states, EnhanceFeatureId::ThirdPartyApi);
+            let mcp = feature_state(&states, EnhanceFeatureId::Mcp);
+
+            assert!(nav_api.enabled);
+            assert_eq!(nav_api.installed_version, None);
+            assert!(nav_api.needs_upgrade());
+            assert!(!mcp.enabled);
+            assert!(!mcp.needs_upgrade());
+        }
+
+        #[test]
+        fn outdated_feature_payload_needs_upgrade_when_enabled() {
+            let old = format!(r#";window.{NAV_API_MARKER}={{version:"v0.0"}};"#);
+            let states = feature_states_from_text(&old);
+            let nav_api = feature_state(&states, EnhanceFeatureId::ThirdPartyApi);
+
+            assert!(nav_api.enabled);
+            assert_eq!(nav_api.installed_version.as_deref(), Some("v0.0"));
+            assert_eq!(nav_api.current_version, "v0.1");
+            assert!(nav_api.needs_upgrade());
+        }
+
+        #[test]
+        fn current_feature_payload_does_not_need_upgrade() {
+            let text = feature_payload(NAV_API_MARKER);
+            let states = feature_states_from_text(&text);
+            let nav_api = feature_state(&states, EnhanceFeatureId::ThirdPartyApi);
+
+            assert!(nav_api.enabled);
+            assert_eq!(nav_api.installed_version.as_deref(), Some("v0.1"));
+            assert!(!nav_api.needs_upgrade());
+        }
+
+        #[test]
+        fn set_marker_replaces_old_payloads_without_touching_other_features() {
+            let text = format!(
+                "{}{}",
+                format!(";window.{NAV_API_MARKER}=true;"),
+                feature_payload(NAV_MCP_MARKER)
+            );
+            let next = super::set_marker(text, NAV_API_MARKER, true);
+
+            assert_eq!(next.matches(NAV_API_MARKER).count(), 1);
+            assert!(next.contains(&feature_payload(NAV_API_MARKER)));
+            assert!(next.contains(&feature_payload(NAV_MCP_MARKER)));
+            assert!(!next.contains(&format!(";window.{NAV_API_MARKER}=true;")));
+        }
+
+        #[test]
+        fn migration_replaces_only_enabled_outdated_markers() {
+            let resources = temp_resources("enhance-migration");
+            let bundle = resources
+                .join("ion-dist")
+                .join("assets")
+                .join("v1")
+                .join("index-test.js");
+            fs::write(
+                &bundle,
+                format!(
+                    "const app=true;{}{}",
+                    format!(r#";window.{NAV_API_MARKER}={{version:"v0.0"}};"#),
+                    feature_payload(NAV_MCP_MARKER)
+                ),
+            )
+            .unwrap();
+
+            super::apply_feature_version_upgrades(&resources, &[EnhanceFeatureId::ThirdPartyApi])
+                .expect("migrate features");
+            let text = fs::read_to_string(&bundle).unwrap();
+            fs::remove_dir_all(&resources).ok();
+
+            assert!(text.contains(&feature_payload(NAV_API_MARKER)));
+            assert!(text.contains(&feature_payload(NAV_MCP_MARKER)));
+            assert!(!text.contains(r#"version:"v0.0""#));
+            assert!(!text.contains(&feature_payload(NAV_PLUGINS_MARKER)));
         }
 
         #[test]
@@ -939,7 +1227,8 @@ D();
             assert!(INJECT_SCRIPT.contains("Good response"));
             assert!(INJECT_SCRIPT.contains("inputTokens"));
             assert!(INJECT_SCRIPT.contains("cachedTokens"));
-            assert!(INJECT_SCRIPT.contains("Math.min(e.cachedReadTokens||e.cacheReadTokens||e.cached||0,t)"));
+            assert!(INJECT_SCRIPT
+                .contains("Math.min(e.cachedReadTokens||e.cacheReadTokens||e.cached||0,t)"));
             assert!(INJECT_SCRIPT.contains("cpu-line cpu-muted"));
             assert!(INJECT_SCRIPT.contains("function cpuMount"));
             assert!(INJECT_SCRIPT.contains("function cpuClear"));
@@ -952,7 +1241,8 @@ D();
             assert!(!INJECT_SCRIPT.contains("if(cpuBusy()){cpuClear();cpuPoll(!0);return}"));
             assert!(INJECT_SCRIPT.contains("if(!t)return"));
             assert!(INJECT_SCRIPT.contains("cpu.pending"));
-            assert!(INJECT_SCRIPT.contains("if(cpuBusy()){if(!cpu.pending)cpuBeginTurn();cpuPoll(!0);return}"));
+            assert!(INJECT_SCRIPT
+                .contains("if(cpuBusy()){if(!cpu.pending)cpuBeginTurn();cpuPoll(!0);return}"));
             assert!(INJECT_SCRIPT
                 .contains("[\"submit\",\"click\",\"keydown\"].forEach(e=>document.addEventListener(e,cpuStart,!0))"));
             assert!(INJECT_SCRIPT.contains("cpu.pollBusy||(!e&&n-cpu.lastPollAt<350)"));
@@ -988,6 +1278,7 @@ D();
             assert!(INJECT_SCRIPT.contains("cacheReadTokens"));
             assert!(INJECT_SCRIPT.contains("cacheCreationTokens"));
             assert!(INJECT_SCRIPT.contains("cachedReadTokens"));
+            assert!(INJECT_SCRIPT.contains(r"!/\/claude-plus\/token-usage\b/i.test(t)"));
         }
 
         #[test]
@@ -1251,6 +1542,7 @@ mod imp {
         pub id: String,
         pub label: String,
         pub category: String,
+        pub version: String,
         pub description: String,
         pub enabled: bool,
         pub available: bool,

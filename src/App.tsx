@@ -63,6 +63,7 @@ interface ClaudeEnhanceFeature {
   id: string;
   category: string;
   label: string;
+  version: string;
   description: string;
   enabled: boolean;
   available: boolean;
@@ -895,6 +896,7 @@ function EnhanceCard({
         <strong>
           <span className="enhanceCategory">{feature.category}</span>
           {feature.label}
+          <span className="enhanceVersion">{feature.version}</span>
           {feature.id === "conversation_title_i18n" && (
             <span className="enhanceTokenNotice">会消耗少量 token</span>
           )}

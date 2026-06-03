@@ -25,7 +25,7 @@
 - CC Switch DB mapping read: `src-tauri/src/ccswitch_db.rs`.
 - Claude Desktop configLibrary write/revert: `src-tauri/src/cd_config.rs`.
 - Claude local skills discovery and recycle-bin deletion: `src-tauri/src/claude_skills.rs`; exposed through `/claude-plus/skills` and `/claude-plus/skills/:id/trash` on the local gateway for Claude++ app-side compatibility. The injected Claude Desktop skills popup must not depend on the Claude++ process after installation; it uses a preload bridge in Claude Desktop `app.asar` to scan local global/project skills and call Electron `shell.trashItem`.
-- Claude Desktop page enhance feature definitions: `src/shared/enhance-features.json`; consumed by both the Tauri enhance status code and the React preview so labels/descriptions/order have a single source.
+- Claude Desktop page enhance feature definitions: `src/shared/enhance-features.json`; consumed by both the Tauri enhance status code and the React preview so labels/descriptions/order/version have a single source. Enhance status reads installed marker versions and upgrades only previously enabled outdated features to the current bundled version.
 
 ## Validation Entry Points
 - Rust checks on Windows require the MSVC environment. Run from `src-tauri` with `cmd.exe /c 'call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" && cargo check'`.
