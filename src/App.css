@@ -397,6 +397,7 @@ select {
 .routeStatusCard {
   position: relative;
   display: grid;
+  min-width: 0;
   gap: 8px;
   align-content: center;
   justify-items: center;
@@ -421,8 +422,13 @@ select {
 .routeStatusCard span,
 .providerStrip span {
   display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   color: var(--text-400);
   font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .routeStatusCard strong,
@@ -451,8 +457,10 @@ select {
 }
 
 .routeCardButton {
+  max-width: 100%;
   min-height: 28px;
   margin-top: 8px;
+  white-space: nowrap;
 }
 
 .providerStrip small {

@@ -615,13 +615,13 @@ function OverviewPage({
             active={!!ccswitchRoute?.enabled}
             label="CC Switch 路由开关"
             value={ccswitchRoute?.enabled ? "已开启" : "未开启"}
-            detail={ccswitchRoute?.enabled ? undefined : "请在 CC Switch 中开启路由开关"}
+            detail={ccswitchRoute?.enabled ? undefined : "请在 CCS 开启路由"}
           />
           <RouteStatusCard
             active={!!status?.cd_applied}
             label="Claude++ 接管"
             value={status?.cd_applied ? "已接管" : "未接管"}
-            detail={status?.cd_applied ? undefined : "点击接管后 Claude Desktop 才会走 Claude++"}
+            detail={status?.cd_applied ? undefined : "点击接管,让 Claude++ 生效"}
             action={{
               label: status?.cd_applied ? "断开接管" : "接管",
               onClick: () => run(status?.cd_applied ? "use_ccs_route" : "use_claude_plus_route"),
@@ -633,7 +633,7 @@ function OverviewPage({
             active={providerConfigured}
             label="模型服务商配置"
             value={providerConfigured ? "已配置" : "未配置"}
-            detail={providerConfigured ? pm.provider_name : mappingError || "请在 CC Switch 中配置模型服务商"}
+            detail={providerConfigured ? undefined : mappingError || "请在 CC Switch 中配置模型服务商"}
           />
         </div>
         {restartNeeded && (
