@@ -535,6 +535,11 @@ select {
   background: var(--bg-100);
 }
 
+.routeStatusCard.loading {
+  border-color: var(--border-soft);
+  background: var(--bg-000);
+}
+
 .routeStatusCard span,
 .providerStrip span {
   display: block;
@@ -603,6 +608,11 @@ select {
 
 .dot.off {
   background: var(--text-400);
+}
+
+.dot.loading {
+  background: var(--warning-strong);
+  opacity: 0.72;
 }
 
 .routeRestartNotice {

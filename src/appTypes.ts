@@ -70,6 +70,7 @@ export interface DiagnosticsPayload {
 
 export interface WelcomeStatus {
   claude_code_installed: boolean;
+  claude_desktop_found: boolean;
   developer_mode_enabled: boolean;
   cc_switch_installed: boolean;
 }

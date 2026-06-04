@@ -16,6 +16,7 @@ mod imp {
     #[derive(Serialize)]
     pub struct WelcomeStatus {
         pub claude_code_installed: bool,
+        pub claude_desktop_found: bool,
         pub developer_mode_enabled: bool,
         pub cc_switch_installed: bool,
     }
@@ -23,6 +24,7 @@ mod imp {
     pub fn status() -> WelcomeStatus {
         WelcomeStatus {
             claude_code_installed: detect_claude_code_installed(),
+            claude_desktop_found: detect_claude_desktop_found(),
             developer_mode_enabled: read_developer_mode_enabled(),
             cc_switch_installed: detect_cc_switch_installed(),
         }
@@ -52,11 +54,110 @@ mod imp {
     }
 
     fn detect_claude_code_installed() -> bool {
-        patch::hidden_command("cmd.exe")
-            .args(["/C", "where claude"])
-            .status()
-            .map(|status| status.success())
-            .unwrap_or(false)
+        path_has_windows_command("claude")
+    }
+
+    fn detect_claude_desktop_found() -> bool {
+        settings_claude_desktop_candidates()
+            .into_iter()
+            .chain(default_claude_desktop_candidates())
+            .any(|path| {
+                path.is_dir()
+                    && (patch::resources_path_for_app(&path).is_some()
+                        || path.file_name().and_then(|name| name.to_str()) == Some("resources"))
+            })
+    }
+
+    fn settings_claude_desktop_candidates() -> Vec<PathBuf> {
+        crate::settings::claude_desktop_path_overrides()
+            .into_iter()
+            .flat_map(|path| {
+                let mut candidates = vec![path.clone()];
+                if path.file_name().and_then(|name| name.to_str()) == Some("resources") {
+                    if let Some(app) = path.parent().map(Path::to_path_buf) {
+                        candidates.push(app);
+                    }
+                }
+                candidates
+            })
+            .collect()
+    }
+
+    fn default_claude_desktop_candidates() -> Vec<PathBuf> {
+        let mut candidates = Vec::new();
+        for var in ["ProgramW6432", "ProgramFiles"] {
+            if let Some(root) = env::var_os(var).map(PathBuf::from) {
+                collect_windows_app_candidates_fast(&root.join("WindowsApps"), &mut candidates);
+                candidates.push(root.join("Claude"));
+            }
+        }
+        if let Some(local) = env::var_os("LOCALAPPDATA").map(PathBuf::from) {
+            candidates.push(local.join("Programs").join("Claude"));
+            collect_store_config_candidates_fast(&local, &mut candidates);
+        }
+        candidates
+    }
+
+    fn collect_windows_app_candidates_fast(root: &Path, candidates: &mut Vec<PathBuf>) {
+        let Ok(entries) = fs::read_dir(root) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+                continue;
+            };
+            if name.starts_with("Claude_") && path.is_dir() {
+                candidates.push(path);
+            }
+        }
+    }
+
+    fn collect_store_config_candidates_fast(local_appdata: &Path, candidates: &mut Vec<PathBuf>) {
+        let packages = local_appdata.join("Packages");
+        let Ok(entries) = fs::read_dir(&packages) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+                continue;
+            };
+            if name.starts_with("Claude_") {
+                candidates.push(path.join("LocalCache").join("Roaming").join("Claude"));
+            }
+        }
+    }
+
+    fn path_has_windows_command(command: &str) -> bool {
+        let Some(path) = env::var_os("PATH") else {
+            return false;
+        };
+        let extensions = windows_command_extensions();
+        env::split_paths(&path).any(|dir| {
+            extensions
+                .iter()
+                .map(|extension| dir.join(format!("{command}{extension}")))
+                .any(|candidate| candidate.is_file())
+        })
+    }
+
+    fn windows_command_extensions() -> Vec<String> {
+        let mut extensions = env::var_os("PATHEXT")
+            .map(|value| {
+                value
+                    .to_string_lossy()
+                    .split(';')
+                    .map(str::trim)
+                    .filter(|extension| !extension.is_empty())
+                    .map(|extension| extension.to_ascii_lowercase())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        extensions.extend([".exe", ".cmd", ".bat"].into_iter().map(String::from));
+        extensions.sort();
+        extensions.dedup();
+        extensions
     }
 
     fn read_developer_mode_enabled() -> bool {
@@ -184,7 +285,8 @@ mod imp {
     mod tests {
         use super::{
             cc_switch_state_dir_from_home, developer_mode_from_json, enable_developer_mode_at_path,
-            is_cc_switch_install_marker, WINDOWS_CLAUDE_CODE_INSTALL_COMMAND,
+            is_cc_switch_install_marker, windows_command_extensions,
+            WINDOWS_CLAUDE_CODE_INSTALL_COMMAND,
         };
         use serde_json::Value;
         use std::{
@@ -227,6 +329,15 @@ mod imp {
                 cc_switch_state_dir_from_home(&home),
                 PathBuf::from(r"C:\Users\Ada\.cc-switch")
             );
+        }
+
+        #[test]
+        fn windows_command_extensions_include_common_shell_commands() {
+            let extensions = windows_command_extensions();
+
+            assert!(extensions.contains(&".exe".to_string()));
+            assert!(extensions.contains(&".cmd".to_string()));
+            assert!(extensions.contains(&".bat".to_string()));
         }
 
         #[test]
@@ -317,6 +428,7 @@ mod imp {
     #[derive(Serialize)]
     pub struct WelcomeStatus {
         pub claude_code_installed: bool,
+        pub claude_desktop_found: bool,
         pub developer_mode_enabled: bool,
         pub cc_switch_installed: bool,
     }
@@ -324,6 +436,7 @@ mod imp {
     pub fn status() -> WelcomeStatus {
         WelcomeStatus {
             claude_code_installed: detect_claude_code_installed(),
+            claude_desktop_found: false,
             developer_mode_enabled: false,
             cc_switch_installed: false,
         }

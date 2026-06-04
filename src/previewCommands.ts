@@ -37,6 +37,7 @@ const previewZhStatus: ClaudeZhStatus = {
 
 const previewWelcomeStatus: WelcomeStatus = {
   claude_code_installed: false,
+  claude_desktop_found: true,
   developer_mode_enabled: true,
   cc_switch_installed: true,
 };

@@ -78,12 +78,16 @@ function App() {
     window.localStorage.setItem("claude-plus-theme", theme);
   }, [theme]);
 
-  const refreshRouteState = useCallback(async () => {
+  const refreshAppVersion = useCallback(async () => {
     try {
       setAppVersion(await callCommand<string>("app_version"));
     } catch (e) {
       setErr(String(e));
     }
+  }, []);
+
+  const refreshRouteState = useCallback(async () => {
+    await refreshAppVersion();
     try {
       setStatus(await callCommand<StatusInfo>("proxy_status"));
     } catch (e) {
@@ -108,7 +112,7 @@ function App() {
       setPm(null);
       setMappingError(String(e));
     }
-  }, []);
+  }, [refreshAppVersion]);
 
   const detectClaudeDesktopOnce = useCallback(async () => {
     try {
@@ -138,17 +142,28 @@ function App() {
   }, []);
 
   useEffect(() => {
-    detectClaudeDesktopOnce();
     refreshWelcomeStatus();
-    refreshRouteState();
-    refreshEnhanceStatus();
-  }, [detectClaudeDesktopOnce, refreshEnhanceStatus, refreshRouteState, refreshWelcomeStatus]);
+    refreshAppVersion();
+  }, [refreshAppVersion, refreshWelcomeStatus]);
 
   useEffect(() => {
+    if (route === "overview") {
+      refreshRouteState();
+    }
+    if (route === "localization" || route === "about") {
+      detectClaudeDesktopOnce();
+    }
+    if (route === "enhance") {
+      refreshEnhanceStatus();
+    }
+  }, [detectClaudeDesktopOnce, refreshEnhanceStatus, refreshRouteState, route]);
+
+  useEffect(() => {
+    if (route !== "overview") return;
     if (!routeStatePollingEnabled) return;
     const t = setInterval(refreshRouteState, 4000);
     return () => clearInterval(t);
-  }, [refreshRouteState, routeStatePollingEnabled]);
+  }, [refreshRouteState, route, routeStatePollingEnabled]);
 
   const runBusy = useCallback(async (action: () => Promise<void>) => {
     setBusy(true);
@@ -253,13 +268,19 @@ function App() {
     setBusy(true);
     setErr("");
     try {
-      const refreshSteps = [
-        refreshRouteState,
-        detectClaudeDesktopOnce,
-        refreshWelcomeStatus,
-        refreshEnhanceStatus,
-        ...(route === "diagnostics" ? [refreshLogs, refreshDiagnostics] : []),
-      ];
+      const refreshSteps = [refreshAppVersion, refreshWelcomeStatus];
+      if (route === "localization" || route === "about") {
+        refreshSteps.push(detectClaudeDesktopOnce);
+      }
+      if (route === "overview") {
+        refreshSteps.push(refreshRouteState);
+      }
+      if (route === "enhance") {
+        refreshSteps.push(refreshEnhanceStatus);
+      }
+      if (route === "diagnostics") {
+        refreshSteps.push(refreshLogs, refreshDiagnostics);
+      }
       const errors: string[] = [];
       for (const refreshStep of refreshSteps) {
         try {
@@ -276,6 +297,7 @@ function App() {
     }
   }, [
     detectClaudeDesktopOnce,
+    refreshAppVersion,
     refreshDiagnostics,
     refreshEnhanceStatus,
     refreshLogs,
@@ -360,7 +382,6 @@ function App() {
           {route === "welcome" && (
             <WelcomePage
               busy={busy}
-              zhStatus={zhStatus}
               welcomeStatus={welcomeStatus}
               setErr={setErr}
               enableClaudeDeveloperMode={enableClaudeDeveloperMode}
@@ -707,19 +728,18 @@ function EnhancePage({
 
 function WelcomePage({
   busy,
-  zhStatus,
   welcomeStatus,
   setErr,
   enableClaudeDeveloperMode,
   installClaudeCode,
 }: {
   busy: boolean;
-  zhStatus: ClaudeZhStatus | null;
   welcomeStatus: WelcomeStatus | null;
   setErr: (error: string) => void;
   enableClaudeDeveloperMode: () => Promise<void>;
   installClaudeCode: () => Promise<void>;
 }) {
+  const loading = welcomeStatus === null;
   const downloadClaudeDesktop = async () => {
     setErr("");
     try {
@@ -773,12 +793,13 @@ function WelcomePage({
 
       <section className="welcomeStatusGrid" aria-label="环境状态检测">
         <RouteStatusCard
+          loading={loading}
           active={!!welcomeStatus?.claude_code_installed}
           label="Claude Code"
-          value={welcomeStatus?.claude_code_installed ? "已安装" : "未安装"}
-          detail={welcomeStatus?.claude_code_installed ? undefined : "点击后一键命令行安装"}
+          value={loading ? "检测中" : welcomeStatus?.claude_code_installed ? "已安装" : "未安装"}
+          detail={loading ? undefined : welcomeStatus?.claude_code_installed ? undefined : "点击后一键命令行安装"}
           action={
-            welcomeStatus?.claude_code_installed
+            loading || welcomeStatus?.claude_code_installed
               ? undefined
               : {
                   label: "一键安装",
@@ -789,12 +810,13 @@ function WelcomePage({
           }
         />
         <RouteStatusCard
-          active={!!zhStatus?.claude_found}
+          loading={loading}
+          active={!!welcomeStatus?.claude_desktop_found}
           label="Claude Desktop"
-          value={zhStatus?.claude_found ? "已定位" : "未定位"}
-          detail={zhStatus?.claude_found ? undefined : "点击下载，或在设置中指定资源目录"}
+          value={loading ? "检测中" : welcomeStatus?.claude_desktop_found ? "已定位" : "未定位"}
+          detail={loading ? undefined : welcomeStatus?.claude_desktop_found ? undefined : "点击下载，或在设置中指定资源目录"}
           action={
-            zhStatus?.claude_found
+            loading || welcomeStatus?.claude_desktop_found
               ? undefined
               : {
                   label: "下载",
@@ -805,12 +827,13 @@ function WelcomePage({
           }
         />
         <RouteStatusCard
+          loading={loading}
           active={!!welcomeStatus?.developer_mode_enabled}
           label="开发者模式"
-          value={welcomeStatus?.developer_mode_enabled ? "已开启" : "未开启"}
-          detail={welcomeStatus?.developer_mode_enabled ? undefined : "点击后一键开启"}
+          value={loading ? "检测中" : welcomeStatus?.developer_mode_enabled ? "已开启" : "未开启"}
+          detail={loading ? undefined : welcomeStatus?.developer_mode_enabled ? undefined : "点击后一键开启"}
           action={
-            welcomeStatus?.developer_mode_enabled
+            loading || welcomeStatus?.developer_mode_enabled
               ? undefined
               : {
                   label: "一键开启",
@@ -821,12 +844,13 @@ function WelcomePage({
           }
         />
         <RouteStatusCard
+          loading={loading}
           active={!!welcomeStatus?.cc_switch_installed}
           label="CC Switch"
-          value={welcomeStatus?.cc_switch_installed ? "已安装" : "未安装"}
-          detail={welcomeStatus?.cc_switch_installed ? undefined : "点击后从网盘下载"}
+          value={loading ? "检测中" : welcomeStatus?.cc_switch_installed ? "已安装" : "未安装"}
+          detail={loading ? undefined : welcomeStatus?.cc_switch_installed ? undefined : "点击后从网盘下载"}
           action={
-            welcomeStatus?.cc_switch_installed
+            loading || welcomeStatus?.cc_switch_installed
               ? undefined
               : {
                   label: "下载",
@@ -1027,12 +1051,14 @@ function splitLogLines(text: string) {
 
 function RouteStatusCard({
   active,
+  loading = false,
   label,
   value,
   detail,
   action,
 }: {
   active: boolean;
+  loading?: boolean;
   label: string;
   value: string;
   detail?: string;
@@ -1044,8 +1070,8 @@ function RouteStatusCard({
   };
 }) {
   return (
-    <div className={`routeStatusCard ${active ? "active" : "inactive"}`}>
-      <span className={`dot ${active ? "on" : "off"}`} />
+    <div className={`routeStatusCard ${loading ? "loading" : active ? "active" : "inactive"}`}>
+      <span className={`dot ${loading ? "loading" : active ? "on" : "off"}`} />
       <div>
         <span>{label}</span>
         <strong>{value}</strong>
