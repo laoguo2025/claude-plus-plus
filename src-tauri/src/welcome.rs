@@ -58,75 +58,7 @@ mod imp {
     }
 
     fn detect_claude_desktop_found() -> bool {
-        settings_claude_desktop_candidates()
-            .into_iter()
-            .chain(default_claude_desktop_candidates())
-            .any(|path| {
-                path.is_dir()
-                    && (patch::resources_path_for_app(&path).is_some()
-                        || path.file_name().and_then(|name| name.to_str()) == Some("resources"))
-            })
-    }
-
-    fn settings_claude_desktop_candidates() -> Vec<PathBuf> {
-        crate::settings::claude_desktop_path_overrides()
-            .into_iter()
-            .flat_map(|path| {
-                let mut candidates = vec![path.clone()];
-                if path.file_name().and_then(|name| name.to_str()) == Some("resources") {
-                    if let Some(app) = path.parent().map(Path::to_path_buf) {
-                        candidates.push(app);
-                    }
-                }
-                candidates
-            })
-            .collect()
-    }
-
-    fn default_claude_desktop_candidates() -> Vec<PathBuf> {
-        let mut candidates = Vec::new();
-        for var in ["ProgramW6432", "ProgramFiles"] {
-            if let Some(root) = env::var_os(var).map(PathBuf::from) {
-                collect_windows_app_candidates_fast(&root.join("WindowsApps"), &mut candidates);
-                candidates.push(root.join("Claude"));
-            }
-        }
-        if let Some(local) = env::var_os("LOCALAPPDATA").map(PathBuf::from) {
-            candidates.push(local.join("Programs").join("Claude"));
-            collect_store_config_candidates_fast(&local, &mut candidates);
-        }
-        candidates
-    }
-
-    fn collect_windows_app_candidates_fast(root: &Path, candidates: &mut Vec<PathBuf>) {
-        let Ok(entries) = fs::read_dir(root) else {
-            return;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-                continue;
-            };
-            if name.starts_with("Claude_") && path.is_dir() {
-                candidates.push(path);
-            }
-        }
-    }
-
-    fn collect_store_config_candidates_fast(local_appdata: &Path, candidates: &mut Vec<PathBuf>) {
-        let packages = local_appdata.join("Packages");
-        let Ok(entries) = fs::read_dir(&packages) else {
-            return;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-                continue;
-            };
-            if name.starts_with("Claude_") {
-                candidates.push(path.join("LocalCache").join("Roaming").join("Claude"));
-            }
-        }
+        patch::find_claude_path().is_some()
     }
 
     fn path_has_windows_command(command: &str) -> bool {

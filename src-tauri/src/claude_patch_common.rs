@@ -777,4 +777,25 @@ mod tests {
             ))
         );
     }
+
+    #[test]
+    fn resources_path_accepts_windows_app_layout() {
+        let root = test_dir("windows-app-layout");
+        let app = root.join("Claude_1.2.3.0_x64__pzs8sxrjxfjjc");
+        let resources = app.join("app").join("resources");
+        fs::create_dir_all(&resources).unwrap();
+
+        assert_eq!(resources_path_for_app(&app), Some(resources));
+    }
+
+    fn test_dir(name: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "claude-plus-plus-patch-common-{name}-{}-{stamp}",
+            std::process::id()
+        ))
+    }
 }

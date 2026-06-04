@@ -817,7 +817,7 @@ function WelcomePage({
           active={!!welcomeStatus?.claude_desktop_found}
           label="Claude Desktop"
           value={loading ? "检测中" : welcomeStatus?.claude_desktop_found ? "已定位" : "未定位"}
-          detail={loading ? undefined : welcomeStatus?.claude_desktop_found ? undefined : "点击下载，或在设置中指定资源目录"}
+          detail={loading ? undefined : welcomeStatus?.claude_desktop_found ? undefined : "点击后从网盘下载"}
           action={
             loading || welcomeStatus?.claude_desktop_found
               ? undefined
