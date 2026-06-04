@@ -420,6 +420,13 @@ select {
   gap: 8px;
 }
 
+.welcomeStatusGrid .routeStatusCard,
+.welcomeStatusGrid .routeStatusCard.active,
+.welcomeStatusGrid .routeStatusCard.inactive,
+.welcomeStatusGrid .routeStatusCard.loading {
+  background: var(--bg-000);
+}
+
 .mechanismNote {
   display: grid;
   align-content: start;
