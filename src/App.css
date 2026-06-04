@@ -557,6 +557,13 @@ select {
   background: var(--bg-000);
 }
 
+.routeCardBody .routeStatusCard,
+.routeCardBody .routeStatusCard.active,
+.routeCardBody .routeStatusCard.inactive,
+.routeCardBody .routeStatusCard.loading {
+  background: var(--bg-100);
+}
+
 .routeStatusCard span,
 .providerStrip span {
   display: block;
