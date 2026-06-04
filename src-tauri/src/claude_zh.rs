@@ -112,10 +112,9 @@ mod imp {
         let paths = patch::resolve_claude_paths()?;
         claude_desktop::stop_claude_processes()?;
         patch::enable_write_access(&paths.resources, true);
-        patch::restore_latest_backup(&paths.resources, BACKUP_DIR_NAME)?;
-        patch::sync_claude_exe_asar_integrity(&paths.resources, None, None)?;
         remove_language_files(&paths.resources)?;
         unregister_languages(&paths.resources)?;
+        patch::sync_claude_exe_asar_integrity(&paths.resources, None, None)?;
         set_claude_locale("en-US")?;
         claude_desktop::launch_claude()?;
         Ok(())
@@ -377,9 +376,25 @@ mod imp {
     }
 
     fn unregister_languages_in_bundle(text: &str) -> Result<String, String> {
-        Ok(language_list_regex()?
+        let text = language_list_regex()?
             .replace(text, format!("{BASE_LANGUAGE_LIST}]").as_str())
-            .to_string())
+            .to_string();
+        Ok(remove_language_display_names_patch(&text))
+    }
+
+    fn remove_language_display_names_patch(text: &str) -> String {
+        let mut output = text.to_string();
+        while let Some(marker) = output.find("__claudeZhLabelPatch") {
+            let Some(start) = output[..marker].rfind(";(()=>{") else {
+                break;
+            };
+            let Some(end_offset) = output[marker..].find("})();") else {
+                break;
+            };
+            let end = marker + end_offset + "})();".len();
+            output.replace_range(start..end, "");
+        }
+        output
     }
 
     fn patch_language_display_names(
@@ -959,6 +974,17 @@ mod imp {
 
             assert!(text.contains(r#"const locales=["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID"]"#));
             assert!(text.contains(r#"const untouched=["model","zh-CN"]"#));
+        }
+
+        #[test]
+        fn restore_english_bundle_patch_keeps_page_enhance_markers() {
+            let text = r#"const locales=["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID","zh-CN"];window.__claudePlusEnhanceNavV2=true;window.__claudePlusEnhancePluginsV1={version:"v0.1"};(()=>{const e=Intl.DisplayNames&&Intl.DisplayNames.prototype;if(!e||e.__claudeZhLabelPatch)return;Object.defineProperty(e,"__claudeZhLabelPatch",{value:!0})})();"#;
+            let text = unregister_languages_in_bundle(text).expect("restore english bundle");
+
+            assert!(text.contains("window.__claudePlusEnhanceNavV2=true"));
+            assert!(text.contains(r#"window.__claudePlusEnhancePluginsV1={version:"v0.1"}"#));
+            assert!(!text.contains("__claudeZhLabelPatch"));
+            assert!(!text.contains(r#","zh-CN""#));
         }
 
         #[test]

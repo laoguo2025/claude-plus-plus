@@ -622,11 +622,11 @@ function LocalizationPage({
             }
           />
           <WorkflowRow
-            ok={!!zhStatus?.backup_available}
+            ok={!zhStatus?.installed}
             title="恢复英文"
-            description="从最近一次备份恢复 Claude Desktop 资源，并把语言设回 en-US。"
+            description="只移除中文语言资源并把语言设回 en-US，不覆盖页面增强脚本。"
             action={
-              <button disabled={busy || !zhStatus?.backup_available} onClick={uninstallClaudeZh}>
+              <button disabled={busy || !zhStatus?.installed} onClick={uninstallClaudeZh}>
                 恢复英文
               </button>
             }

@@ -378,26 +378,6 @@ pub fn latest_backup(resources_path: &Path, backup_dir_name: &str) -> Option<Pat
 }
 
 #[cfg(target_os = "windows")]
-pub fn restore_latest_backup(resources_path: &Path, backup_dir_name: &str) -> Result<(), String> {
-    let backup = latest_backup(resources_path, backup_dir_name)
-        .ok_or_else(|| "没有可恢复的中文补丁备份".to_string())?;
-    let backup_root = backup.clone();
-    for path in files_recursive(&backup)? {
-        let relative = relative_to(&path, &backup_root)?;
-        let target = if relative.starts_with("_app") {
-            app_path_from_resources(resources_path).join(relative.strip_prefix("_app").unwrap())
-        } else {
-            resources_path.join(relative)
-        };
-        if let Some(parent) = target.parent() {
-            fs::create_dir_all(parent).map_err(|e| format!("创建恢复父目录失败: {e}"))?;
-        }
-        fs::copy(&path, &target).map_err(|e| format!("恢复备份失败: {e}"))?;
-    }
-    Ok(())
-}
-
-#[cfg(target_os = "windows")]
 pub fn js_files(assets_dir: &Path, index_only: bool) -> Result<Vec<PathBuf>, String> {
     let entries =
         fs::read_dir(assets_dir).map_err(|e| format!("读取 Claude 前端资源目录失败: {e}"))?;
@@ -671,23 +651,6 @@ pub fn relative_to(path: &Path, root: &Path) -> Result<PathBuf, String> {
     full.strip_prefix(&root)
         .map(Path::to_path_buf)
         .map_err(|_| format!("路径不在预期目录内: {}", path.display()))
-}
-
-#[cfg(target_os = "windows")]
-fn files_recursive(root: &Path) -> Result<Vec<PathBuf>, String> {
-    let mut files = Vec::new();
-    if !root.is_dir() {
-        return Ok(files);
-    }
-    for entry in fs::read_dir(root).map_err(|e| format!("读取目录失败: {e}"))? {
-        let path = entry.map_err(|e| format!("读取目录项失败: {e}"))?.path();
-        if path.is_dir() {
-            files.extend(files_recursive(&path)?);
-        } else {
-            files.push(path);
-        }
-    }
-    Ok(files)
 }
 
 #[cfg(target_os = "windows")]
