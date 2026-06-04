@@ -11,7 +11,10 @@ mod imp {
     };
 
     const WINDOWS_CLAUDE_CODE_INSTALL_COMMAND: &str =
-        "irm https://claude.ai/install.ps1 | iex; Write-Host ''; Write-Host 'Claude Code 安装脚本已结束。可关闭此窗口。'";
+        "irm https://claude.ai/install.ps1 | iex; $claudeDir = Join-Path $HOME '.claude'; New-Item -ItemType Directory -Force -Path $claudeDir | Out-Null; $settingsPath = Join-Path $claudeDir 'settings.json'; $settings = @{}; if (Test-Path -LiteralPath $settingsPath) { try { $json = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json; if ($json -is [pscustomobject]) { $json.PSObject.Properties | ForEach-Object { $settings[$_.Name] = $_.Value } } } catch { $settings = @{} } }; $envMap = @{}; if ($settings.ContainsKey('env') -and $null -ne $settings['env']) { if ($settings['env'] -is [System.Collections.IDictionary]) { $envMap = $settings['env'] } elseif ($settings['env'] -is [pscustomobject]) { $settings['env'].PSObject.Properties | ForEach-Object { $envMap[$_.Name] = $_.Value } } }; $envMap['ANTHROPIC_AUTH_TOKEN'] = 'PROXY_MANAGED'; $settings['env'] = $envMap; $settings | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $settingsPath -Encoding UTF8; Write-Host ''; Write-Host 'Claude Code 安装脚本已结束，代理配置已写入。可关闭此窗口。'";
+
+    const CLAUDE_CODE_AUTH_TOKEN_ENV: &str = "ANTHROPIC_AUTH_TOKEN";
+    const CLAUDE_CODE_PROXY_MANAGED_TOKEN: &str = "PROXY_MANAGED";
 
     #[derive(Serialize)]
     pub struct WelcomeStatus {
@@ -22,8 +25,12 @@ mod imp {
     }
 
     pub fn status() -> WelcomeStatus {
+        let claude_code_installed = detect_claude_code_installed();
+        if claude_code_installed {
+            let _ = ensure_claude_code_proxy_settings();
+        }
         WelcomeStatus {
-            claude_code_installed: detect_claude_code_installed(),
+            claude_code_installed,
             claude_desktop_found: detect_claude_desktop_found(),
             developer_mode_enabled: read_developer_mode_enabled(),
             cc_switch_installed: detect_cc_switch_installed(),
@@ -55,6 +62,79 @@ mod imp {
 
     fn detect_claude_code_installed() -> bool {
         path_has_windows_command("claude")
+    }
+
+    fn ensure_claude_code_proxy_settings() -> Result<(), String> {
+        let home = paths::home_dir().ok_or_else(|| "无法定位用户目录".to_string())?;
+        ensure_claude_code_proxy_settings_at_path(&claude_code_settings_path_from_home(&home))
+    }
+
+    fn claude_code_settings_path_from_home(home: &Path) -> PathBuf {
+        home.join(".claude").join("settings.json")
+    }
+
+    fn claude_code_settings_has_proxy_managed_env(text: &str) -> bool {
+        serde_json::from_str::<Value>(text)
+            .ok()
+            .and_then(|value| {
+                value
+                    .get("env")
+                    .and_then(|env| env.get(CLAUDE_CODE_AUTH_TOKEN_ENV))
+                    .and_then(Value::as_str)
+                    .map(|token| token == CLAUDE_CODE_PROXY_MANAGED_TOKEN)
+            })
+            .unwrap_or(false)
+    }
+
+    fn ensure_claude_code_proxy_settings_at_path(path: &Path) -> Result<(), String> {
+        let mut settings = if path.is_file() {
+            let text =
+                fs::read_to_string(path).map_err(|e| format!("读取 Claude Code 配置失败: {e}"))?;
+            if claude_code_settings_has_proxy_managed_env(&text) {
+                return Ok(());
+            }
+            serde_json::from_str::<Value>(&text)
+                .map_err(|e| format!("解析 Claude Code 配置失败: {e}"))?
+        } else {
+            Value::Object(Map::new())
+        };
+
+        let Value::Object(ref mut object) = settings else {
+            return Err("Claude Code 配置不是 JSON 对象".to_string());
+        };
+        let env_value = object
+            .entry("env".to_string())
+            .or_insert_with(|| Value::Object(Map::new()));
+        if !env_value.is_object() {
+            *env_value = Value::Object(Map::new());
+        }
+        let Value::Object(env_object) = env_value else {
+            return Err("Claude Code env 配置不是 JSON 对象".to_string());
+        };
+        env_object.insert(
+            CLAUDE_CODE_AUTH_TOKEN_ENV.to_string(),
+            Value::String(CLAUDE_CODE_PROXY_MANAGED_TOKEN.to_string()),
+        );
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("创建 Claude Code 配置目录失败: {e}"))?;
+        }
+        let text = format!(
+            "{}\n",
+            serde_json::to_string_pretty(&settings)
+                .map_err(|e| format!("生成 Claude Code 配置失败: {e}"))?
+        );
+        patch::atomic_write(path, text.as_bytes())
+            .map_err(|e| format!("写入 Claude Code 配置失败: {e}"))?;
+
+        let updated =
+            fs::read_to_string(path).map_err(|e| format!("读回 Claude Code 配置失败: {e}"))?;
+        if claude_code_settings_has_proxy_managed_env(&updated) {
+            Ok(())
+        } else {
+            Err("Claude Code 配置已写入，但未读回代理托管认证配置".to_string())
+        }
     }
 
     fn detect_claude_desktop_found() -> bool {
@@ -218,7 +298,9 @@ mod imp {
     #[cfg(test)]
     mod tests {
         use super::{
-            cc_switch_state_dir_from_home, developer_mode_from_json, enable_developer_mode_at_path,
+            cc_switch_state_dir_from_home, claude_code_settings_has_proxy_managed_env,
+            claude_code_settings_path_from_home, developer_mode_from_json,
+            enable_developer_mode_at_path, ensure_claude_code_proxy_settings_at_path,
             is_cc_switch_install_marker, windows_command_extensions,
             WINDOWS_CLAUDE_CODE_INSTALL_COMMAND,
         };
@@ -246,6 +328,90 @@ mod imp {
             assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("https://claude.ai/install.ps1"));
             assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("irm "));
             assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains(" | iex"));
+        }
+
+        #[test]
+        fn claude_code_settings_path_uses_user_claude_dir() {
+            let home = PathBuf::from(r"C:\Users\Ada");
+
+            assert_eq!(
+                claude_code_settings_path_from_home(&home),
+                PathBuf::from(r"C:\Users\Ada\.claude\settings.json")
+            );
+        }
+
+        #[test]
+        fn claude_code_settings_detects_proxy_managed_env() {
+            assert!(claude_code_settings_has_proxy_managed_env(
+                r#"{"env":{"ANTHROPIC_AUTH_TOKEN":"PROXY_MANAGED"}}"#
+            ));
+            assert!(!claude_code_settings_has_proxy_managed_env(
+                r#"{"env":{"ANTHROPIC_AUTH_TOKEN":"other"}}"#
+            ));
+            assert!(!claude_code_settings_has_proxy_managed_env("not json"));
+        }
+
+        #[test]
+        fn ensure_claude_code_proxy_settings_creates_missing_file() {
+            let dir = test_dir("claude-code-settings-missing");
+            let path = dir.join(".claude").join("settings.json");
+
+            ensure_claude_code_proxy_settings_at_path(&path).unwrap();
+
+            let updated: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+            assert_eq!(
+                updated
+                    .get("env")
+                    .and_then(|env| env.get("ANTHROPIC_AUTH_TOKEN"))
+                    .and_then(Value::as_str),
+                Some("PROXY_MANAGED")
+            );
+        }
+
+        #[test]
+        fn ensure_claude_code_proxy_settings_preserves_existing_fields() {
+            let dir = test_dir("claude-code-settings-preserve");
+            fs::create_dir_all(dir.join(".claude")).unwrap();
+            let path = dir.join(".claude").join("settings.json");
+            fs::write(
+                &path,
+                r#"{"permissions":{"allow":["Bash(ls:*)"]},"env":{"KEEP":"yes"}}"#,
+            )
+            .unwrap();
+
+            ensure_claude_code_proxy_settings_at_path(&path).unwrap();
+
+            let updated: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+            assert_eq!(
+                updated
+                    .get("permissions")
+                    .and_then(|permissions| permissions.get("allow"))
+                    .and_then(Value::as_array)
+                    .map(Vec::len),
+                Some(1)
+            );
+            assert_eq!(
+                updated
+                    .get("env")
+                    .and_then(|env| env.get("KEEP"))
+                    .and_then(Value::as_str),
+                Some("yes")
+            );
+            assert_eq!(
+                updated
+                    .get("env")
+                    .and_then(|env| env.get("ANTHROPIC_AUTH_TOKEN"))
+                    .and_then(Value::as_str),
+                Some("PROXY_MANAGED")
+            );
+        }
+
+        #[test]
+        fn claude_code_windows_install_command_writes_proxy_settings_after_install() {
+            assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains(".claude"));
+            assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("settings.json"));
+            assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("ANTHROPIC_AUTH_TOKEN"));
+            assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("PROXY_MANAGED"));
         }
 
         #[test]
