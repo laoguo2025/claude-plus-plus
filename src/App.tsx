@@ -404,7 +404,7 @@ function App() {
           {route === "about" && (
             <AboutPage
               appVersion={appVersion}
-              claudeDesktopVersion={zhStatus?.claude_version ?? (zhStatus?.claude_found ? "版本未知" : "未检测到")}
+              claudeDesktopVersion={zhStatus?.claude_version ?? (zhStatus?.claude_found ? "版本未知" : "未定位到资源目录")}
             />
           )}
 
@@ -546,8 +546,8 @@ function LocalizationPage({
     ? `已安装简体中文汉化，语言文件 ${zhStatus.language_files.join(", ")}`
     : zhStatus?.claude_found
       ? "未安装简体中文汉化"
-      : "未检测到 Claude Desktop";
-  const installPercent = zhStatus?.installed ? "已汉化" : zhStatus?.claude_found ? "未汉化" : "无法检测";
+      : "未定位到 Claude Desktop 资源目录，可重新安装或在 Claude++ 设置中指定资源路径";
+  const installPercent = zhStatus?.installed ? "已汉化" : zhStatus?.claude_found ? "未汉化" : "未定位";
   const scopeText =
     zhScope === "complete"
       ? "完整汉化：语言文件、前端文案、菜单与 3P 模型校验补丁"
@@ -684,7 +684,9 @@ function EnhancePage({
   return (
     <div className="enhanceFlow">
       <div className="actionNotice enhanceActionNotice">
-        增强脚本开启后，需点击上方重启Claude Desktop按钮，让页面立即生效。
+        {enhanceStatus?.claude_found === false
+          ? "未定位到 Claude Desktop 资源目录；请重新安装 Claude Desktop，或在 Claude++ 设置中指定资源路径后刷新。"
+          : "增强脚本开启后，需点击上方重启Claude Desktop按钮，让页面立即生效。"}
       </div>
       <section className="panel enhanceCardsPanel">
         <div className="enhanceCards">
@@ -789,8 +791,8 @@ function WelcomePage({
         <RouteStatusCard
           active={!!zhStatus?.claude_found}
           label="Claude Desktop"
-          value={zhStatus?.claude_found ? "已安装" : "未安装"}
-          detail={zhStatus?.claude_found ? undefined : "点击后从网盘下载"}
+          value={zhStatus?.claude_found ? "已定位" : "未定位"}
+          detail={zhStatus?.claude_found ? undefined : "点击下载，或在设置中指定资源目录"}
           action={
             zhStatus?.claude_found
               ? undefined

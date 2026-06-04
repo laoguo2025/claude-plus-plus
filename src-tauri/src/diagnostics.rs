@@ -1,6 +1,6 @@
 use crate::time_utils::now_ms;
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::{
     fs,
     io::{Read, Seek, SeekFrom, Write},
@@ -99,6 +99,7 @@ pub fn report(
         },
         "paths": {
             "ccSwitchDb": crate::server::default_db_path(),
+            "settings": crate::settings::settings_path(),
             "diagnosticLog": diagnostic_log_path()
         }
     });

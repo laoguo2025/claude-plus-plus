@@ -117,6 +117,10 @@ pub fn resolve_claude_paths() -> Result<ClaudePaths, String> {
 #[cfg(target_os = "windows")]
 pub fn find_claude_path() -> Option<PathBuf> {
     let mut candidates = Vec::new();
+    candidates.extend(crate::settings::claude_desktop_path_overrides());
+    collect_running_claude_candidates(&mut candidates);
+    collect_registry_claude_candidates(&mut candidates);
+    collect_shortcut_claude_candidates(&mut candidates);
     for var in ["ProgramW6432", "ProgramFiles"] {
         if let Some(root) = env::var_os(var).map(PathBuf::from) {
             collect_windows_app_candidates(&root.join("WindowsApps"), &mut candidates);
@@ -129,8 +133,150 @@ pub fn find_claude_path() -> Option<PathBuf> {
 
     candidates
         .into_iter()
+        .flat_map(expand_claude_app_candidate)
         .filter(|path| resources_path_for_app(path).is_some())
         .max_by_key(|path| modified_secs(path).unwrap_or(0))
+}
+
+#[cfg(target_os = "windows")]
+fn collect_running_claude_candidates(candidates: &mut Vec<PathBuf>) {
+    let script = "(Get-CimInstance Win32_Process -Filter \"Name='Claude.exe'\" -ErrorAction SilentlyContinue).ExecutablePath";
+    for line in powershell_lines(script) {
+        if let Some(path) = candidate_app_path_from_exe(&PathBuf::from(line)) {
+            candidates.push(path);
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn collect_registry_claude_candidates(candidates: &mut Vec<PathBuf>) {
+    let script = r#"
+$roots = @(
+  'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+  'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+  'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+)
+foreach ($root in $roots) {
+  Get-ItemProperty $root -ErrorAction SilentlyContinue |
+    Where-Object { $_.DisplayName -match 'Claude' -or $_.Publisher -match 'Anthropic' } |
+    ForEach-Object {
+      if ($_.InstallLocation) { $_.InstallLocation }
+      if ($_.DisplayIcon) { $_.DisplayIcon }
+      if ($_.UninstallString) { $_.UninstallString }
+    }
+}
+"#;
+    for line in powershell_lines(script) {
+        collect_candidate_from_text(&line, candidates);
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn collect_shortcut_claude_candidates(candidates: &mut Vec<PathBuf>) {
+    let mut roots = Vec::new();
+    if let Some(program_data) = env::var_os("ProgramData").map(PathBuf::from) {
+        roots.push(
+            program_data
+                .join("Microsoft")
+                .join("Windows")
+                .join("Start Menu")
+                .join("Programs"),
+        );
+    }
+    if let Some(app_data) = env::var_os("APPDATA").map(PathBuf::from) {
+        roots.push(
+            app_data
+                .join("Microsoft")
+                .join("Windows")
+                .join("Start Menu")
+                .join("Programs"),
+        );
+    }
+
+    for root in roots {
+        let root = root.display().to_string().replace('\'', "''");
+        let script = format!(
+            "$shell=New-Object -ComObject WScript.Shell; Get-ChildItem '{root}' -Filter '*Claude*.lnk' -Recurse -ErrorAction SilentlyContinue | ForEach-Object {{ $shortcut=$shell.CreateShortcut($_.FullName); $shortcut.TargetPath }}"
+        );
+        for line in powershell_lines(&script) {
+            collect_candidate_from_text(&line, candidates);
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn collect_candidate_from_text(text: &str, candidates: &mut Vec<PathBuf>) {
+    if let Some(path) = candidate_app_path_from_exe(&PathBuf::from(trim_windows_command_path(text)))
+    {
+        candidates.push(path);
+        return;
+    }
+    let path = PathBuf::from(trim_windows_command_path(text));
+    if !path.as_os_str().is_empty() {
+        candidates.push(path);
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn expand_claude_app_candidate(path: PathBuf) -> Vec<PathBuf> {
+    let mut candidates = vec![path.clone()];
+    if let Some(app) = candidate_app_path_from_exe(&path) {
+        candidates.push(app);
+    }
+    if path.file_name().and_then(|name| name.to_str()) == Some("resources") {
+        if let Some(app) = path.parent().map(Path::to_path_buf) {
+            candidates.push(app);
+        }
+    }
+    candidates
+}
+
+#[cfg(target_os = "windows")]
+fn candidate_app_path_from_exe(path: &Path) -> Option<PathBuf> {
+    let file_name = path.file_name()?.to_str()?;
+    if !file_name.eq_ignore_ascii_case("Claude.exe") {
+        return None;
+    }
+    let parent = path.parent()?;
+    if parent.file_name().and_then(|name| name.to_str()) == Some("app") {
+        return parent.parent().map(Path::to_path_buf);
+    }
+    Some(parent.to_path_buf())
+}
+
+#[cfg(target_os = "windows")]
+fn trim_windows_command_path(text: &str) -> String {
+    let text = text.trim().trim_matches('"').trim_matches('\'');
+    let lower = text.to_ascii_lowercase();
+    if let Some(index) = lower.find(".exe") {
+        return text[..index + 4].trim_matches('"').to_string();
+    }
+    text.to_string()
+}
+
+#[cfg(target_os = "windows")]
+fn powershell_lines(script: &str) -> Vec<String> {
+    for shell in ["pwsh.exe", "powershell.exe"] {
+        let Ok(output) = hidden_command(shell)
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        else {
+            continue;
+        };
+        if !output.status.success() {
+            continue;
+        }
+        let lines = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(ToOwned::to_owned)
+            .collect::<Vec<_>>();
+        if !lines.is_empty() {
+            return lines;
+        }
+    }
+    Vec::new()
 }
 
 #[cfg(target_os = "windows")]
@@ -645,5 +791,27 @@ mod tests {
     fn encode_asar_header_rejects_unexpected_size_change() {
         let encoded = encode_asar_header("{}", None).expect("encoded header");
         assert!(encode_asar_header("{\"files\":{}}", Some(encoded.len() - 8)).is_err());
+    }
+
+    #[test]
+    fn candidate_app_path_accepts_exe_inside_app_directory() {
+        let path = PathBuf::from(r"C:\Users\Ada\AppData\Local\Programs\Claude\Claude.exe");
+        assert_eq!(
+            candidate_app_path_from_exe(&path),
+            Some(PathBuf::from(r"C:\Users\Ada\AppData\Local\Programs\Claude"))
+        );
+    }
+
+    #[test]
+    fn candidate_app_path_accepts_exe_inside_windows_app_subdir() {
+        let path = PathBuf::from(
+            r"C:\Program Files\WindowsApps\Anthropic.Claude_1.2.3_x64__abcd\app\Claude.exe",
+        );
+        assert_eq!(
+            candidate_app_path_from_exe(&path),
+            Some(PathBuf::from(
+                r"C:\Program Files\WindowsApps\Anthropic.Claude_1.2.3_x64__abcd"
+            ))
+        );
     }
 }

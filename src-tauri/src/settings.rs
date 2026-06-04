@@ -40,6 +40,10 @@ impl ProxyRuntimeTuning {
 struct SettingsFile {
     #[serde(alias = "proxy_port")]
     proxy_port: Option<u16>,
+    #[serde(alias = "claude_desktop_path")]
+    claude_desktop_path: Option<PathBuf>,
+    #[serde(alias = "claude_desktop_resources_path")]
+    claude_desktop_resources_path: Option<PathBuf>,
     #[serde(alias = "title_i18n_rate_limit_window_secs")]
     title_i18n_rate_limit_window_secs: Option<u64>,
     #[serde(alias = "title_i18n_rate_limit_max")]
@@ -58,6 +62,20 @@ pub fn proxy_port() -> u16 {
 
 pub fn settings_path() -> PathBuf {
     crate::paths::app_state_dir().join(SETTINGS_FILE)
+}
+
+pub fn claude_desktop_path_overrides() -> Vec<PathBuf> {
+    read_settings_file()
+        .map(|settings| {
+            [
+                settings.claude_desktop_path,
+                settings.claude_desktop_resources_path,
+            ]
+            .into_iter()
+            .flatten()
+            .collect()
+        })
+        .unwrap_or_default()
 }
 
 pub fn proxy_runtime_tuning() -> ProxyRuntimeTuning {
@@ -126,7 +144,8 @@ fn proxy_runtime_tuning_from_file(text: &str) -> Result<ProxyRuntimeTuning, Stri
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_port, proxy_runtime_tuning_from_file};
+    use super::{parse_port, proxy_runtime_tuning_from_file, SettingsFile};
+    use std::path::PathBuf;
 
     #[test]
     fn parse_port_rejects_zero_and_invalid_values() {
@@ -179,5 +198,25 @@ mod tests {
         )
         .expect("zero config");
         assert_eq!(tuning, Default::default());
+    }
+
+    #[test]
+    fn settings_reads_claude_desktop_path_overrides() {
+        let settings = serde_json::from_str::<SettingsFile>(
+            r#"{
+                "claudeDesktopPath": "D:\\Apps\\Claude",
+                "claude_desktop_resources_path": "E:\\Portable\\Claude\\resources"
+            }"#,
+        )
+        .expect("settings");
+
+        assert_eq!(
+            settings.claude_desktop_path,
+            Some(PathBuf::from(r"D:\Apps\Claude"))
+        );
+        assert_eq!(
+            settings.claude_desktop_resources_path,
+            Some(PathBuf::from(r"E:\Portable\Claude\resources"))
+        );
     }
 }
