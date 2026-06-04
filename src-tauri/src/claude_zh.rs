@@ -11,7 +11,8 @@ mod imp {
         path::{Path, PathBuf},
     };
 
-    const LANGS: &[&str] = &["zh-CN", "zh-TW", "zh-HK"];
+    const LANGS: &[&str] = &["zh-CN"];
+    const LEGACY_LANGS: &[&str] = &["zh-CN", "zh-TW", "zh-HK"];
     const BASE_LANGUAGE_LIST: &str = r#"["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID""#;
     const ASAR_PATCH_TARGET: &str = ".vite/build/index.js";
     const BACKUP_DIR_NAME: &str = ".zh-cn-backups";
@@ -93,6 +94,10 @@ mod imp {
         }
 
         set_claude_locale(language)?;
+        crate::claude_enhance::refresh_enabled_features_for_locale(
+            &paths.resources,
+            crate::claude_enhance::EnhanceScriptLocale::from_claude_locale(Some(language)),
+        )?;
         claude_desktop::launch_claude()?;
         Ok(())
     }
@@ -116,6 +121,10 @@ mod imp {
         unregister_languages(&paths.resources)?;
         patch::sync_claude_exe_asar_integrity(&paths.resources, None, None)?;
         set_claude_locale("en-US")?;
+        crate::claude_enhance::refresh_enabled_features_for_locale(
+            &paths.resources,
+            crate::claude_enhance::EnhanceScriptLocale::EnUs,
+        )?;
         claude_desktop::launch_claude()?;
         Ok(())
     }
@@ -183,24 +192,6 @@ mod imp {
                 ),
                 desktop: include_str!("../resources/claude-zh/desktop-zh-CN.json"),
                 statsig: include_str!("../resources/claude-zh/statsig-zh-CN.json"),
-            }),
-            "zh-TW" => Ok(LanguagePack {
-                frontend: include_str!("../resources/claude-zh/frontend-zh-TW.json"),
-                frontend_visible_overrides: "{}",
-                frontend_hardcoded: include_str!(
-                    "../resources/claude-zh/frontend-hardcoded-zh-TW.json"
-                ),
-                desktop: include_str!("../resources/claude-zh/desktop-zh-TW.json"),
-                statsig: include_str!("../resources/claude-zh/statsig-zh-TW.json"),
-            }),
-            "zh-HK" => Ok(LanguagePack {
-                frontend: include_str!("../resources/claude-zh/frontend-zh-HK.json"),
-                frontend_visible_overrides: "{}",
-                frontend_hardcoded: include_str!(
-                    "../resources/claude-zh/frontend-hardcoded-zh-HK.json"
-                ),
-                desktop: include_str!("../resources/claude-zh/desktop-zh-HK.json"),
-                statsig: include_str!("../resources/claude-zh/statsig-zh-HK.json"),
             }),
             _ => Err(format!("不支持的语言: {language}")),
         }
@@ -403,7 +394,7 @@ mod imp {
     ) -> Result<(), String> {
         let assets_dir = resources_path.join("ion-dist").join("assets").join("v1");
         let marker = "__claudeZhLabelPatch";
-        let patch = r#";(()=>{const e=Intl.DisplayNames&&Intl.DisplayNames.prototype;if(!e||e.__claudeZhLabelPatch)return;const n=e.of;e.of=function(e){const t=String(e);return t==="zh-CN"?"简体中文":t==="zh-HK"?"繁体中文（中国香港）":t==="zh-TW"?"繁体中文（中国台湾）":n.call(this,e)},Object.defineProperty(e,"__claudeZhLabelPatch",{value:!0})})();"#;
+        let patch = r#";(()=>{const e=Intl.DisplayNames&&Intl.DisplayNames.prototype;if(!e||e.__claudeZhLabelPatch)return;const n=e.of;e.of=function(e){const t=String(e);return t==="zh-CN"?"简体中文":n.call(this,e)},Object.defineProperty(e,"__claudeZhLabelPatch",{value:!0})})();"#;
         for path in patch::js_files(&assets_dir, true)? {
             let text =
                 fs::read_to_string(&path).map_err(|e| format!("读取前端入口文件失败: {e}"))?;
@@ -560,12 +551,6 @@ mod imp {
                 ("Record Performance Trace", "记录性能跟踪"),
                 ("Write Main Process Heap Snapshot", "写入主进程堆快照"),
                 ("Record Memory Trace (auto-stop)", "记录内存跟踪 (自动)"),
-            ],
-            "zh-TW" | "zh-HK" => vec![
-                ("Enable Main Process Debugger", "啟用主行程偵錯器"),
-                ("Record Performance Trace", "記錄效能追蹤"),
-                ("Write Main Process Heap Snapshot", "寫入主行程堆積快照"),
-                ("Record Memory Trace (auto-stop)", "記錄記憶體追蹤 (自動)"),
             ],
             _ => return Err(format!("不支持的语言: {language}")),
         };
@@ -785,7 +770,7 @@ mod imp {
     }
 
     fn remove_language_files(resources_path: &Path) -> Result<(), String> {
-        for lang in LANGS {
+        for lang in LEGACY_LANGS {
             for path in [
                 resources_path
                     .join("ion-dist")
@@ -917,7 +902,7 @@ mod imp {
     mod tests {
         use super::{
             repair_hardcoded_identifier_pollution, replace_hardcoded_frontend_string,
-            unregister_languages_in_bundle,
+            unregister_languages_in_bundle, validate_language,
         };
 
         #[test]
@@ -985,6 +970,14 @@ mod imp {
             assert!(text.contains(r#"window.__claudePlusEnhancePluginsV1={version:"v0.1"}"#));
             assert!(!text.contains("__claudeZhLabelPatch"));
             assert!(!text.contains(r#","zh-CN""#));
+        }
+
+        #[test]
+        fn simplified_chinese_is_only_supported_localization_language() {
+            assert!(validate_language("zh-CN").is_ok());
+            assert!(validate_language("zh-TW").is_err());
+            assert!(validate_language("zh-HK").is_err());
+            assert!(validate_language("en-US").is_err());
         }
 
         #[test]

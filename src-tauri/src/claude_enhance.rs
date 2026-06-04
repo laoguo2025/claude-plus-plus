@@ -46,8 +46,8 @@ contextBridge.exposeInMainWorld("claudePlusSkills",{list:()=>ipcRenderer.invoke(
             .replace("__CPP_SKILLS_TRASH__", SKILLS_TRASH_CHANNEL)
     }
 
-    fn skills_main_bridge_script() -> String {
-        r##";(()=>{const MARK="__claudePlusSkillsMainBridgeV1";
+    fn skills_main_bridge_script(locale: EnhanceScriptLocale) -> String {
+        let script = r##";(()=>{const MARK="__claudePlusSkillsMainBridgeV1";
 if(globalThis[MARK])return;
 Object.defineProperty(globalThis,MARK,{value:!0});
 try{
@@ -73,7 +73,43 @@ ipcMain.handle("__CPP_SKILLS_TRASH__",(e,t)=>trashSkill(String(t||"")));
 }catch(e){console.error("[Claude++] skills main bridge failed",e)}
 })();"##
             .replace("__CPP_SKILLS_LIST__", SKILLS_LIST_CHANNEL)
-            .replace("__CPP_SKILLS_TRASH__", SKILLS_TRASH_CHANNEL)
+            .replace("__CPP_SKILLS_TRASH__", SKILLS_TRASH_CHANNEL);
+        match locale {
+            EnhanceScriptLocale::ZhCn => script,
+            EnhanceScriptLocale::EnUs => english_skills_main_bridge_script(script),
+        }
+    }
+
+    fn english_skills_main_bridge_script(mut script: String) -> String {
+        for (source, target) in [
+            (
+                r#"return"未提供描述""#,
+                r#"return"No description provided""#,
+            ),
+            (
+                r#"if(!r||r==="未提供描述")return"未提供描述。""#,
+                r#"if(!r||r==="No description provided")return"No description provided.""#,
+            ),
+            (
+                r#"collectRoot(r,"global","全局",null,e)"#,
+                r#"collectRoot(r,"global","Global",null,e)"#,
+            ),
+            (
+                r#"collectRoot(n,"project","项目",r,e)"#,
+                r#"collectRoot(n,"project","Project",r,e)"#,
+            ),
+            (
+                r#"throw new Error("未找到该 skill，可能已经被删除或路径已变化")"#,
+                r#"throw new Error("Skill not found. It may have been deleted or moved.")"#,
+            ),
+            (
+                r#"throw new Error("目标不是有效 skill 目录")"#,
+                r#"throw new Error("Target is not a valid skill directory")"#,
+            ),
+        ] {
+            script = script.replace(source, target);
+        }
+        script
     }
 
     fn title_i18n_preload_bridge_script() -> String {
@@ -139,17 +175,106 @@ ipcMain.handle("__CPP_TOKEN_USAGE__",(e,n)=>getUsage(n));
                 &local_gateway_url("/claude-plus/token-usage"),
             )
     }
-    fn inject_script() -> String {
-        INJECT_SCRIPT_TEMPLATE.replace(
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub(crate) enum EnhanceScriptLocale {
+        EnUs,
+        ZhCn,
+    }
+
+    impl EnhanceScriptLocale {
+        pub(crate) fn from_claude_locale(locale: Option<&str>) -> Self {
+            match locale.map(str::trim) {
+                Some("zh-CN") => Self::ZhCn,
+                _ => Self::EnUs,
+            }
+        }
+    }
+
+    fn current_script_locale() -> EnhanceScriptLocale {
+        EnhanceScriptLocale::from_claude_locale(crate::claude_zh::status().locale.as_deref())
+    }
+
+    fn inject_script_for_locale(locale: EnhanceScriptLocale) -> String {
+        let script = INJECT_SCRIPT_TEMPLATE.replace(
             "__CPP_TOKEN_USAGE_URL__",
             &local_gateway_url("/claude-plus/token-usage"),
-        )
+        );
+        match locale {
+            EnhanceScriptLocale::ZhCn => script,
+            EnhanceScriptLocale::EnUs => english_inject_script(script),
+        }
+    }
+
+    fn english_inject_script(mut script: String) -> String {
+        for (source, target) in [
+            (r#"label:"第三方API""#, r#"label:"Third-party API""#),
+            (r#"label:"技能""#, r#"label:"Skills""#),
+            ("计划任务|Scheduled", "Scheduled tasks|Scheduled"),
+            ("button[aria-label*='更多']", "button[aria-label*='more' i]"),
+            (
+                "新会话|计划任务|第三方API|技能|MCP|自定义|更多|Code|Drag to pin|已固定|最近使用",
+                "New chat|Scheduled tasks|Third-party API|Skills|MCP|Customize|More|Code|Drag to pin|Pinned|Recents",
+            ),
+            (
+                r#"aria-label="技能"><header><strong>技能</strong><button type="button" data-cps-close>关闭</button></header><main><p class="cps-loading">正在读取 skills...</p>"#,
+                r#"aria-label="Skills"><header><strong>Skills</strong><button type="button" data-cps-close>Close</button></header><main><p class="cps-loading">Loading skills...</p>"#,
+            ),
+            (r#"n==="global"?"全局 skills":"项目 skills""#, r#"n==="global"?"Global skills":"Project skills""#),
+            (r#"e.summary_zh||e.description||"未提供描述。""#, r#"e.description||"No description provided.""#),
+            (r#"<button type="button" data-cps-detail>详情</button>"#, r#"<button type="button" data-cps-detail>Details</button>"#),
+            (r#"<button type="button" class="cps-danger" data-cps-trash>删除</button>"#, r#"<button type="button" class="cps-danger" data-cps-trash>Delete</button>"#),
+            (r#"<strong>原始描述</strong>"#, r#"<strong>Original description</strong>"#),
+            (r#"<strong>文件地址</strong>"#, r#"<strong>Skill file</strong>"#),
+            (r#"<strong>目录地址</strong>"#, r#"<strong>Directory</strong>"#),
+            (r#""未提供描述。""#, r#""No description provided.""#),
+            (r#"'<p class="cps-empty">暂无'+r+'。</p>'"#, r#"'<p class="cps-empty">No '+r+'.</p>'"#),
+            (
+                r#"<p class="cps-error">本地 skills 桥未安装或尚未生效。</p><p class="cps-path">请在 Claude++ 中重新安装“技能”页面增强，并重启 Claude Desktop。</p>"#,
+                r#"<p class="cps-error">The local skills bridge is not installed or not active yet.</p><p class="cps-path">Reinstall the Skills enhancement in Claude++ and restart Claude Desktop.</p>"#,
+            ),
+            (r#"e.textContent=t?"收起":"详情""#, r#"e.textContent=t?"Hide":"Details""#),
+            (r#""该 skill""#, r#""this skill""#),
+            (
+                r#""确认删除 skill “"+o+"”？\n\n该操作会把对应 skill 目录移动到回收站。""#,
+                r#""Delete skill \""+o+"\"?\n\nThis moves the skill directory to the Recycle Bin.""#,
+            ),
+            (r#"s("已移动到回收站")"#, r#"s("Moved to the Recycle Bin")"#),
+            (
+                r#"<p class="cps-error">读取本地 skills 失败。</p>"#,
+                r#"<p class="cps-error">Failed to read local skills.</p>"#,
+            ),
+            ("未找到已渲染的对话消息", "No rendered conversation messages found"),
+            (
+                "_导出范围：当前页面已加载并渲染的对话内容。_",
+                "_Export scope: conversation content currently loaded and rendered on this page._",
+            ),
+            ("已导出当前页面已加载的对话", "Exported the currently loaded conversation"),
+            ("导出 Markdown", "Export Markdown"),
+            ("跳转到问题 ", "Jump to question "),
+            ("本轮调用合计 ", "Turn calls total "),
+            (" · 输入 ", " · input "),
+            (" · 输出 ", " · output "),
+            (" · 缓存写 ", " · cache write "),
+            (" · 缓存读 ", " · cache read "),
+            (" · 缓存命中率 ", " · cache hit rate "),
+            ("return \"上下文 \"+cpuF(r)+\"/\"+cpuF(a)", "return \"context \"+cpuF(r)+\"/\"+cpuF(a)"),
+            (" · 调用 ", " · calls "),
+            (" 次 · 耗时 ", " · time "),
+            (" · 数据仅供参考", " · Data for reference only"),
+            ("(估算)", "(estimated)"),
+            ("\"未知\"", "\"unknown\""),
+            ("运行中|Running|tokens|List all|source code files|正在", "Running|tokens|List all|source code files"),
+        ] {
+            script = script.replace(source, target);
+        }
+        script
     }
 
     const INJECT_SCRIPT_TEMPLATE: &str = r####";(()=>{const m="__claudePlusEnhanceNavV2";
 if(window[m])return;
 Object.defineProperty(window,m,{value:!0});
-const v="3.8",n=[
+const v="3.9",n=[
 {id:"third_party_api",marker:"__claudePlusEnhanceThirdPartyApiV1",label:"第三方API",path:"/setup-desktop-3p",open:"custom3p",icon:'<svg width="16" height="16" style="width:1em;height:1em;min-width:1em;max-width:1em;min-height:1em;max-height:1em;flex:none;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h8"/><rect x="4" y="5" width="16" height="14" rx="2"/></svg>'},
 {id:"plugins",marker:"__claudePlusEnhancePluginsV1",label:"技能",path:"/customize/plugins/new?marketplace&plugin",open:"skills",icon:'<svg width="16" height="16" style="width:1em;height:1em;min-width:1em;max-width:1em;min-height:1em;max-height:1em;flex:none;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10H7z"/><path d="M10 3h4v4"/><path d="M10 21h4v-4"/><path d="M3 10h4"/><path d="M17 14h4"/></svg>'},
 {id:"mcp",marker:"__claudePlusEnhanceMcpV1",label:"MCP",path:"/setup-desktop-3p",open:"custom3p_connectors",icon:'<svg width="16" height="16" style="width:1em;height:1em;min-width:1em;max-width:1em;min-height:1em;max-height:1em;flex:none;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="7" r="2.5"/><circle cx="18" cy="17" r="2.5"/><path d="M8.3 10.9 15.7 8.1"/><path d="M8.3 13.1 15.7 15.9"/></svg>'}
@@ -414,9 +539,15 @@ D();
         patch::enable_write_access(&paths.resources, false);
 
         let mut backup = patch::BackupContext::new(&paths.resources, BACKUP_DIR_NAME);
-        update_feature_marker(&paths.resources, &mut backup, feature, true)?;
+        update_feature_marker(
+            &paths.resources,
+            &mut backup,
+            feature,
+            true,
+            current_script_locale(),
+        )?;
         if matches!(feature, EnhanceFeatureId::Plugins) {
-            update_skills_bridge(&paths.resources, &mut backup, true)?;
+            update_skills_bridge(&paths.resources, &mut backup, true, current_script_locale())?;
         }
         if matches!(feature, EnhanceFeatureId::ConversationTitleI18n) {
             update_title_i18n_bridge(&paths.resources, &mut backup, true)?;
@@ -434,9 +565,20 @@ D();
         claude_desktop::stop_claude_processes()?;
         patch::enable_write_access(&paths.resources, false);
         let mut backup = patch::BackupContext::new(&paths.resources, BACKUP_DIR_NAME);
-        update_feature_marker(&paths.resources, &mut backup, feature, false)?;
+        update_feature_marker(
+            &paths.resources,
+            &mut backup,
+            feature,
+            false,
+            current_script_locale(),
+        )?;
         if matches!(feature, EnhanceFeatureId::Plugins) {
-            update_skills_bridge(&paths.resources, &mut backup, false)?;
+            update_skills_bridge(
+                &paths.resources,
+                &mut backup,
+                false,
+                current_script_locale(),
+            )?;
         }
         if matches!(feature, EnhanceFeatureId::ConversationTitleI18n) {
             update_title_i18n_bridge(&paths.resources, &mut backup, false)?;
@@ -556,9 +698,15 @@ D();
     ) -> Result<(), String> {
         let mut backup = patch::BackupContext::new(resources_path, BACKUP_DIR_NAME);
         for feature in needs_upgrade {
-            update_feature_marker(resources_path, &mut backup, *feature, true)?;
+            update_feature_marker(
+                resources_path,
+                &mut backup,
+                *feature,
+                true,
+                current_script_locale(),
+            )?;
             if matches!(feature, EnhanceFeatureId::Plugins) {
-                update_skills_bridge(resources_path, &mut backup, true)?;
+                update_skills_bridge(resources_path, &mut backup, true, current_script_locale())?;
             }
             if matches!(feature, EnhanceFeatureId::ConversationTitleI18n) {
                 update_title_i18n_bridge(resources_path, &mut backup, true)?;
@@ -570,11 +718,47 @@ D();
         Ok(())
     }
 
+    pub(crate) fn refresh_enabled_features_for_locale(
+        resources_path: &Path,
+        locale: EnhanceScriptLocale,
+    ) -> Result<(), String> {
+        let states =
+            feature_states_from_text(&read_index_bundle(resources_path).unwrap_or_default());
+        if !states.iter().any(|state| state.enabled) {
+            return Ok(());
+        }
+
+        let mut backup = patch::BackupContext::new(resources_path, BACKUP_DIR_NAME);
+        let assets_dir = resources_path.join("ion-dist").join("assets").join("v1");
+        let mut patched = false;
+        for path in patch::js_files(&assets_dir, true)? {
+            let text =
+                fs::read_to_string(&path).map_err(|e| format!("读取 Claude 前端入口失败: {e}"))?;
+            let next = ensure_or_remove_script(remove_old_script(&text), locale);
+            if next != text {
+                backup.backup_resource(&path)?;
+                fs::write(&path, next).map_err(|e| format!("写入 Claude 页面增强入口失败: {e}"))?;
+            }
+            patched = true;
+        }
+
+        if patched {
+            if is_enabled(&states, EnhanceFeatureId::Plugins) {
+                let mut backup = patch::BackupContext::new(resources_path, BACKUP_DIR_NAME);
+                update_skills_bridge(resources_path, &mut backup, true, locale)?;
+            }
+            Ok(())
+        } else {
+            Err("未找到可刷新语言的 Claude 前端入口".to_string())
+        }
+    }
+
     fn update_feature_marker(
         resources_path: &Path,
         backup: &mut patch::BackupContext,
         feature: EnhanceFeatureId,
         enabled: bool,
+        locale: EnhanceScriptLocale,
     ) -> Result<(), String> {
         let assets_dir = resources_path.join("ion-dist").join("assets").join("v1");
         let mut patched = false;
@@ -583,7 +767,7 @@ D();
                 fs::read_to_string(&path).map_err(|e| format!("读取 Claude 前端入口失败: {e}"))?;
             let mut next = remove_old_script(&text);
             next = set_marker(next, feature.marker(), enabled);
-            next = ensure_or_remove_script(next);
+            next = ensure_or_remove_script(next, locale);
             if next == text {
                 patched = true;
                 continue;
@@ -600,12 +784,12 @@ D();
         }
     }
 
-    fn ensure_or_remove_script(mut text: String) -> String {
+    fn ensure_or_remove_script(mut text: String, locale: EnhanceScriptLocale) -> String {
         let has_enabled_feature = feature_states_from_text(&text)
             .into_iter()
             .any(|state| state.enabled);
         if has_enabled_feature && !text.contains(SCRIPT_MARKER) {
-            text.push_str(&inject_script());
+            text.push_str(&inject_script_for_locale(locale));
         }
         if !has_enabled_feature {
             text = remove_old_script(&text);
@@ -676,7 +860,7 @@ D();
         .into_iter()
         .find(|feature| feature.marker() == marker)
         .map(feature_version)
-        .unwrap_or_else(|| "v0.1".to_string())
+        .unwrap_or_else(|| "v0.2".to_string())
     }
 
     fn feature_version(feature: EnhanceFeatureId) -> String {
@@ -684,15 +868,16 @@ D();
         feature_definitions()
             .into_iter()
             .find_map(|definition| (definition.id == id).then_some(definition.version))
-            .unwrap_or_else(|| "v0.1".to_string())
+            .unwrap_or_else(|| "v0.2".to_string())
     }
 
     fn update_skills_bridge(
         resources_path: &Path,
         backup: &mut patch::BackupContext,
         enabled: bool,
+        locale: EnhanceScriptLocale,
     ) -> Result<(), String> {
-        let main_script = skills_main_bridge_script();
+        let main_script = skills_main_bridge_script(locale);
         let preload_script = skills_bridge_script();
         patch_bridge_files(
             resources_path,
@@ -998,7 +1183,8 @@ D();
             TOKEN_USAGE_MAIN_BRIDGE_MARKER, TOKEN_USAGE_MARKER,
         };
 
-        static INJECT_SCRIPT: LazyLock<String> = LazyLock::new(super::inject_script);
+        static INJECT_SCRIPT: LazyLock<String> =
+            LazyLock::new(|| super::inject_script_for_locale(super::EnhanceScriptLocale::ZhCn));
 
         fn temp_resources(name: &str) -> PathBuf {
             let unique = SystemTime::now()
@@ -1040,6 +1226,68 @@ D();
         }
 
         #[test]
+        fn english_inject_script_uses_english_visible_copy() {
+            let script = super::inject_script_for_locale(super::EnhanceScriptLocale::EnUs);
+
+            assert!(script.contains(r#"label:"Third-party API""#));
+            assert!(script.contains(r#"label:"Skills""#));
+            assert!(script.contains(r#"n.textContent="Export Markdown""#));
+            assert!(script.contains("Data for reference only"));
+            assert!(!script.contains(r#"label:"第三方API""#));
+            assert!(!script.contains(r#"label:"技能""#));
+            assert!(!script.contains(r#"n.textContent="导出 Markdown""#));
+            assert!(!script.contains("本轮调用合计 "));
+        }
+
+        #[test]
+        fn zh_cn_inject_script_uses_chinese_visible_copy() {
+            let script = super::inject_script_for_locale(super::EnhanceScriptLocale::ZhCn);
+
+            assert!(script.contains(r#"label:"第三方API""#));
+            assert!(script.contains(r#"label:"技能""#));
+            assert!(script.contains(r#"n.textContent="导出 Markdown""#));
+            assert!(script.contains("本轮调用合计 "));
+            assert!(!script.contains(r#"label:"Third-party API""#));
+            assert!(!script.contains(r#"n.textContent="Export Markdown""#));
+        }
+
+        #[test]
+        fn refresh_enabled_features_rewrites_script_locale_without_changing_markers() {
+            let resources = temp_resources("enhance-locale-refresh");
+            let bundle = resources
+                .join("ion-dist")
+                .join("assets")
+                .join("v1")
+                .join("index-test.js");
+            fs::write(
+                &bundle,
+                format!(
+                    "const app=true;{}{}{}",
+                    super::inject_script_for_locale(super::EnhanceScriptLocale::ZhCn),
+                    feature_payload(NAV_API_MARKER),
+                    feature_payload(MARKDOWN_EXPORT_MARKER)
+                ),
+            )
+            .unwrap();
+
+            super::refresh_enabled_features_for_locale(
+                &resources,
+                super::EnhanceScriptLocale::EnUs,
+            )
+            .expect("refresh enabled feature locale");
+            let text = fs::read_to_string(&bundle).unwrap();
+            fs::remove_dir_all(&resources).ok();
+
+            assert!(text.contains(r#"label:"Third-party API""#));
+            assert!(text.contains(r#"n.textContent="Export Markdown""#));
+            assert!(text.contains(&feature_payload(NAV_API_MARKER)));
+            assert!(text.contains(&feature_payload(MARKDOWN_EXPORT_MARKER)));
+            assert!(!text.contains(r#"label:"第三方API""#));
+            assert!(!text.contains(r#"n.textContent="导出 Markdown""#));
+            assert!(!text.contains(&feature_payload(NAV_PLUGINS_MARKER)));
+        }
+
+        #[test]
         fn feature_payload_controls_enabled_state() {
             let text = format!(
                 "{}{}{}",
@@ -1064,7 +1312,7 @@ D();
         fn uninstalling_last_feature_removes_shared_script() {
             let text = format!("base{}", feature_payload(TOKEN_USAGE_MARKER));
             let text = super::set_marker(text, TOKEN_USAGE_MARKER, false);
-            let text = super::ensure_or_remove_script(text);
+            let text = super::ensure_or_remove_script(text, super::EnhanceScriptLocale::EnUs);
 
             assert!(!text.contains(SCRIPT_MARKER));
             assert!(!text.contains("cpuInstallFetchObserver"));
@@ -1085,7 +1333,7 @@ D();
             assert!(token_usage.description.contains("本轮调用合计"));
             assert!(token_usage.available);
             for feature in list {
-                assert_eq!(feature.version, "v0.1");
+                assert_eq!(feature.version, "v0.2");
             }
         }
 
@@ -1094,7 +1342,7 @@ D();
             let payload = feature_payload(NAV_API_MARKER);
 
             assert!(payload.contains(NAV_API_MARKER));
-            assert!(payload.contains("version:\"v0.1\""));
+            assert!(payload.contains("version:\"v0.2\""));
             assert!(!payload.contains("=true"));
         }
 
@@ -1128,7 +1376,7 @@ D();
 
             assert!(nav_api.enabled);
             assert_eq!(nav_api.installed_version.as_deref(), Some("v0.0"));
-            assert_eq!(nav_api.current_version, "v0.1");
+            assert_eq!(nav_api.current_version, "v0.2");
             assert!(nav_api.needs_upgrade());
         }
 
@@ -1139,7 +1387,7 @@ D();
             let nav_api = feature_state(&states, EnhanceFeatureId::ThirdPartyApi);
 
             assert!(nav_api.enabled);
-            assert_eq!(nav_api.installed_version.as_deref(), Some("v0.1"));
+            assert_eq!(nav_api.installed_version.as_deref(), Some("v0.2"));
             assert!(!nav_api.needs_upgrade());
         }
 
@@ -1612,8 +1860,9 @@ D();
             assert!(INJECT_SCRIPT.contains(
                 "if(weak&&r.calls.some(e=>!/^(cc-switch|proxy)$/.test(e.source||\"\")))return!1"
             ));
-            assert!(INJECT_SCRIPT
-                .contains("if(!weak)r.calls=r.calls.filter(e=>!/^(cc-switch|proxy)$/.test(e.source||\"\"))"));
+            assert!(INJECT_SCRIPT.contains(
+                "if(!weak)r.calls=r.calls.filter(e=>!/^(cc-switch|proxy)$/.test(e.source||\"\"))"
+            ));
             assert!(INJECT_SCRIPT.contains("source:e.source||\"\""));
         }
 
@@ -1664,13 +1913,30 @@ D();
 
         #[test]
         fn main_bridge_handles_skills_filesystem_api() {
-            let script = super::skills_main_bridge_script();
+            let script = super::skills_main_bridge_script(super::EnhanceScriptLocale::ZhCn);
             assert!(script.contains("ipcMain.handle"));
             assert!(script.contains("require(\"fs\")"));
             assert!(script.contains("shell.trashItem"));
             assert!(script.contains("listSkills"));
             assert!(script.contains(SKILLS_LIST_CHANNEL));
             assert!(script.contains(SKILLS_TRASH_CHANNEL));
+        }
+
+        #[test]
+        fn main_bridge_visible_copy_tracks_locale() {
+            let english = super::skills_main_bridge_script(super::EnhanceScriptLocale::EnUs);
+            let chinese = super::skills_main_bridge_script(super::EnhanceScriptLocale::ZhCn);
+
+            assert!(english.contains("No description provided."));
+            assert!(english.contains(r#"collectRoot(r,"global","Global",null,e)"#));
+            assert!(english.contains("Skill not found"));
+            assert!(!english.contains("未提供描述"));
+            assert!(!english.contains(r#"collectRoot(r,"global","全局",null,e)"#));
+
+            assert!(chinese.contains("未提供描述。"));
+            assert!(chinese.contains(r#"collectRoot(r,"global","全局",null,e)"#));
+            assert!(chinese.contains("未找到该 skill"));
+            assert!(!chinese.contains("No description provided."));
         }
 
         #[test]
@@ -1721,7 +1987,7 @@ D();
             let text = format!(
                 "{}const ready=true;{}//# sourceMappingURL=mainView.js.map",
                 super::skills_bridge_script(),
-                super::skills_main_bridge_script()
+                super::skills_main_bridge_script(super::EnhanceScriptLocale::ZhCn)
             );
             let cleaned = remove_skills_bridge(&text);
 
