@@ -49,6 +49,8 @@ const previewZhStatus: ClaudeZhStatus = {
 
 const previewWelcomeStatus: WelcomeStatus = {
   claude_code_installed: false,
+  virtual_machine_platform_supported: true,
+  virtual_machine_platform_enabled: false,
   claude_desktop_found: true,
   developer_mode_enabled: true,
   cc_switch_installed: true,
@@ -118,6 +120,7 @@ function isPreviewNoopCommand(cmd: string): boolean {
     "install_claude_zh",
     "uninstall_claude_zh",
     "enable_claude_developer_mode",
+    "enable_virtual_machine_platform",
     "install_claude_code",
     "install_claude_enhance",
     "uninstall_claude_enhance",
@@ -127,6 +130,9 @@ function isPreviewNoopCommand(cmd: string): boolean {
 function applyPreviewCommandState(cmd: string) {
   if (cmd === "enable_claude_developer_mode") {
     previewWelcomeStatus.developer_mode_enabled = true;
+  }
+  if (cmd === "enable_virtual_machine_platform") {
+    previewWelcomeStatus.virtual_machine_platform_enabled = true;
   }
   if (cmd === "install_claude_code") {
     previewWelcomeStatus.claude_code_installed = true;

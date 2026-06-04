@@ -12,6 +12,8 @@ mod imp {
 
     const WINDOWS_CLAUDE_CODE_INSTALL_COMMAND: &str =
         "irm https://claude.ai/install.ps1 | iex; $claudeDir = Join-Path $HOME '.claude'; New-Item -ItemType Directory -Force -Path $claudeDir | Out-Null; $settingsPath = Join-Path $claudeDir 'settings.json'; $settings = @{}; if (Test-Path -LiteralPath $settingsPath) { try { $json = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json; if ($json -is [pscustomobject]) { $json.PSObject.Properties | ForEach-Object { $settings[$_.Name] = $_.Value } } } catch { $settings = @{} } }; $envMap = @{}; if ($settings.ContainsKey('env') -and $null -ne $settings['env']) { if ($settings['env'] -is [System.Collections.IDictionary]) { $envMap = $settings['env'] } elseif ($settings['env'] -is [pscustomobject]) { $settings['env'].PSObject.Properties | ForEach-Object { $envMap[$_.Name] = $_.Value } } }; $envMap['ANTHROPIC_AUTH_TOKEN'] = 'PROXY_MANAGED'; $settings['env'] = $envMap; $settings | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $settingsPath -Encoding UTF8; Write-Host ''; Write-Host 'Claude Code 安装脚本已结束，代理配置已写入。可关闭此窗口。'";
+    const WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND: &str =
+        "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux,VirtualMachinePlatform -All -NoRestart; Write-Host ''; Write-Host 'Win虚拟机平台已发起开启。请重启电脑后再继续使用。'; Read-Host '按回车关闭窗口'";
 
     const CLAUDE_CODE_AUTH_TOKEN_ENV: &str = "ANTHROPIC_AUTH_TOKEN";
     const CLAUDE_CODE_PROXY_MANAGED_TOKEN: &str = "PROXY_MANAGED";
@@ -19,6 +21,8 @@ mod imp {
     #[derive(Serialize)]
     pub struct WelcomeStatus {
         pub claude_code_installed: bool,
+        pub virtual_machine_platform_supported: bool,
+        pub virtual_machine_platform_enabled: bool,
         pub claude_desktop_found: bool,
         pub developer_mode_enabled: bool,
         pub cc_switch_installed: bool,
@@ -31,6 +35,8 @@ mod imp {
         }
         WelcomeStatus {
             claude_code_installed,
+            virtual_machine_platform_supported: true,
+            virtual_machine_platform_enabled: detect_virtual_machine_platform_enabled(),
             claude_desktop_found: detect_claude_desktop_found(),
             developer_mode_enabled: read_developer_mode_enabled(),
             cc_switch_installed: detect_cc_switch_installed(),
@@ -60,8 +66,82 @@ mod imp {
         enable_developer_mode_at_path(&path)
     }
 
+    pub fn enable_virtual_machine_platform() -> Result<(), String> {
+        if detect_virtual_machine_platform_enabled() {
+            return Ok(());
+        }
+        let escaped_command = WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND.replace('\'', "''");
+        let mut command = Command::new("powershell.exe");
+        command
+            .args([
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                &format!(
+                    "Start-Process powershell.exe -Verb RunAs -ArgumentList '-NoExit -ExecutionPolicy Bypass -Command ''{escaped_command}'''"
+                ),
+            ])
+            .stdin(Stdio::null());
+        command
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("启动 Win 虚拟机平台开启命令失败: {e}"))
+    }
+
     fn detect_claude_code_installed() -> bool {
         path_has_windows_command("claude")
+    }
+
+    fn detect_virtual_machine_platform_enabled() -> bool {
+        [
+            "Microsoft-Windows-Subsystem-Linux",
+            "VirtualMachinePlatform",
+        ]
+        .into_iter()
+        .all(detect_windows_optional_feature_enabled)
+    }
+
+    fn detect_windows_optional_feature_enabled(feature: &str) -> bool {
+        let feature_arg = format!("/FeatureName:{feature}");
+        let output = Command::new("dism.exe")
+            .args(["/online", "/Get-FeatureInfo", &feature_arg, "/English"])
+            .stdin(Stdio::null())
+            .output();
+        let Ok(output) = output else {
+            return false;
+        };
+        output.status.success()
+            && dism_feature_state(&String::from_utf8_lossy(&output.stdout), feature)
+                .is_some_and(|state| state == "Enabled")
+    }
+
+    fn virtual_machine_platform_from_dism_output(text: &str) -> bool {
+        [
+            "Microsoft-Windows-Subsystem-Linux",
+            "VirtualMachinePlatform",
+        ]
+        .into_iter()
+        .all(|feature| dism_feature_state(text, feature).is_some_and(|state| state == "Enabled"))
+    }
+
+    fn dism_feature_state(text: &str, feature: &str) -> Option<String> {
+        let mut in_target = false;
+        for line in text.lines() {
+            let Some((key, value)) = line.split_once(':') else {
+                continue;
+            };
+            let key = key.trim();
+            let value = value.trim();
+            if key.eq_ignore_ascii_case("Feature Name") {
+                in_target = value.eq_ignore_ascii_case(feature);
+                continue;
+            }
+            if in_target && key.eq_ignore_ascii_case("State") {
+                return Some(value.to_string());
+            }
+        }
+        None
     }
 
     fn ensure_claude_code_proxy_settings() -> Result<(), String> {
@@ -301,7 +381,8 @@ mod imp {
             cc_switch_state_dir_from_home, claude_code_settings_has_proxy_managed_env,
             claude_code_settings_path_from_home, developer_mode_from_json,
             enable_developer_mode_at_path, ensure_claude_code_proxy_settings_at_path,
-            is_cc_switch_install_marker, windows_command_extensions,
+            is_cc_switch_install_marker, virtual_machine_platform_from_dism_output,
+            windows_command_extensions, WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND,
             WINDOWS_CLAUDE_CODE_INSTALL_COMMAND,
         };
         use serde_json::Value;
@@ -441,6 +522,48 @@ mod imp {
         }
 
         #[test]
+        fn virtual_machine_platform_requires_wsl_and_vm_platform_enabled() {
+            let enabled = r#"
+Feature Name : Microsoft-Windows-Subsystem-Linux
+State : Enabled
+
+Feature Name : VirtualMachinePlatform
+State : Enabled
+"#;
+            let missing_wsl = r#"
+Feature Name : Microsoft-Windows-Subsystem-Linux
+State : Disabled
+
+Feature Name : VirtualMachinePlatform
+State : Enabled
+"#;
+            let missing_vm_platform = r#"
+Feature Name : Microsoft-Windows-Subsystem-Linux
+State : Enabled
+
+Feature Name : VirtualMachinePlatform
+State : Disabled
+"#;
+
+            assert!(virtual_machine_platform_from_dism_output(enabled));
+            assert!(!virtual_machine_platform_from_dism_output(missing_wsl));
+            assert!(!virtual_machine_platform_from_dism_output(missing_vm_platform));
+            assert!(!virtual_machine_platform_from_dism_output(""));
+        }
+
+        #[test]
+        fn virtual_machine_platform_enable_command_targets_only_required_features() {
+            assert!(WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND
+                .contains("Microsoft-Windows-Subsystem-Linux"));
+            assert!(
+                WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND.contains("VirtualMachinePlatform")
+            );
+            assert!(WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND.contains("-All"));
+            assert!(WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND.contains("-NoRestart"));
+            assert!(!WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND.contains("HypervisorPlatform"));
+        }
+
+        #[test]
         fn enable_developer_mode_preserves_fields_and_backs_up_existing_file() {
             let dir = test_dir("preserve");
             fs::create_dir_all(&dir).unwrap();
@@ -528,6 +651,8 @@ mod imp {
     #[derive(Serialize)]
     pub struct WelcomeStatus {
         pub claude_code_installed: bool,
+        pub virtual_machine_platform_supported: bool,
+        pub virtual_machine_platform_enabled: bool,
         pub claude_desktop_found: bool,
         pub developer_mode_enabled: bool,
         pub cc_switch_installed: bool,
@@ -536,6 +661,8 @@ mod imp {
     pub fn status() -> WelcomeStatus {
         WelcomeStatus {
             claude_code_installed: detect_claude_code_installed(),
+            virtual_machine_platform_supported: false,
+            virtual_machine_platform_enabled: false,
             claude_desktop_found: false,
             developer_mode_enabled: false,
             cc_switch_installed: false,
@@ -563,6 +690,10 @@ mod imp {
 
     pub fn enable_developer_mode() -> Result<(), String> {
         Err("当前只支持在 Windows 上开启 Claude Desktop 开发者模式".to_string())
+    }
+
+    pub fn enable_virtual_machine_platform() -> Result<(), String> {
+        Err("当前只支持在 Windows 上开启 Win 虚拟机平台".to_string())
     }
 
     fn detect_claude_code_installed() -> bool {
@@ -608,4 +739,7 @@ mod imp {
     }
 }
 
-pub use imp::{enable_developer_mode, install_claude_code, status, WelcomeStatus};
+pub use imp::{
+    enable_developer_mode, enable_virtual_machine_platform, install_claude_code, status,
+    WelcomeStatus,
+};

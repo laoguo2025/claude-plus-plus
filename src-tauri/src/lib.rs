@@ -345,6 +345,22 @@ fn install_claude_code() -> Result<(), String> {
 }
 
 #[tauri::command]
+fn enable_virtual_machine_platform() -> Result<(), String> {
+    let result = welcome::enable_virtual_machine_platform();
+    let _ = diagnostics::append_event(
+        if result.is_ok() {
+            "manager.enable_virtual_machine_platform.ok"
+        } else {
+            "manager.enable_virtual_machine_platform.failed"
+        },
+        serde_json::json!({
+            "error": result.as_ref().err()
+        }),
+    );
+    result
+}
+
+#[tauri::command]
 fn install_claude_zh(language: String, skip_asar_patch: bool) -> Result<(), String> {
     claude_zh::install(&language, skip_asar_patch)
 }
@@ -526,6 +542,7 @@ pub fn run() {
             welcome_status,
             enable_claude_developer_mode,
             install_claude_code,
+            enable_virtual_machine_platform,
             install_claude_zh,
             backup_claude_zh,
             uninstall_claude_zh,

@@ -83,6 +83,8 @@ export interface DiagnosticsPayload {
 
 export interface WelcomeStatus {
   claude_code_installed: boolean;
+  virtual_machine_platform_supported: boolean;
+  virtual_machine_platform_enabled: boolean;
   claude_desktop_found: boolean;
   developer_mode_enabled: boolean;
   cc_switch_installed: boolean;

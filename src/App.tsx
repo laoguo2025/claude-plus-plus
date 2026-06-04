@@ -1,4 +1,12 @@
-import { useEffect, useState, useCallback, useRef, type ComponentType, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  type ComponentType,
+  type MutableRefObject,
+  type ReactNode,
+} from "react";
 import {
   Activity,
   CheckCircle2,
@@ -94,6 +102,7 @@ function App() {
   const [welcomeStatus, setWelcomeStatus] = useState<WelcomeStatus | null>(null);
   const [appVersion, setAppVersion] = useState(PREVIEW_APP_VERSION);
   const lastMappingFingerprint = useRef<string | null>(null);
+  const virtualMachinePlatformEnableRequested = useRef(false);
   const routeStatePollingEnabled = shouldPollRouteState(welcomeStatus);
 
   useEffect(() => {
@@ -224,6 +233,11 @@ function App() {
       await callCommand("install_claude_code");
       await refreshWelcomeStatus();
     });
+
+  const enableVirtualMachinePlatform = useCallback(async () => {
+    await callCommand("enable_virtual_machine_platform");
+    await refreshWelcomeStatus();
+  }, [refreshWelcomeStatus]);
 
   const toggleTheme = () => {
     setTheme((current) => (current === "dark" ? "light" : "dark"));
@@ -445,6 +459,8 @@ function App() {
               busy={busy}
               welcomeStatus={welcomeStatus}
               setErr={setErr}
+              enableVirtualMachinePlatform={enableVirtualMachinePlatform}
+              virtualMachinePlatformEnableRequested={virtualMachinePlatformEnableRequested}
               installClaudeCode={installClaudeCode}
             />
           )}
@@ -850,14 +866,48 @@ function WelcomePage({
   busy,
   welcomeStatus,
   setErr,
+  enableVirtualMachinePlatform,
+  virtualMachinePlatformEnableRequested,
   installClaudeCode,
 }: {
   busy: boolean;
   welcomeStatus: WelcomeStatus | null;
   setErr: (error: string) => void;
+  enableVirtualMachinePlatform: () => Promise<void>;
+  virtualMachinePlatformEnableRequested: MutableRefObject<boolean>;
   installClaudeCode: () => Promise<void>;
 }) {
   const loading = welcomeStatus === null;
+  const virtualMachinePlatformSupported = welcomeStatus?.virtual_machine_platform_supported === true;
+  const virtualMachinePlatformEnabled = welcomeStatus?.virtual_machine_platform_enabled === true;
+  const virtualMachinePlatformPending =
+    !loading &&
+    virtualMachinePlatformSupported &&
+    !virtualMachinePlatformEnabled &&
+    virtualMachinePlatformEnableRequested.current;
+
+  useEffect(() => {
+    if (
+      loading ||
+      !virtualMachinePlatformSupported ||
+      virtualMachinePlatformEnabled ||
+      virtualMachinePlatformEnableRequested.current
+    ) {
+      return;
+    }
+    virtualMachinePlatformEnableRequested.current = true;
+    enableVirtualMachinePlatform().catch((e) => {
+      setErr(String(e));
+    });
+  }, [
+    enableVirtualMachinePlatform,
+    loading,
+    setErr,
+    virtualMachinePlatformEnableRequested,
+    virtualMachinePlatformEnabled,
+    virtualMachinePlatformSupported,
+  ]);
+
   const downloadClaudeDesktop = async () => {
     setErr("");
     try {
@@ -910,6 +960,31 @@ function WelcomePage({
       </p>
 
       <section className="welcomeStatusGrid" aria-label="环境状态检测">
+        <RouteStatusCard
+          loading={loading}
+          active={virtualMachinePlatformEnabled}
+          label="Win虚拟机平台"
+          value={
+            loading
+              ? "检测中"
+              : !virtualMachinePlatformSupported
+                ? "不支持"
+                : virtualMachinePlatformEnabled
+                  ? "已开启"
+                  : "未开启"
+          }
+          detail={
+            loading
+              ? undefined
+              : !virtualMachinePlatformSupported
+                ? "仅 Windows 需要检测"
+                : virtualMachinePlatformEnabled
+                ? undefined
+                : virtualMachinePlatformPending
+                  ? "已发起开启，请重启电脑"
+                  : "将自动开启 WSL 与虚拟机平台"
+          }
+        />
         <RouteStatusCard
           loading={loading}
           active={!!welcomeStatus?.claude_code_installed}
