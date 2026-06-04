@@ -22,8 +22,8 @@ export const GITHUB_RELEASES_URL = `${GITHUB_REPOSITORY_URL}/releases/latest`;
 
 export const routes: Array<{ id: Route; label: string; icon: Icon }> = [
   { id: "welcome", label: "欢迎使用", icon: House },
+  { id: "localization", label: "一键开发/汉化", icon: Languages },
   { id: "overview", label: "CCS转接", icon: Link2 },
-  { id: "localization", label: "一键汉化", icon: Languages },
   { id: "quick_access", label: "快捷入口", icon: SquareMousePointer },
   { id: "enhance", label: "对话增强", icon: Hammer },
   { id: "diagnostics", label: "诊断日志", icon: FileText },
@@ -38,7 +38,7 @@ export const routeMeta: Record<Route, { title: string }> = {
     title: "CCS转接",
   },
   localization: {
-    title: "一键汉化",
+    title: "一键开发/汉化",
   },
   quick_access: {
     title: "快捷入口",
