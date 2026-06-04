@@ -90,6 +90,7 @@ function App() {
   const [restartNeeded, setRestartNeeded] = useState(false);
   const [logs, setLogs] = useState<LogsPayload | null>(null);
   const [diagnostics, setDiagnostics] = useState<DiagnosticsPayload | null>(null);
+  const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
   const [welcomeStatus, setWelcomeStatus] = useState<WelcomeStatus | null>(null);
   const [appVersion, setAppVersion] = useState(PREVIEW_APP_VERSION);
   const lastMappingFingerprint = useRef<string | null>(null);
@@ -273,6 +274,8 @@ function App() {
   }, []);
 
   const refreshDiagnostics = useCallback(async () => {
+    if (diagnosticsBusy) return;
+    setDiagnosticsBusy(true);
     setErr("");
     try {
       setDiagnostics(
@@ -283,8 +286,10 @@ function App() {
     } catch (e) {
       setErr(String(e));
       setDiagnostics(null);
+    } finally {
+      setDiagnosticsBusy(false);
     }
-  }, [restartNeeded]);
+  }, [diagnosticsBusy, restartNeeded]);
 
   const refreshAll = useCallback(async () => {
     setBusy(true);
@@ -500,6 +505,7 @@ function App() {
           {route === "diagnostics" && (
             <DiagnosticsPage
               diagnostics={diagnostics}
+              diagnosticsBusy={diagnosticsBusy}
               logs={logs}
               refreshDiagnostics={refreshDiagnostics}
               refreshLogs={refreshLogs}
@@ -1072,12 +1078,14 @@ function AboutPage({
 
 function DiagnosticsPage({
   diagnostics,
+  diagnosticsBusy,
   logs,
   refreshDiagnostics,
   refreshLogs,
   copyText,
 }: {
   diagnostics: DiagnosticsPayload | null;
+  diagnosticsBusy: boolean;
   logs: LogsPayload | null;
   refreshDiagnostics: () => Promise<void>;
   refreshLogs: () => Promise<void>;
@@ -1103,8 +1111,8 @@ function DiagnosticsPage({
           value={diagnostics?.report ?? ""}
         />
         <div className="diagnosticsToolbar">
-          <button onClick={() => void refreshDiagnostics()}>
-            {diagnostics?.report ? "重新生成" : "生成报告"}
+          <button disabled={diagnosticsBusy} onClick={() => void refreshDiagnostics()}>
+            {diagnosticsBusy ? "生成中..." : diagnostics?.report ? "重新生成" : "生成报告"}
           </button>
           <button
             disabled={!diagnostics?.report}

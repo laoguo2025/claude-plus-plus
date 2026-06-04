@@ -1,3 +1,4 @@
+use crate::claude_patch_common::ClaudePaths;
 use std::{
     fs,
     path::PathBuf,
@@ -218,6 +219,56 @@ fn current_feature_payload_does_not_need_upgrade() {
     assert!(nav_api.enabled);
     assert_eq!(nav_api.installed_version.as_deref(), Some("v0.2"));
     assert!(!nav_api.needs_upgrade());
+}
+
+#[test]
+fn feature_states_does_not_upgrade_outdated_payloads_during_status_reads() {
+    let resources = temp_resources("enhance-status-read-only");
+    let bundle = resources
+        .join("ion-dist")
+        .join("assets")
+        .join("v1")
+        .join("index-test.js");
+    let old_payload = format!(r#";window.{NAV_API_MARKER}={{version:"v0.0"}};"#);
+    fs::write(&bundle, format!("const app=true;{old_payload}")).unwrap();
+
+    let states = super::feature_states(&resources);
+    let text = fs::read_to_string(&bundle).unwrap();
+    fs::remove_dir_all(&resources).ok();
+
+    let nav_api = feature_state(&states, EnhanceFeatureId::ThirdPartyApi);
+    assert!(nav_api.enabled);
+    assert!(nav_api.needs_upgrade());
+    assert!(text.contains(&old_payload));
+    assert!(!text.contains("version:\"v0.2\""));
+}
+
+#[test]
+fn status_does_not_upgrade_outdated_payloads_during_status_reads() {
+    let resources = temp_resources("enhance-status-entry-read-only");
+    let bundle = resources
+        .join("ion-dist")
+        .join("assets")
+        .join("v1")
+        .join("index-test.js");
+    let old_payload = format!(r#";window.{NAV_API_MARKER}={{version:"v0.0"}};"#);
+    fs::write(&bundle, format!("const app=true;{old_payload}")).unwrap();
+
+    let status = super::status_from_paths(Some(ClaudePaths {
+        app: resources.clone(),
+        resources: resources.clone(),
+    }));
+    let text = fs::read_to_string(&bundle).unwrap();
+    fs::remove_dir_all(&resources).ok();
+
+    let nav_api = status
+        .features
+        .iter()
+        .find(|feature| feature.id == "third_party_api")
+        .expect("third-party API feature status");
+    assert!(nav_api.enabled);
+    assert!(text.contains(&old_payload));
+    assert!(!text.contains("version:\"v0.2\""));
 }
 
 #[test]

@@ -145,6 +145,7 @@ mod imp {
     }
 
     impl FeatureState {
+        #[cfg(test)]
         fn needs_upgrade(&self) -> bool {
             self.enabled && self.installed_version.as_deref() != Some(self.current_version.as_str())
         }
@@ -162,14 +163,14 @@ mod imp {
     }
 
     pub fn status() -> ClaudeEnhanceStatus {
-        let paths = patch::resolve_claude_paths().ok();
+        status_from_paths(patch::resolve_claude_paths().ok())
+    }
+
+    fn status_from_paths(paths: Option<patch::ClaudePaths>) -> ClaudeEnhanceStatus {
         let resources_path = paths.as_ref().map(|p| p.resources.clone());
         let enabled = resources_path
             .as_ref()
-            .map(|path| {
-                migrate_feature_versions(path);
-                feature_states(path)
-            })
+            .map(|path| feature_states(path))
             .unwrap_or_default();
         let installed = enabled.iter().any(|state| state.enabled);
 
@@ -326,28 +327,7 @@ mod imp {
         .collect()
     }
 
-    fn migrate_feature_versions(resources_path: &Path) {
-        if let Err(e) = migrate_feature_versions_inner(resources_path) {
-            tracing::warn!("Claude Desktop enhance migration skipped: {e}");
-        }
-    }
-
-    fn migrate_feature_versions_inner(resources_path: &Path) -> Result<(), String> {
-        let states = feature_states(resources_path);
-        let needs_upgrade: Vec<_> = states
-            .into_iter()
-            .filter(FeatureState::needs_upgrade)
-            .map(|state| state.feature)
-            .collect();
-        if needs_upgrade.is_empty() {
-            return Ok(());
-        }
-
-        claude_desktop::stop_claude_processes()?;
-        patch::enable_write_access(resources_path, false);
-        apply_feature_version_upgrades(resources_path, &needs_upgrade)
-    }
-
+    #[cfg(test)]
     fn apply_feature_version_upgrades(
         resources_path: &Path,
         needs_upgrade: &[EnhanceFeatureId],

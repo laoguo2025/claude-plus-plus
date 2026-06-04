@@ -24,6 +24,16 @@ use tauri::{
     Manager, WindowEvent,
 };
 
+async fn run_blocking<T, F>(task: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> T + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(task)
+        .await
+        .map_err(|error| format!("后台任务执行失败: {error}"))
+}
+
 #[cfg(windows)]
 fn set_windows_taskbar_icon(window: &tauri::WebviewWindow) -> tauri::Result<()> {
     use std::ptr::null;
@@ -33,8 +43,8 @@ fn set_windows_taskbar_icon(window: &tauri::WebviewWindow) -> tauri::Result<()> 
             Foundation::{HINSTANCE, HWND, LPARAM, WPARAM},
             System::LibraryLoader::GetModuleHandleW,
             UI::WindowsAndMessaging::{
-                GCLP_HICON, GCLP_HICONSM, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE,
-                LR_SHARED, LoadImageW, SendMessageW, SetClassLongPtrW, WM_SETICON,
+                LoadImageW, SendMessageW, SetClassLongPtrW, GCLP_HICON, GCLP_HICONSM, ICON_BIG,
+                ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE, LR_SHARED, WM_SETICON,
             },
         },
     };
@@ -100,9 +110,8 @@ struct DiagnosticsRequest {
     restart_needed: Option<bool>,
 }
 
-#[tauri::command]
-fn proxy_status(state: tauri::State<ServerHandle>) -> StatusInfo {
-    ensure_proxy_if_applied(state.inner());
+fn proxy_status_blocking(state: &ServerHandle) -> StatusInfo {
+    ensure_proxy_if_applied(state);
     let port = settings::proxy_port();
     StatusInfo {
         running: state.is_healthy_on(port),
@@ -110,6 +119,12 @@ fn proxy_status(state: tauri::State<ServerHandle>) -> StatusInfo {
         cd_applied: cd_config::is_applied(),
         ccswitch_route: ccswitch_route_status(),
     }
+}
+
+#[tauri::command]
+async fn proxy_status(state: tauri::State<'_, ServerHandle>) -> Result<StatusInfo, String> {
+    let state = state.inner().clone();
+    run_blocking(move || proxy_status_blocking(&state)).await
 }
 
 fn ccswitch_route_status() -> CcSwitchRouteStatus {
@@ -200,9 +215,13 @@ fn use_ccs_route(state: tauri::State<ServerHandle>) -> Result<(), String> {
     result
 }
 
-#[tauri::command]
-fn get_mappings() -> Result<ccswitch_db::ProviderMappings, String> {
+fn get_mappings_blocking() -> Result<ccswitch_db::ProviderMappings, String> {
     ccswitch_db::load_mappings(&server::default_db_path())
+}
+
+#[tauri::command]
+async fn get_mappings() -> Result<ccswitch_db::ProviderMappings, String> {
+    run_blocking(get_mappings_blocking).await?
 }
 
 #[tauri::command]
@@ -255,14 +274,22 @@ fn restart_claude_desktop() -> Result<(), String> {
     result
 }
 
-#[tauri::command]
-fn claude_zh_status() -> claude_zh::ClaudeZhStatus {
+fn claude_zh_status_blocking() -> claude_zh::ClaudeZhStatus {
     claude_zh::status()
 }
 
 #[tauri::command]
-fn welcome_status() -> welcome::WelcomeStatus {
+async fn claude_zh_status() -> Result<claude_zh::ClaudeZhStatus, String> {
+    run_blocking(claude_zh_status_blocking).await
+}
+
+fn welcome_status_blocking() -> welcome::WelcomeStatus {
     welcome::status()
+}
+
+#[tauri::command]
+async fn welcome_status() -> Result<welcome::WelcomeStatus, String> {
+    run_blocking(welcome_status_blocking).await
 }
 
 #[tauri::command]
@@ -320,9 +347,13 @@ fn uninstall_claude_zh() -> Result<(), String> {
     claude_zh::uninstall()
 }
 
-#[tauri::command]
-fn claude_enhance_status() -> claude_enhance::ClaudeEnhanceStatus {
+fn claude_enhance_status_blocking() -> claude_enhance::ClaudeEnhanceStatus {
     claude_enhance::status()
+}
+
+#[tauri::command]
+async fn claude_enhance_status() -> Result<claude_enhance::ClaudeEnhanceStatus, String> {
+    run_blocking(claude_enhance_status_blocking).await
 }
 
 #[tauri::command]
@@ -352,18 +383,30 @@ fn trash_claude_skill(id: String) -> Result<(), String> {
     claude_skills::trash_skill(&id)
 }
 
-#[tauri::command]
-fn read_latest_logs(lines: Option<usize>) -> diagnostics::LogsPayload {
+fn read_latest_logs_blocking(lines: Option<usize>) -> diagnostics::LogsPayload {
     diagnostics::read_latest_logs(lines.unwrap_or(200))
 }
 
 #[tauri::command]
-fn generate_diagnostics(
-    state: tauri::State<ServerHandle>,
+async fn read_latest_logs(lines: Option<usize>) -> Result<diagnostics::LogsPayload, String> {
+    run_blocking(move || read_latest_logs_blocking(lines)).await
+}
+
+#[tauri::command]
+async fn generate_diagnostics(
+    state: tauri::State<'_, ServerHandle>,
+    request: Option<DiagnosticsRequest>,
+) -> Result<diagnostics::DiagnosticsPayload, String> {
+    let state = state.inner().clone();
+    run_blocking(move || generate_diagnostics_blocking(&state, request)).await
+}
+
+fn generate_diagnostics_blocking(
+    state: &ServerHandle,
     request: Option<DiagnosticsRequest>,
 ) -> diagnostics::DiagnosticsPayload {
-    let status = proxy_status(state);
-    let mappings = get_mappings()
+    let status = proxy_status_blocking(state);
+    let mappings = get_mappings_blocking()
         .and_then(|mappings| serde_json::to_value(mappings).map_err(|e| e.to_string()));
     let payload = diagnostics::report(
         serde_json::json!({
@@ -374,12 +417,12 @@ fn generate_diagnostics(
             "restart_needed": request.and_then(|r| r.restart_needed).unwrap_or(false)
         }),
         mappings,
-        serde_json::to_value(claude_zh_status()).unwrap_or_else(|e| {
+        serde_json::to_value(claude_zh_status_blocking()).unwrap_or_else(|e| {
             serde_json::json!({
                 "serialization_error": e.to_string()
             })
         }),
-        serde_json::to_value(claude_enhance_status()).unwrap_or_else(|e| {
+        serde_json::to_value(claude_enhance_status_blocking()).unwrap_or_else(|e| {
             serde_json::json!({
                 "serialization_error": e.to_string()
             })
