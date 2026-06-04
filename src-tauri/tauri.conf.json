@@ -14,7 +14,8 @@
       {
         "title": "Claude++",
         "width": 960,
-        "height": 750
+        "height": 750,
+        "decorations": false
       }
     ],
     "security": {

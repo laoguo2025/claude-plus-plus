@@ -7,13 +7,16 @@ import {
   Gauge,
   ListRestart,
   FileText,
+  Minus,
   Network,
   PackageCheck,
   Plug,
   Moon,
   Power,
   RefreshCw,
+  Square,
   Sun,
+  X,
   type LucideProps,
 } from "lucide-react";
 import botLogo from "../src-tauri/icons/icon.png";
@@ -57,6 +60,20 @@ function loadInitialTheme(): Theme {
 
 function shouldPollRouteState(welcomeStatus: WelcomeStatus | null): boolean {
   return welcomeStatus?.cc_switch_installed === true;
+}
+
+async function runWindowAction(action: "minimize" | "toggleMaximize" | "close"): Promise<void> {
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  const currentWindow = getCurrentWindow();
+  if (action === "minimize") {
+    await currentWindow.minimize();
+    return;
+  }
+  if (action === "toggleMaximize") {
+    await currentWindow.toggleMaximize();
+    return;
+  }
+  await currentWindow.close();
 }
 
 function App() {
@@ -358,8 +375,8 @@ function App() {
       </aside>
 
       <main className="workspace">
-        <header className="topbar">
-          <div>
+        <header className="topbar" data-tauri-drag-region>
+          <div className="topbarTitle" data-tauri-drag-region>
             <h1>{meta.title}</h1>
           </div>
           <div className="topbarActions" aria-label="页面操作">
@@ -382,6 +399,30 @@ function App() {
               aria-label={theme === "dark" ? "切换亮色主题" : "切换暗色主题"}
             >
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <button
+              className="iconButton square windowButton"
+              onClick={() => void runWindowAction("minimize")}
+              title="最小化"
+              aria-label="最小化"
+            >
+              <Minus size={16} />
+            </button>
+            <button
+              className="iconButton square windowButton"
+              onClick={() => void runWindowAction("toggleMaximize")}
+              title="最大化"
+              aria-label="最大化"
+            >
+              <Square size={14} />
+            </button>
+            <button
+              className="iconButton square windowButton closeWindowButton"
+              onClick={() => void runWindowAction("close")}
+              title="关闭"
+              aria-label="关闭"
+            >
+              <X size={16} />
             </button>
           </div>
         </header>

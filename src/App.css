@@ -26,6 +26,7 @@
   --danger-bg: var(--bg-100);
   --danger-border: var(--border-strong);
   --on-brand: #ffffff;
+  --chrome-top-height: 76px;
   --shadow-panel: inset 0 0 0 0 transparent, 0 0 0 1px rgba(10, 10, 10, 0.03),
     0 4px 24px rgba(10, 10, 10, 0.04);
   --shadow-pop: 0 10px 30px rgba(10, 10, 10, 0.08);
@@ -147,14 +148,15 @@ select {
   min-height: 0;
   border-right: 1px solid var(--border-soft);
   background: var(--bg-200);
-  padding: 14px 9px;
+  padding: 0 9px 14px;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 7px 15px;
+  min-height: var(--chrome-top-height);
+  padding: 0 7px;
   border-bottom: 1px solid var(--border-soft);
 }
 
@@ -242,14 +244,22 @@ select {
 
 .topbar {
   display: flex;
-  min-height: 66px;
+  min-height: var(--chrome-top-height);
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   border-bottom: 1px solid var(--border-soft);
-  background: var(--bg-000);
+  background: var(--bg-200);
   padding: 12px 20px;
+}
+
+.topbarTitle {
+  display: flex;
+  min-width: 0;
+  min-height: calc(var(--chrome-top-height) - 24px);
+  flex: 1 1 auto;
+  align-items: center;
 }
 
 .topbar h1 {
@@ -1116,6 +1126,16 @@ select {
 .iconButton.restartButton:hover:not(:disabled) {
   border-color: var(--brand-strong);
   background: var(--brand-strong);
+}
+
+.iconButton.windowButton {
+  color: var(--text-200);
+}
+
+.iconButton.closeWindowButton:hover:not(:disabled) {
+  border-color: rgba(157, 81, 72, 0.3);
+  background: rgba(157, 81, 72, 0.12);
+  color: var(--danger);
 }
 
 .iconButton.square {
