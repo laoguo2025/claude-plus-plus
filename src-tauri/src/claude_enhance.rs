@@ -33,6 +33,11 @@ mod imp {
     fn local_gateway_url(path: &str) -> String {
         format!("http://127.0.0.1:{}{path}", settings::proxy_port())
     }
+
+    fn local_gateway_token_js() -> &'static str {
+        r#"function cppToken(){try{return fs.readFileSync(path.join(process.env.USERPROFILE||process.env.HOME||"",".claude-plus-plus","local-gateway-token"),"utf8").trim()}catch{return""}}"#
+    }
+
     fn skills_bridge_script() -> String {
         r##";(()=>{const MARK="__claudePlusSkillsBridgeV1";
 if(globalThis[MARK])return;
@@ -130,14 +135,16 @@ contextBridge.exposeInMainWorld("claudePlusTitleI18n",{translate:e=>ipcRenderer.
 if(globalThis[MARK])return;
 Object.defineProperty(globalThis,MARK,{value:!0});
 try{
-const{ipcMain}=require("electron");
-async function translate(e){const t=String(e||"").replace(/\s+/g," ").trim();if(!t)return"";const r=await fetch("__CPP_TITLE_I18N_URL__",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:t})});const n=await r.json().catch(() => ({}));return r.ok&&n&&typeof n.title==="string"?n.title:""}
+const{ipcMain}=require("electron"),fs=require("fs"),path=require("path");
+__CPP_TOKEN_READER__
+async function translate(e){const t=String(e||"").replace(/\s+/g," ").trim();if(!t)return"";const r=await fetch("__CPP_TITLE_I18N_URL__",{method:"POST",headers:{"Content-Type":"application/json","x-claude-plus-gateway-token":cppToken()},body:JSON.stringify({title:t})});const n=await r.json().catch(() => ({}));return r.ok&&n&&typeof n.title==="string"?n.title:""}
 ipcMain.removeHandler("__CPP_TITLE_I18N__");
 ipcMain.handle("__CPP_TITLE_I18N__",(e,t)=>translate(t));
 }catch(e){console.error("[Claude++] title i18n main bridge failed",e)}
 })();"##
             .replace("__CPP_TITLE_I18N_MAIN_MARK__", TITLE_I18N_MAIN_BRIDGE_MARKER)
             .replace("__CPP_TITLE_I18N__", TITLE_I18N_CHANNEL)
+            .replace("__CPP_TOKEN_READER__", local_gateway_token_js())
             .replace(
                 "__CPP_TITLE_I18N_URL__",
                 &local_gateway_url("/claude-plus/conversation-title-i18n"),
@@ -162,14 +169,16 @@ contextBridge.exposeInMainWorld("claudePlusTokenUsage",{get:e=>ipcRenderer.invok
 if(globalThis[MARK])return;
 Object.defineProperty(globalThis,MARK,{value:!0});
 try{
-const{ipcMain}=require("electron");
-async function getUsage(e){const n=e&&e.sinceMs?("__CPP_TOKEN_USAGE_URL__?sinceMs="+encodeURIComponent(e.sinceMs)):"__CPP_TOKEN_USAGE_URL__";const r=await fetch(n,{cache:"no-store"});return await r.json().catch(()=>({ok:false}))}
+const{ipcMain}=require("electron"),fs=require("fs"),path=require("path");
+__CPP_TOKEN_READER__
+async function getUsage(e){const n=e&&e.sinceMs?("__CPP_TOKEN_USAGE_URL__?sinceMs="+encodeURIComponent(e.sinceMs)):"__CPP_TOKEN_USAGE_URL__";const r=await fetch(n,{cache:"no-store",headers:{"x-claude-plus-gateway-token":cppToken()}});return await r.json().catch(()=>({ok:false}))}
 ipcMain.removeHandler("__CPP_TOKEN_USAGE__");
 ipcMain.handle("__CPP_TOKEN_USAGE__",(e,n)=>getUsage(n));
 }catch(e){console.error("[Claude++] token usage main bridge failed",e)}
 })();"##
             .replace("__CPP_TOKEN_USAGE_MAIN_MARK__", TOKEN_USAGE_MAIN_BRIDGE_MARKER)
             .replace("__CPP_TOKEN_USAGE__", TOKEN_USAGE_CHANNEL)
+            .replace("__CPP_TOKEN_READER__", local_gateway_token_js())
             .replace(
                 "__CPP_TOKEN_USAGE_URL__",
                 &local_gateway_url("/claude-plus/token-usage"),
@@ -1333,7 +1342,11 @@ D();
             assert!(token_usage.description.contains("本轮调用合计"));
             assert!(token_usage.available);
             for feature in list {
-                assert_eq!(feature.version, "v0.2");
+                let expected = match feature.id.as_str() {
+                    "conversation_title_i18n" | "token_usage" => "v0.3",
+                    _ => "v0.2",
+                };
+                assert_eq!(feature.version, expected, "{}", feature.id);
             }
         }
 
@@ -1948,11 +1961,25 @@ D();
             assert!(preload.contains("ipcRenderer.invoke"));
             assert!(!preload.contains("require(\"fs\")"));
             assert!(main.contains("fetch("));
+            assert!(main.contains("local-gateway-token"));
+            assert!(main.contains("x-claude-plus-gateway-token"));
             assert!(main.contains(&super::local_gateway_url(
                 "/claude-plus/conversation-title-i18n"
             )));
             assert!(!main.contains("__CPP_TITLE_I18N_URL__"));
+            assert!(!main.contains("__CPP_TOKEN_READER__"));
             assert!(!main.contains("shell.trashItem"));
+        }
+
+        #[test]
+        fn token_usage_bridge_sends_local_gateway_token_header() {
+            let main = super::token_usage_main_bridge_script();
+
+            assert!(main.contains("local-gateway-token"));
+            assert!(main.contains("x-claude-plus-gateway-token"));
+            assert!(main.contains(&super::local_gateway_url("/claude-plus/token-usage")));
+            assert!(!main.contains("__CPP_TOKEN_USAGE_URL__"));
+            assert!(!main.contains("__CPP_TOKEN_READER__"));
         }
 
         #[test]

@@ -27,6 +27,7 @@ use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
 const MODEL_ID_PREFIX: &str = "claude-plus-plus";
+const LOCAL_GATEWAY_TOKEN_HEADER: &str = "x-claude-plus-gateway-token";
 
 #[derive(Debug)]
 struct RateLimiter {
@@ -61,6 +62,7 @@ impl RateLimiter {
 pub struct AppState {
     pub db_path: PathBuf,
     pub client: reqwest::Client,
+    pub local_gateway_token: String,
     /// 上次成功读取的映射缓存(读 DB 失败时回退)
     pub cache: Arc<RwLock<Vec<Mapping>>>,
     pub token_usage: Arc<RwLock<TokenUsageState>>,
@@ -69,10 +71,11 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(db_path: PathBuf) -> Self {
+    pub fn new(db_path: PathBuf, local_gateway_token: String) -> Self {
         Self {
             db_path,
             client: reqwest::Client::new(),
+            local_gateway_token,
             cache: Arc::new(RwLock::new(Vec::new())),
             token_usage: Arc::new(RwLock::new(TokenUsageState::default())),
             title_i18n_rate_limit: Arc::new(RwLock::new(RateLimiter::default())),
@@ -159,7 +162,7 @@ async fn handle_conversation_title_i18n(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Response {
-    if let Some(response) = reject_untrusted_local_origin(&headers) {
+    if let Some(response) = reject_untrusted_auxiliary_request(&state, &headers) {
         return response;
     }
 
@@ -265,8 +268,8 @@ fn allow_title_i18n_request(state: &AppState) -> bool {
         .unwrap_or(false)
 }
 
-async fn handle_skills(headers: HeaderMap) -> Response {
-    if let Some(response) = reject_untrusted_local_origin(&headers) {
+async fn handle_skills(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if let Some(response) = reject_untrusted_auxiliary_request(&state, &headers) {
         return response;
     }
 
@@ -279,8 +282,12 @@ async fn handle_skills(headers: HeaderMap) -> Response {
     response
 }
 
-async fn handle_trash_skill(headers: HeaderMap, Path(id): Path<String>) -> Response {
-    if let Some(response) = reject_untrusted_local_origin(&headers) {
+async fn handle_trash_skill(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    if let Some(response) = reject_untrusted_auxiliary_request(&state, &headers) {
         return response;
     }
 
@@ -317,7 +324,7 @@ async fn handle_token_usage(
     headers: HeaderMap,
     Query(query): Query<TokenUsageQuery>,
 ) -> Response {
-    if let Some(response) = reject_untrusted_local_origin(&headers) {
+    if let Some(response) = reject_untrusted_auxiliary_request(&state, &headers) {
         return response;
     }
 
@@ -383,6 +390,34 @@ fn reject_untrusted_local_origin(headers: &HeaderMap) -> Option<Response> {
         .into_response();
     apply_json_headers(response.headers_mut());
     Some(response)
+}
+
+fn reject_untrusted_auxiliary_request(state: &AppState, headers: &HeaderMap) -> Option<Response> {
+    if let Some(response) = reject_untrusted_local_origin(headers) {
+        return Some(response);
+    }
+    if local_gateway_token_matches(headers, &state.local_gateway_token) {
+        return None;
+    }
+
+    let mut response = (
+        StatusCode::UNAUTHORIZED,
+        axum::Json(serde_json::json!({ "ok": false, "error": "local gateway token required" })),
+    )
+        .into_response();
+    apply_json_headers(response.headers_mut());
+    Some(response)
+}
+
+fn local_gateway_token_matches(headers: &HeaderMap, expected: &str) -> bool {
+    if expected.is_empty() {
+        return false;
+    }
+    headers
+        .get(LOCAL_GATEWAY_TOKEN_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .is_some_and(|value| value == expected)
 }
 
 fn trusted_local_origin(headers: &HeaderMap) -> bool {
@@ -452,10 +487,6 @@ fn apply_json_headers(headers: &mut HeaderMap) {
     );
     headers.insert(PRAGMA, HeaderValue::from_static("no-cache"));
     headers.insert(EXPIRES, HeaderValue::from_static("0"));
-    headers.insert(
-        HeaderName::from_static("access-control-allow-origin"),
-        HeaderValue::from_static("*"),
-    );
 }
 
 async fn handle_models(State(state): State<AppState>, headers: HeaderMap) -> Response {
@@ -1262,6 +1293,39 @@ mod tests {
     fn local_auxiliary_routes_allow_non_browser_callers_without_origin() {
         let headers = HeaderMap::new();
         assert!(trusted_local_origin(&headers));
+    }
+
+    #[test]
+    fn auxiliary_routes_require_local_gateway_token() {
+        let state = AppState::new(PathBuf::from("missing.db"), "secret-token".to_string());
+        let mut headers = HeaderMap::new();
+
+        assert!(reject_untrusted_auxiliary_request(&state, &headers).is_some());
+
+        headers.insert(
+            HeaderName::from_static(LOCAL_GATEWAY_TOKEN_HEADER),
+            HeaderValue::from_static("wrong-token"),
+        );
+        assert!(reject_untrusted_auxiliary_request(&state, &headers).is_some());
+
+        headers.insert(
+            HeaderName::from_static(LOCAL_GATEWAY_TOKEN_HEADER),
+            HeaderValue::from_static("secret-token"),
+        );
+        assert!(reject_untrusted_auxiliary_request(&state, &headers).is_none());
+    }
+
+    #[test]
+    fn auxiliary_routes_still_reject_untrusted_web_origins_with_token() {
+        let state = AppState::new(PathBuf::from("missing.db"), "secret-token".to_string());
+        let mut headers = HeaderMap::new();
+        headers.insert("origin", HeaderValue::from_static("https://example.com"));
+        headers.insert(
+            HeaderName::from_static(LOCAL_GATEWAY_TOKEN_HEADER),
+            HeaderValue::from_static("secret-token"),
+        );
+
+        assert!(reject_untrusted_auxiliary_request(&state, &headers).is_some());
     }
 
     #[test]
