@@ -855,8 +855,7 @@ impl TokenUsageStreamTracker {
         }
         let max_pending_line = self.max_pending_line.max(1);
         if self.pending_line.len() > max_pending_line {
-            let keep_from = self.pending_line.len() - max_pending_line;
-            self.pending_line.drain(..keep_from);
+            trim_string_to_last_bytes(&mut self.pending_line, max_pending_line);
         }
         self.snapshot()
     }
@@ -889,6 +888,17 @@ impl TokenUsageStreamTracker {
     fn snapshot(&self) -> Option<TokenUsageSnapshot> {
         self.found.then(|| finalized_token_usage(&self.aggregate))
     }
+}
+
+fn trim_string_to_last_bytes(text: &mut String, max_bytes: usize) {
+    if text.len() <= max_bytes {
+        return;
+    }
+    let mut keep_from = text.len() - max_bytes;
+    while keep_from < text.len() && !text.is_char_boundary(keep_from) {
+        keep_from += 1;
+    }
+    text.drain(..keep_from);
 }
 
 #[cfg(test)]
@@ -1546,6 +1556,22 @@ mod tests {
         assert!(tracker.ingest_text("data: {\"usage\":{\"input_").is_none());
 
         assert_eq!(tracker.pending_line, "{\"input_");
+    }
+
+    #[test]
+    fn token_usage_tracker_trims_multibyte_pending_line_without_panic() {
+        let mut tracker = TokenUsageStreamTracker::with_max_pending_line(5);
+
+        assert!(tracker.ingest_text("prefix😀").is_none());
+        assert!(tracker.pending_line.is_char_boundary(0));
+
+        let usage = tracker
+            .ingest_text("\ndata: {\"usage\":{\"input_tokens\":9,\"output_tokens\":4}}\n")
+            .expect("token usage");
+
+        assert_eq!(usage.input_tokens, 9);
+        assert_eq!(usage.output_tokens, 4);
+        assert_eq!(usage.total_tokens, 13);
     }
 
     #[tokio::test]
