@@ -233,76 +233,36 @@
       .effect-card {
         position: absolute;
         z-index: 5;
-        padding: 18px 20px;
+        padding: 10px;
         color: #f7f3ea;
       }
 
-      .effect-label {
-        color: #d86f3d;
-        font-size: 20px;
-        font-weight: 800;
+      .effect-shot {
+        position: relative;
+        z-index: 1;
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 18px;
       }
 
       .menu-strip {
-        left: 30px;
-        top: 36px;
-        width: 880px;
-      }
-
-      .menu-items {
-        margin-top: 12px;
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
-      }
-
-      .menu-items span {
-        border-radius: 12px;
-        background: rgba(247, 243, 234, 0.08);
-        padding: 10px 8px;
-        font-size: 21px;
-        text-align: center;
+        left: 32px;
+        top: 18px;
+        width: 330px;
       }
 
       .token-box {
         right: 8px;
-        top: 505px;
-        width: 340px;
-      }
-
-      .token-row {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 11px;
-        color: #b8c0cc;
-        font-family: monospace;
-        font-size: 20px;
-      }
-
-      .token-row strong {
-        color: #33d5e8;
-        font-weight: 800;
+        top: 450px;
+        width: 430px;
       }
 
       .timeline-card {
-        left: 22px;
-        bottom: 18px;
-        width: 520px;
-      }
-
-      .timeline-row {
-        display: grid;
-        grid-template-columns: 64px 1fr;
-        gap: 10px;
-        align-items: center;
-        margin-top: 10px;
-        color: #b8c0cc;
-        font-size: 20px;
-      }
-
-      .timeline-row span:first-child {
-        color: #33d5e8;
-        font-family: monospace;
+        right: 18px;
+        top: 158px;
+        width: 76px;
+        padding: 8px;
       }
 
       .matrix {
@@ -367,9 +327,6 @@
         background: linear-gradient(180deg, rgba(216, 111, 61, 0.96), rgba(51, 213, 232, 0.86));
       }
 
-      audio {
-        display: none;
-      }
     </style>
   </head>
   <body>
@@ -406,25 +363,13 @@
             <img class="screen" src="assets/screen-enhance.png" alt="Claude++ 页面增强" />
           </div>
           <div class="effect-card menu-strip">
-            <div class="effect-label">Claude Desktop 菜单栏</div>
-            <div class="menu-items">
-              <span>Claude++</span>
-              <span>Skills</span>
-              <span>Markdown</span>
-              <span>Token</span>
-            </div>
+            <img class="effect-shot" src="assets/claude-desktop-menu.png" alt="真实 Claude Desktop 菜单栏" />
           </div>
           <div class="effect-card token-box">
-            <div class="effect-label">Token 信息框</div>
-            <div class="token-row"><span>Input</span><strong>12.4K</strong></div>
-            <div class="token-row"><span>Output</span><strong>1.8K</strong></div>
-            <div class="token-row"><span>Cache</span><strong>9.6K</strong></div>
+            <img class="effect-shot" src="assets/claude-desktop-token.png" alt="真实 Claude Desktop Token 统计" />
           </div>
           <div class="effect-card timeline-card">
-            <div class="effect-label">对话时间线</div>
-            <div class="timeline-row"><span>09:41</span><p>用户问题进入当前回合</p></div>
-            <div class="timeline-row"><span>09:42</span><p>Claude 回复可导出 Markdown</p></div>
-            <div class="timeline-row"><span>09:43</span><p>用量信息自动归档</p></div>
+            <img class="effect-shot" src="assets/claude-desktop-timeline.png" alt="真实 Claude Desktop 时间线定位条" />
           </div>
         </div>
       </section>
@@ -479,14 +424,6 @@
 
       <div id="wipe" class="transition"></div>
 
-      <audio
-        id="bgm"
-        data-start="0"
-        data-duration="30"
-        data-track-index="5"
-        src="assets/bgm.wav"
-        data-volume="1"
-      ></audio>
     </div>
 
     <script>
