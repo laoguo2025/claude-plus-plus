@@ -207,9 +207,9 @@ fn get_mappings() -> Result<ccswitch_db::ProviderMappings, String> {
 
 #[tauri::command]
 fn apply_cd_config() -> Result<(), String> {
-    let key = server::read_ccswitch_api_key()
-        .ok_or_else(|| "无法从 CC Switch 配置读取 API key".to_string())?;
-    cd_config::apply(settings::proxy_port(), &key)
+    let profile = server::read_ccswitch_gateway_profile()
+        .ok_or_else(|| "无法从 CC Switch 配置读取 API key 和上游地址".to_string())?;
+    cd_config::apply(settings::proxy_port(), &profile.api_key)
 }
 
 #[tauri::command]
@@ -576,26 +576,27 @@ fn spawn_mapping_monitor(handle: ServerHandle) {
 fn mapping_monitor_fingerprint(pm: &ccswitch_db::ProviderMappings) -> String {
     serde_json::json!({
         "mappings": pm,
-        "api_key": server::read_ccswitch_api_key(),
-        "upstream": server::read_ccswitch_base_url(),
+        "gateway": server::read_ccswitch_gateway_profile(),
     })
     .to_string()
 }
 
 fn refresh_cd_config(port: u16, reason: &str) -> bool {
-    let Some(key) = server::read_ccswitch_api_key() else {
-        tracing::warn!("skip Claude Desktop config entry refresh ({reason}): API key not found");
+    let Some(profile) = server::read_ccswitch_gateway_profile() else {
+        tracing::warn!(
+            "skip Claude Desktop config entry refresh ({reason}): gateway profile not found"
+        );
         let _ = diagnostics::append_event(
             "manager.mapping_refresh_skipped",
             serde_json::json!({
                 "reason": reason,
-                "error": "api key not found"
+                "error": "gateway profile not found"
             }),
         );
         return false;
     };
 
-    if let Err(e) = cd_config::apply(port, &key) {
+    if let Err(e) = cd_config::apply(port, &profile.api_key) {
         tracing::warn!("Claude Desktop config entry refresh failed ({reason}): {e}");
         let _ = diagnostics::append_event(
             "manager.mapping_refresh_failed",

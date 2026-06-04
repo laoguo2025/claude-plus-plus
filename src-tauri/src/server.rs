@@ -2,6 +2,7 @@
 use crate::ccswitch_db;
 use crate::constants::CC_SWITCH_CLAUDE_DESKTOP_ENTRY_ID;
 use crate::proxy::{self, AppState};
+use serde::Serialize;
 use std::fs;
 #[cfg(unix)]
 use std::fs::File;
@@ -26,6 +27,12 @@ pub struct ServerHandle(pub Arc<Mutex<Option<ProxyServer>>>);
 const LOCAL_GATEWAY_TOKEN_FILE: &str = "local-gateway-token";
 const LOCAL_GATEWAY_TOKEN_BYTES: usize = 32;
 const LOCAL_GATEWAY_TOKEN_HEX_LEN: usize = LOCAL_GATEWAY_TOKEN_BYTES * 2;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct CcSwitchGatewayProfile {
+    pub api_key: String,
+    pub base_url: String,
+}
 
 impl ServerHandle {
     pub fn port(&self) -> Option<u16> {
@@ -117,12 +124,6 @@ fn tcp_port_accepts_connections(port: u16) -> bool {
     TcpStream::connect_timeout(&addr, Duration::from_millis(250)).is_ok()
 }
 
-/// 从 CC Switch 当前生效的 Claude Desktop profile 文件读 bearer key。
-/// 优先读运行实例配置库里 CC Switch 写的 157210 条目。
-pub fn read_ccswitch_api_key() -> Option<String> {
-    read_ccswitch_field("inferenceGatewayApiKey")
-}
-
 pub fn local_gateway_token_path() -> PathBuf {
     crate::paths::app_state_dir().join(LOCAL_GATEWAY_TOKEN_FILE)
 }
@@ -194,33 +195,112 @@ fn hex_encode(bytes: &[u8]) -> String {
     out
 }
 
-/// 读 CC Switch 写的上游网关地址(如 http://127.0.0.1:15721/claude-desktop)。
-/// 端口/路径都跟随 CC Switch 生成的结果,不硬编码。
-pub fn read_ccswitch_base_url() -> Option<String> {
-    read_ccswitch_field("inferenceGatewayBaseUrl")
+/// 原子读取同一个 157210.json 里的 CC Switch 网关地址和 bearer key。
+pub fn read_ccswitch_gateway_profile() -> Option<CcSwitchGatewayProfile> {
+    read_ccswitch_gateway_profile_from_dirs(crate::cd_config::candidate_dirs())
 }
 
-/// 读 157210.json 里的某个字符串字段。
-fn read_ccswitch_field(field: &str) -> Option<String> {
-    crate::cd_config::candidate_dirs()
-        .into_iter()
+fn read_ccswitch_gateway_profile_from_dirs<I>(dirs: I) -> Option<CcSwitchGatewayProfile>
+where
+    I: IntoIterator<Item = PathBuf>,
+{
+    dirs.into_iter()
         .filter_map(|dir| {
             let p = dir.join(format!("{CC_SWITCH_CLAUDE_DESKTOP_ENTRY_ID}.json"));
             let modified = p.metadata().and_then(|m| m.modified()).ok()?;
-            let s = std::fs::read_to_string(&p).ok()?;
+            let s = fs::read_to_string(&p).ok()?;
             let v = serde_json::from_str::<serde_json::Value>(&s).ok()?;
-            let value = v
-                .get(field)
-                .and_then(|x| x.as_str())
-                .filter(|k| !k.is_empty())?
-                .to_string();
-            Some((modified, value))
+            let profile = CcSwitchGatewayProfile {
+                api_key: read_profile_string_field(&v, "inferenceGatewayApiKey")?,
+                base_url: read_profile_string_field(&v, "inferenceGatewayBaseUrl")?,
+            };
+            Some((modified, profile))
         })
         .max_by_key(|(modified, _)| *modified)
-        .map(|(_, value)| value)
+        .map(|(_, profile)| profile)
+}
+
+fn read_profile_string_field(value: &serde_json::Value, field: &str) -> Option<String> {
+    value
+        .get(field)
+        .and_then(|field| field.as_str())
+        .map(str::trim)
+        .filter(|field| !field.is_empty())
+        .map(str::to_string)
 }
 
 /// 默认 DB 路径透出,供命令层使用。
 pub fn default_db_path() -> PathBuf {
     ccswitch_db::default_db_path()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("claude-plus-server-{name}-{unique}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    fn write_profile(dir: &std::path::Path, body: serde_json::Value) {
+        fs::create_dir_all(dir).unwrap();
+        fs::write(
+            dir.join(format!("{CC_SWITCH_CLAUDE_DESKTOP_ENTRY_ID}.json")),
+            serde_json::to_string_pretty(&body).unwrap(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn ccswitch_gateway_profile_requires_key_and_base_url_from_same_entry() {
+        let root = temp_dir("gateway-profile");
+        let complete = root.join("complete");
+        let key_only = root.join("key-only");
+        let base_only = root.join("base-only");
+
+        write_profile(
+            &complete,
+            serde_json::json!({
+                "inferenceGatewayApiKey": "complete-key",
+                "inferenceGatewayBaseUrl": "http://127.0.0.1:15721/claude-desktop"
+            }),
+        );
+        write_profile(
+            &key_only,
+            serde_json::json!({
+                "inferenceGatewayApiKey": "orphan-key"
+            }),
+        );
+        write_profile(
+            &base_only,
+            serde_json::json!({
+                "inferenceGatewayBaseUrl": "http://127.0.0.1:16666/claude-desktop"
+            }),
+        );
+
+        let profile = read_ccswitch_gateway_profile_from_dirs([
+            key_only.clone(),
+            base_only.clone(),
+            complete.clone(),
+        ])
+        .expect("complete gateway profile");
+
+        assert_eq!(
+            profile,
+            CcSwitchGatewayProfile {
+                api_key: "complete-key".to_string(),
+                base_url: "http://127.0.0.1:15721/claude-desktop".to_string(),
+            }
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
 }

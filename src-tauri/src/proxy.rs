@@ -4,6 +4,7 @@
 // 其它 /claude-desktop/*           -> 含 model 则改写后透传,否则原样透传
 use crate::ccswitch_db::{self, Mapping};
 use crate::constants::UPSTREAM_FALLBACK_URL;
+use crate::server::CcSwitchGatewayProfile;
 use crate::settings::ProxyRuntimeTuning;
 use crate::time_utils::now_ms;
 use axum::{
@@ -83,9 +84,12 @@ impl AppState {
         }
     }
 
-    /// 上游网关地址,实时跟随 CC Switch(读配置条目 157210 的 inferenceGatewayBaseUrl)。
-    fn upstream(&self) -> String {
-        crate::server::read_ccswitch_base_url().unwrap_or_else(|| UPSTREAM_FALLBACK_URL.to_string())
+    /// 上游网关配置,实时跟随 CC Switch(读同一个配置条目 157210 的 URL 和 key)。
+    fn gateway_profile(&self) -> CcSwitchGatewayProfile {
+        crate::server::read_ccswitch_gateway_profile().unwrap_or_else(|| CcSwitchGatewayProfile {
+            api_key: String::new(),
+            base_url: UPSTREAM_FALLBACK_URL.to_string(),
+        })
     }
 
     /// 读 DB 取映射,失败时回退缓存;成功则刷新缓存。
@@ -199,7 +203,8 @@ async fn handle_conversation_title_i18n(
         return response;
     };
 
-    let Some(api_key) = crate::server::read_ccswitch_api_key() else {
+    let profile = state.gateway_profile();
+    if profile.api_key.is_empty() {
         let mut response = (
             StatusCode::BAD_GATEWAY,
             axum::Json(serde_json::json!({ "ok": false, "error": "api key not found" })),
@@ -207,14 +212,14 @@ async fn handle_conversation_title_i18n(
             .into_response();
         apply_json_headers(response.headers_mut());
         return response;
-    };
+    }
 
-    let upstream_url = format!("{}/v1/messages", state.upstream().trim_end_matches('/'));
+    let upstream_url = format!("{}/v1/messages", profile.base_url.trim_end_matches('/'));
     let request_body = build_title_translation_request(&title, &model);
     let response = match state
         .client
         .post(upstream_url)
-        .bearer_auth(api_key)
+        .bearer_auth(profile.api_key)
         .json(&request_body)
         .send()
         .await
@@ -659,7 +664,7 @@ async fn handle_proxy(
     }
 
     // 拼上游 URL:保留原 path 中 /claude-desktop 之后的部分 + query
-    let upstream = state.upstream();
+    let upstream = state.gateway_profile().base_url;
     let path = uri.path();
     let suffix = path.strip_prefix("/claude-desktop").unwrap_or(path);
     let query = uri.query().map(|q| format!("?{q}")).unwrap_or_default();
