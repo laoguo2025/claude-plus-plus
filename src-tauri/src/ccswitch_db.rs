@@ -131,24 +131,49 @@ pub fn load_proxy_config(db_path: &std::path::Path) -> Result<ProxyConfig, Strin
     )
     .map_err(|e| format!("open db failed: {e}"))?;
 
-    let (proxy_enabled, listen_address, listen_port): (i64, String, i64) = conn
-        .query_row(
-            "SELECT proxy_enabled, listen_address, listen_port \
+    let enabled_column = proxy_config_has_enabled_column(&conn)?;
+    let route_enabled_column = if enabled_column {
+        "enabled"
+    } else {
+        "proxy_enabled"
+    };
+    let query = format!(
+        "SELECT {route_enabled_column}, listen_address, listen_port \
              FROM proxy_config \
-             WHERE app_type = 'claude' LIMIT 1",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )
+             WHERE app_type = 'claude' LIMIT 1"
+    );
+
+    let (route_enabled, listen_address, listen_port): (i64, String, i64) = conn
+        .query_row(&query, [], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })
         .map_err(|e| format!("query proxy config failed: {e}"))?;
 
     let listen_port =
         u16::try_from(listen_port).map_err(|_| "proxy listen_port out of range".to_string())?;
 
     Ok(ProxyConfig {
-        proxy_enabled: proxy_enabled != 0,
+        proxy_enabled: route_enabled != 0,
         listen_address,
         listen_port,
     })
+}
+
+fn proxy_config_has_enabled_column(conn: &Connection) -> Result<bool, String> {
+    let mut stmt = conn
+        .prepare("PRAGMA table_info(proxy_config)")
+        .map_err(|e| format!("query proxy_config schema failed: {e}"))?;
+    let columns = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|e| format!("query proxy_config schema failed: {e}"))?;
+
+    for column in columns {
+        if column.map_err(|e| format!("query proxy_config schema failed: {e}"))? == "enabled" {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 /// 只读读取 CC Switch 已落库的 Claude Desktop 用量。
@@ -259,16 +284,21 @@ mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    fn usage_test_db() -> PathBuf {
+    fn unique_test_db(name: &str) -> PathBuf {
         let mut path = std::env::temp_dir();
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("clock")
             .as_nanos();
         path.push(format!(
-            "claude-plus-ccswitch-usage-{}-{stamp}.db",
+            "claude-plus-{name}-{}-{stamp}.db",
             std::process::id()
         ));
+        path
+    }
+
+    fn usage_test_db() -> PathBuf {
+        let path = unique_test_db("ccswitch-usage");
         let conn = Connection::open(&path).expect("create db");
         conn.execute_batch(
             "CREATE TABLE proxy_request_logs (
@@ -293,6 +323,46 @@ mod tests {
         .expect("seed db");
         drop(conn);
         path
+    }
+
+    fn proxy_config_test_db(schema: &str, values: &str) -> PathBuf {
+        let path = unique_test_db("ccswitch-proxy-config");
+        let conn = Connection::open(&path).expect("create db");
+        conn.execute_batch(&format!(
+            "CREATE TABLE proxy_config ({schema});
+             INSERT INTO proxy_config VALUES ({values});"
+        ))
+        .expect("seed db");
+        drop(conn);
+        path
+    }
+
+    #[test]
+    fn proxy_config_prefers_enabled_column_when_present() {
+        let path = proxy_config_test_db(
+            "app_type TEXT, proxy_enabled INTEGER, enabled INTEGER, listen_address TEXT, listen_port INTEGER",
+            "'claude', 1, 0, '127.0.0.1', 15721",
+        );
+        let config = load_proxy_config(&path).expect("query proxy config");
+        std::fs::remove_file(&path).ok();
+
+        assert!(!config.proxy_enabled);
+        assert_eq!(config.listen_address, "127.0.0.1");
+        assert_eq!(config.listen_port, 15721);
+    }
+
+    #[test]
+    fn proxy_config_falls_back_to_proxy_enabled_for_legacy_schema() {
+        let path = proxy_config_test_db(
+            "app_type TEXT, proxy_enabled INTEGER, listen_address TEXT, listen_port INTEGER",
+            "'claude', 1, '127.0.0.1', 15721",
+        );
+        let config = load_proxy_config(&path).expect("query proxy config");
+        std::fs::remove_file(&path).ok();
+
+        assert!(config.proxy_enabled);
+        assert_eq!(config.listen_address, "127.0.0.1");
+        assert_eq!(config.listen_port, 15721);
     }
 
     #[test]
