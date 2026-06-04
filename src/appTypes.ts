@@ -75,7 +75,14 @@ export interface WelcomeStatus {
   cc_switch_installed: boolean;
 }
 
-export type Route = "welcome" | "overview" | "localization" | "enhance" | "about" | "diagnostics";
+export type Route =
+  | "welcome"
+  | "overview"
+  | "localization"
+  | "quick_access"
+  | "enhance"
+  | "about"
+  | "diagnostics";
 export type Theme = "light" | "dark";
 export type LocalizationScope = "complete" | "safe";
 export type CommandArgs = Record<string, unknown>;

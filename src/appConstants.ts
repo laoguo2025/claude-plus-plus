@@ -1,4 +1,13 @@
-import { FileText, Hammer, House, Info, Languages, Link2, type LucideProps } from "lucide-react";
+import {
+  FileText,
+  Hammer,
+  House,
+  Info,
+  Languages,
+  Link2,
+  SquareMousePointer,
+  type LucideProps,
+} from "lucide-react";
 import type { ComponentType } from "react";
 import type { Route } from "./appTypes";
 
@@ -15,6 +24,7 @@ export const routes: Array<{ id: Route; label: string; icon: Icon }> = [
   { id: "welcome", label: "欢迎使用", icon: House },
   { id: "overview", label: "CCS转接", icon: Link2 },
   { id: "localization", label: "一键汉化", icon: Languages },
+  { id: "quick_access", label: "快捷入口", icon: SquareMousePointer },
   { id: "enhance", label: "页面增强", icon: Hammer },
   { id: "diagnostics", label: "诊断日志", icon: FileText },
   { id: "about", label: "Github仓库", icon: Info },
@@ -29,6 +39,9 @@ export const routeMeta: Record<Route, { title: string }> = {
   },
   localization: {
     title: "一键汉化",
+  },
+  quick_access: {
+    title: "快捷入口",
   },
   enhance: {
     title: "页面增强",

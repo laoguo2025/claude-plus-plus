@@ -47,6 +47,9 @@ import { callCommand, openExternalUrl } from "./tauriClient";
 import "./App.css";
 
 type Icon = ComponentType<LucideProps>;
+type EnhanceSection = "quick_access" | "enhance";
+
+const QUICK_ACCESS_FEATURE_IDS = new Set(["third_party_api", "plugins", "mcp"]);
 
 function loadInitialTheme(): Theme {
   return window.localStorage.getItem("claude-plus-theme") === "dark" ? "dark" : "light";
@@ -155,7 +158,7 @@ function App() {
     if (route === "localization" || route === "about") {
       detectClaudeDesktopOnce();
     }
-    if (route === "enhance") {
+    if (route === "quick_access" || route === "enhance") {
       refreshEnhanceStatus();
     }
   }, [detectClaudeDesktopOnce, refreshEnhanceStatus, refreshRouteState, route]);
@@ -277,7 +280,7 @@ function App() {
       if (route === "overview") {
         refreshSteps.push(refreshRouteState);
       }
-      if (route === "enhance") {
+      if (route === "quick_access" || route === "enhance") {
         refreshSteps.push(refreshEnhanceStatus);
       }
       if (route === "diagnostics") {
@@ -415,9 +418,20 @@ function App() {
             />
           )}
 
+          {route === "quick_access" && (
+            <EnhancePage
+              busy={busy}
+              section="quick_access"
+              enhanceStatus={enhanceStatus}
+              installClaudeEnhance={installClaudeEnhance}
+              uninstallClaudeEnhance={uninstallClaudeEnhance}
+            />
+          )}
+
           {route === "enhance" && (
             <EnhancePage
               busy={busy}
+              section="enhance"
               enhanceStatus={enhanceStatus}
               installClaudeEnhance={installClaudeEnhance}
               uninstallClaudeEnhance={uninstallClaudeEnhance}
@@ -693,17 +707,23 @@ function WorkflowRow({
 
 function EnhancePage({
   busy,
+  section,
   enhanceStatus,
   installClaudeEnhance,
   uninstallClaudeEnhance,
 }: {
   busy: boolean;
+  section: EnhanceSection;
   enhanceStatus: ClaudeEnhanceStatus | null;
   installClaudeEnhance: (feature: string) => Promise<void>;
   uninstallClaudeEnhance: (feature: string) => Promise<void>;
 }) {
   const disabledByMissingClaude = busy || !enhanceStatus?.supported || !enhanceStatus?.claude_found;
-  const features = enhanceStatus?.features ?? previewEnhanceFeatures();
+  const features = (enhanceStatus?.features ?? previewEnhanceFeatures()).filter((feature) =>
+    section === "quick_access"
+      ? QUICK_ACCESS_FEATURE_IDS.has(feature.id)
+      : !QUICK_ACCESS_FEATURE_IDS.has(feature.id),
+  );
 
   return (
     <div className="enhanceFlow">
@@ -718,6 +738,7 @@ function EnhancePage({
             <EnhanceCard
               key={feature.id}
               feature={feature}
+              section={section}
               disabled={disabledByMissingClaude || !feature.available}
               onInstall={() => installClaudeEnhance(feature.id)}
               onUninstall={() => uninstallClaudeEnhance(feature.id)}
@@ -889,11 +910,13 @@ function QrCard({
 
 function EnhanceCard({
   feature,
+  section,
   disabled,
   onInstall,
   onUninstall,
 }: {
   feature: ClaudeEnhanceFeature;
+  section: EnhanceSection;
   disabled: boolean;
   onInstall: () => void;
   onUninstall: () => void;
@@ -906,7 +929,7 @@ function EnhanceCard({
       </div>
       <div className="workflowCopy">
         <strong>
-          <span className="enhanceCategory">{feature.category}</span>
+          {section !== "quick_access" && <span className="enhanceCategory">{feature.category}</span>}
           {feature.label}
           <span className="enhanceVersion">{feature.version}</span>
           {feature.id === "conversation_title_i18n" && (
