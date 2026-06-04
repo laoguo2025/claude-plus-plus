@@ -67,11 +67,10 @@ pub fn apply(port: u16, api_key: &str) -> Result<(), String> {
         "disableDeploymentModeChooser": true
         // 故意不写 inferenceModels -> 强制走 /v1/models 发现模式
     });
-    std::fs::write(
-        entry_path(&dir),
-        serde_json::to_string_pretty(&profile).unwrap(),
-    )
-    .map_err(|e| format!("write entry failed: {e}"))?;
+    let profile_text = serde_json::to_string_pretty(&profile)
+        .map_err(|e| format!("serialize entry failed: {e}"))?;
+    std::fs::write(entry_path(&dir), profile_text)
+        .map_err(|e| format!("write entry failed: {e}"))?;
 
     // 更新 _meta.json
     let mp = meta_path(&dir);
@@ -101,8 +100,9 @@ pub fn apply(port: u16, api_key: &str) -> Result<(), String> {
     }
     meta["appliedId"] = json!(CLAUDE_PLUS_PLUS_ENTRY_ID);
 
-    std::fs::write(&mp, serde_json::to_string_pretty(&meta).unwrap())
-        .map_err(|e| format!("write meta failed: {e}"))?;
+    let meta_text =
+        serde_json::to_string_pretty(&meta).map_err(|e| format!("serialize meta failed: {e}"))?;
+    std::fs::write(&mp, meta_text).map_err(|e| format!("write meta failed: {e}"))?;
     Ok(())
 }
 
@@ -134,8 +134,9 @@ pub fn revert(target_entry_id: Option<&str>) -> Result<(), String> {
         .ok_or_else(|| "no fallback entry to revert to".to_string())?;
 
     meta["appliedId"] = json!(fallback);
-    std::fs::write(&mp, serde_json::to_string_pretty(&meta).unwrap())
-        .map_err(|e| format!("write meta failed: {e}"))?;
+    let meta_text =
+        serde_json::to_string_pretty(&meta).map_err(|e| format!("serialize meta failed: {e}"))?;
+    std::fs::write(&mp, meta_text).map_err(|e| format!("write meta failed: {e}"))?;
     Ok(())
 }
 
