@@ -184,7 +184,8 @@ mod imp {
 
         if let Some(text) = original_text {
             let backup = backup_path(path);
-            fs::write(&backup, text).map_err(|e| format!("备份开发者配置失败: {e}"))?;
+            patch::atomic_write(&backup, text.as_bytes())
+                .map_err(|e| format!("备份开发者配置失败: {e}"))?;
         }
 
         let text = format!(
@@ -192,7 +193,8 @@ mod imp {
             serde_json::to_string_pretty(&settings)
                 .map_err(|e| format!("生成开发者配置失败: {e}"))?
         );
-        fs::write(path, text).map_err(|e| format!("写入开发者配置失败: {e}"))?;
+        patch::atomic_write(path, text.as_bytes())
+            .map_err(|e| format!("写入开发者配置失败: {e}"))?;
 
         if read_allow_dev_tools(path) {
             Ok(())

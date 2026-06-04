@@ -2,13 +2,20 @@
 use serde_json::{Map, Value};
 #[cfg(target_os = "windows")]
 use sha2::{Digest, Sha256};
+#[cfg(not(target_os = "windows"))]
+use std::path::Path;
 #[cfg(target_os = "windows")]
 use std::{
     collections::HashSet,
     env, fs,
+    io::Write,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::{SystemTime, UNIX_EPOCH},
+};
+#[cfg(target_os = "windows")]
+use windows_sys::Win32::Storage::FileSystem::{
+    MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,
 };
 
 #[cfg(target_os = "windows")]
@@ -627,7 +634,7 @@ pub fn sync_claude_exe_asar_integrity(
         backup.backup_app_file(&exe_path)?;
     }
     exe[hash_offset..hash_offset + 64].copy_from_slice(header_hash.as_bytes());
-    fs::write(&exe_path, exe).map_err(|e| format!("写入 Claude.exe 失败: {e}"))?;
+    atomic_write(&exe_path, &exe).map_err(|e| format!("写入 Claude.exe 失败: {e}"))?;
     Ok(())
 }
 
@@ -678,6 +685,103 @@ pub fn modified_secs(path: &Path) -> Option<u64> {
         .duration_since(UNIX_EPOCH)
         .ok()
         .map(|d| d.as_secs())
+}
+
+#[cfg(target_os = "windows")]
+pub fn atomic_write(path: &Path, data: impl AsRef<[u8]>) -> std::io::Result<()> {
+    atomic_write_bytes(path, data.as_ref())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn atomic_write(path: &Path, data: impl AsRef<[u8]>) -> std::io::Result<()> {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    std::fs::create_dir_all(parent)?;
+    let tmp = parent.join(format!(
+        ".{}.tmp-{}",
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("atomic-write"),
+        std::process::id()
+    ));
+    std::fs::write(&tmp, data.as_ref())?;
+    std::fs::rename(&tmp, path)
+}
+
+#[cfg(target_os = "windows")]
+fn atomic_write_bytes(path: &Path, data: &[u8]) -> std::io::Result<()> {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(parent)?;
+
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("atomic-write");
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    let mut attempt = 0u32;
+    loop {
+        let tmp = parent.join(format!(
+            ".{file_name}.tmp-{}-{stamp}-{attempt}",
+            std::process::id()
+        ));
+        match write_temp_then_replace(&tmp, path, data) {
+            Ok(()) => return Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists && attempt < 16 => {
+                attempt += 1;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn write_temp_then_replace(tmp: &Path, path: &Path, data: &[u8]) -> std::io::Result<()> {
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(tmp)?;
+    if let Err(e) = file.write_all(data).and_then(|_| file.sync_all()) {
+        drop(file);
+        let _ = fs::remove_file(tmp);
+        return Err(e);
+    }
+    drop(file);
+
+    let result = replace_file(tmp, path);
+    if result.is_err() {
+        let _ = fs::remove_file(tmp);
+    }
+    result
+}
+
+#[cfg(target_os = "windows")]
+fn replace_file(tmp: &Path, path: &Path) -> std::io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+
+    let tmp_wide = tmp
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let path_wide = path
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let ok = unsafe {
+        MoveFileExW(
+            tmp_wide.as_ptr(),
+            path_wide.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
+    };
+    if ok == 0 {
+        Err(std::io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -786,6 +890,31 @@ mod tests {
         fs::create_dir_all(&resources).unwrap();
 
         assert_eq!(resources_path_for_app(&app), Some(resources));
+    }
+
+    #[test]
+    fn atomic_write_replaces_existing_file_without_temp_leftover() {
+        let root = test_dir("atomic-write");
+        fs::create_dir_all(&root).unwrap();
+        let target = root.join("settings.json");
+
+        atomic_write(&target, br#"{"enabled":false}"#).unwrap();
+        atomic_write(&target, br#"{"enabled":true}"#).unwrap();
+
+        assert_eq!(fs::read_to_string(&target).unwrap(), r#"{"enabled":true}"#);
+        let leftovers = fs::read_dir(&root)
+            .unwrap()
+            .flatten()
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".settings.json.tmp-")
+            })
+            .count();
+        assert_eq!(leftovers, 0);
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     fn test_dir(name: &str) -> PathBuf {

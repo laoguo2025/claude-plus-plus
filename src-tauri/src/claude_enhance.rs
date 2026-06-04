@@ -749,7 +749,8 @@ D();
             let next = ensure_or_remove_script(remove_old_script(&text), locale);
             if next != text {
                 backup.backup_resource(&path)?;
-                fs::write(&path, next).map_err(|e| format!("写入 Claude 页面增强入口失败: {e}"))?;
+                patch::atomic_write(&path, next.as_bytes())
+                    .map_err(|e| format!("写入 Claude 页面增强入口失败: {e}"))?;
             }
             patched = true;
         }
@@ -785,7 +786,8 @@ D();
                 continue;
             }
             backup.backup_resource(&path)?;
-            fs::write(&path, next).map_err(|e| format!("写入 Claude 页面增强入口失败: {e}"))?;
+            patch::atomic_write(&path, next.as_bytes())
+                .map_err(|e| format!("写入 Claude 页面增强入口失败: {e}"))?;
             patched = true;
         }
 
@@ -1034,7 +1036,7 @@ D();
         next_data.extend_from_slice(&encoded_header);
         next_data.extend_from_slice(&data[content_start..]);
         data = next_data;
-        fs::write(&asar_path, data).map_err(|e| format!("写入 app.asar 失败: {e}"))?;
+        patch::atomic_write(&asar_path, &data).map_err(|e| format!("写入 app.asar 失败: {e}"))?;
         patch::sync_claude_exe_asar_integrity(resources_path, Some(&header_string), Some(backup))?;
         Ok(())
     }

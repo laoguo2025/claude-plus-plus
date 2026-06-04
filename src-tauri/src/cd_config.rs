@@ -1,5 +1,6 @@
 // 在 Claude Desktop 3P 配置库新建独立 Claude++ 条目并切为生效。
 // 不修改 CC Switch 写的条目(切服务商会被覆盖),两条目共存。
+use crate::claude_patch_common as patch;
 use crate::constants::{
     CLAUDE_PLUS_PLUS_ENTRY_ID, CLAUDE_PLUS_PLUS_ENTRY_NAME, CLAUDE_STORE_PACKAGE_NAME,
 };
@@ -69,7 +70,7 @@ pub fn apply(port: u16, api_key: &str) -> Result<(), String> {
     });
     let profile_text = serde_json::to_string_pretty(&profile)
         .map_err(|e| format!("serialize entry failed: {e}"))?;
-    std::fs::write(entry_path(&dir), profile_text)
+    patch::atomic_write(entry_path(&dir).as_path(), profile_text.as_bytes())
         .map_err(|e| format!("write entry failed: {e}"))?;
 
     // 更新 _meta.json
@@ -102,7 +103,8 @@ pub fn apply(port: u16, api_key: &str) -> Result<(), String> {
 
     let meta_text =
         serde_json::to_string_pretty(&meta).map_err(|e| format!("serialize meta failed: {e}"))?;
-    std::fs::write(&mp, meta_text).map_err(|e| format!("write meta failed: {e}"))?;
+    patch::atomic_write(&mp, meta_text.as_bytes())
+        .map_err(|e| format!("write meta failed: {e}"))?;
     Ok(())
 }
 
@@ -136,7 +138,8 @@ pub fn revert(target_entry_id: Option<&str>) -> Result<(), String> {
     meta["appliedId"] = json!(fallback);
     let meta_text =
         serde_json::to_string_pretty(&meta).map_err(|e| format!("serialize meta failed: {e}"))?;
-    std::fs::write(&mp, meta_text).map_err(|e| format!("write meta failed: {e}"))?;
+    patch::atomic_write(&mp, meta_text.as_bytes())
+        .map_err(|e| format!("write meta failed: {e}"))?;
     Ok(())
 }
 

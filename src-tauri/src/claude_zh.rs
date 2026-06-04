@@ -674,7 +674,7 @@ mod imp {
             serde_json::to_string(&header).map_err(|e| format!("生成 app.asar 头失败: {e}"))?;
         let encoded_header = patch::encode_asar_header(&header_string, Some(parsed.header_size))?;
         data[..encoded_header.len()].copy_from_slice(&encoded_header);
-        fs::write(&asar_path, data).map_err(|e| format!("写入 app.asar 失败: {e}"))?;
+        patch::atomic_write(&asar_path, &data).map_err(|e| format!("写入 app.asar 失败: {e}"))?;
         patch::sync_claude_exe_asar_integrity(resources_path, Some(&header_string), Some(backup))?;
         Ok(())
     }
@@ -826,12 +826,10 @@ mod imp {
                 .as_object_mut()
                 .ok_or_else(|| "Claude 配置不是 JSON 对象".to_string())?;
             object.insert("locale".to_string(), Value::String(locale.to_string()));
-            fs::write(
-                &path,
-                serde_json::to_string_pretty(&data)
-                    .map_err(|e| format!("生成 Claude 配置失败: {e}"))?,
-            )
-            .map_err(|e| format!("写入 Claude 配置失败: {e}"))?;
+            let text = serde_json::to_string_pretty(&data)
+                .map_err(|e| format!("生成 Claude 配置失败: {e}"))?;
+            patch::atomic_write(&path, text.as_bytes())
+                .map_err(|e| format!("写入 Claude 配置失败: {e}"))?;
         }
         Ok(())
     }
@@ -881,7 +879,7 @@ mod imp {
     }
 
     fn write_utf8(path: &Path, text: &str) -> Result<(), String> {
-        fs::write(path, text.as_bytes())
+        patch::atomic_write(path, text.as_bytes())
             .map_err(|e| format!("写入文件失败 {}: {e}", path.display()))
     }
 
