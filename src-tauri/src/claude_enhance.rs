@@ -2,7 +2,7 @@
 mod imp {
     use crate::claude_desktop;
     use crate::claude_patch_common as patch;
-    use crate::settings;
+    use crate::constants::DEFAULT_PROXY_PORT;
     use serde::{Deserialize, Serialize};
     use serde_json::Value;
     use std::{fs, path::Path};
@@ -30,8 +30,10 @@ mod imp {
     const BACKUP_DIR_NAME: &str = ".claude-plus-enhance-backups";
     const ENHANCE_FEATURES_JSON: &str = include_str!("../../src/shared/enhance-features.json");
 
-    fn local_gateway_url(path: &str) -> String {
-        format!("http://127.0.0.1:{}{path}", settings::proxy_port())
+    fn local_gateway_runtime_js() -> String {
+        format!(
+            r#"function cppPort(){{try{{const e=process.env.CLAUDE_PLUS_PROXY_PORT;if(e&&/^\d+$/.test(String(e).trim())){{const t=Number(String(e).trim());if(t>0&&t<65536)return t}}}}catch{{}}try{{const e=JSON.parse(fs.readFileSync(path.join(process.env.USERPROFILE||process.env.HOME||"",".claude-plus-plus","settings.json"),"utf8")),t=e.proxyPort??e.proxy_port;if(t!=null&&/^\d+$/.test(String(t).trim())){{const n=Number(String(t).trim());if(n>0&&n<65536)return n}}}}catch{{}}return {DEFAULT_PROXY_PORT}}}function cppUrl(e){{return "http://127.0.0.1:"+cppPort()+e}}"#
+        )
     }
 
     fn local_gateway_token_js() -> &'static str {
@@ -136,19 +138,17 @@ if(globalThis[MARK])return;
 Object.defineProperty(globalThis,MARK,{value:!0});
 try{
 const{ipcMain}=require("electron"),fs=require("fs"),path=require("path");
+__CPP_GATEWAY_RUNTIME__
 __CPP_TOKEN_READER__
-async function translate(e){const t=String(e||"").replace(/\s+/g," ").trim();if(!t)return"";const r=await fetch("__CPP_TITLE_I18N_URL__",{method:"POST",headers:{"Content-Type":"application/json","x-claude-plus-gateway-token":cppToken()},body:JSON.stringify({title:t})});const n=await r.json().catch(() => ({}));return r.ok&&n&&typeof n.title==="string"?n.title:""}
+async function translate(e){const t=String(e||"").replace(/\s+/g," ").trim();if(!t)return"";const r=await fetch(cppUrl("/claude-plus/conversation-title-i18n"),{method:"POST",headers:{"Content-Type":"application/json","x-claude-plus-gateway-token":cppToken()},body:JSON.stringify({title:t})});const n=await r.json().catch(() => ({}));return r.ok&&n&&typeof n.title==="string"?n.title:""}
 ipcMain.removeHandler("__CPP_TITLE_I18N__");
 ipcMain.handle("__CPP_TITLE_I18N__",(e,t)=>translate(t));
 }catch(e){console.error("[Claude++] title i18n main bridge failed",e)}
 })();"##
             .replace("__CPP_TITLE_I18N_MAIN_MARK__", TITLE_I18N_MAIN_BRIDGE_MARKER)
             .replace("__CPP_TITLE_I18N__", TITLE_I18N_CHANNEL)
+            .replace("__CPP_GATEWAY_RUNTIME__", &local_gateway_runtime_js())
             .replace("__CPP_TOKEN_READER__", local_gateway_token_js())
-            .replace(
-                "__CPP_TITLE_I18N_URL__",
-                &local_gateway_url("/claude-plus/conversation-title-i18n"),
-            )
     }
 
     fn token_usage_preload_bridge_script() -> String {
@@ -170,19 +170,17 @@ if(globalThis[MARK])return;
 Object.defineProperty(globalThis,MARK,{value:!0});
 try{
 const{ipcMain}=require("electron"),fs=require("fs"),path=require("path");
+__CPP_GATEWAY_RUNTIME__
 __CPP_TOKEN_READER__
-async function getUsage(e){const n=e&&e.sinceMs?("__CPP_TOKEN_USAGE_URL__?sinceMs="+encodeURIComponent(e.sinceMs)):"__CPP_TOKEN_USAGE_URL__";const r=await fetch(n,{cache:"no-store",headers:{"x-claude-plus-gateway-token":cppToken()}});return await r.json().catch(()=>({ok:false}))}
+async function getUsage(e){const t=cppUrl("/claude-plus/token-usage"),n=e&&e.sinceMs?(t+"?sinceMs="+encodeURIComponent(e.sinceMs)):t;const r=await fetch(n,{cache:"no-store",headers:{"x-claude-plus-gateway-token":cppToken()}});return await r.json().catch(()=>({ok:false}))}
 ipcMain.removeHandler("__CPP_TOKEN_USAGE__");
 ipcMain.handle("__CPP_TOKEN_USAGE__",(e,n)=>getUsage(n));
 }catch(e){console.error("[Claude++] token usage main bridge failed",e)}
 })();"##
             .replace("__CPP_TOKEN_USAGE_MAIN_MARK__", TOKEN_USAGE_MAIN_BRIDGE_MARKER)
             .replace("__CPP_TOKEN_USAGE__", TOKEN_USAGE_CHANNEL)
+            .replace("__CPP_GATEWAY_RUNTIME__", &local_gateway_runtime_js())
             .replace("__CPP_TOKEN_READER__", local_gateway_token_js())
-            .replace(
-                "__CPP_TOKEN_USAGE_URL__",
-                &local_gateway_url("/claude-plus/token-usage"),
-            )
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -205,10 +203,7 @@ ipcMain.handle("__CPP_TOKEN_USAGE__",(e,n)=>getUsage(n));
     }
 
     fn inject_script_for_locale(locale: EnhanceScriptLocale) -> String {
-        let script = INJECT_SCRIPT_TEMPLATE.replace(
-            "__CPP_TOKEN_USAGE_URL__",
-            &local_gateway_url("/claude-plus/token-usage"),
-        );
+        let script = INJECT_SCRIPT_TEMPLATE.to_string();
         match locale {
             EnhanceScriptLocale::ZhCn => script,
             EnhanceScriptLocale::EnUs => english_inject_script(script),
@@ -405,7 +400,7 @@ function cpuMount(e){const n=e.closest('[data-testid="conversation-turn"],[data-
 function cpuAssistantFooter(e){const n=cpuMount(e),t=Array.from(n.querySelectorAll("button,[role=button]")).filter(cpuAction).pop();if(!t)return null;for(let e=t;e&&e!==n;e=e.parentElement){const t=e.parentElement;if(!t)break;const r=Array.from(t.querySelectorAll("button,[role=button]")).filter(cpuAction);if(r.length)return t}return t.parentElement||null}
 function cpuInsertAfter(e,n){const t=n.parentElement;t&&t.insertBefore(e,n.nextSibling)}
 function cpuRender(){document.querySelectorAll("main>.claude-plus-token-usage,body>.claude-plus-token-usage").forEach(e=>e.remove());let e=document.querySelector(".claude-plus-token-usage");if(!window.__claudePlusEnhanceTokenUsageV1){e&&e.remove();return}if(!cpu.last||!cpu.renderReady){e&&e.remove();return}O();const n=cpuLatestAssistant();if(!n||cpuLooksLikeRunStatus(n)){e&&e.remove();return}const t=cpuMount(n),r=t.parentElement;if(!r)return;const a=cpuAssistantFooter(t);const s=a?.parentElement||r;e&&e.dataset.host!==String(cpu.lastId)&&(e.remove(),e=null);e||(e=document.createElement("div"),e.className="claude-plus-token-usage");e.dataset.host=String(cpu.lastId);e.dataset.scopeKey=cpu.last.scopeKey||"";e.innerHTML=cpuHtml(cpu.last);e.parentElement!==s||e.previousElementSibling!==(a||t)?s.insertBefore(e,a?a.nextSibling:t.nextSibling):0;document.querySelectorAll(".claude-plus-token-usage").forEach(n=>{n!==e&&n.remove()})}
-async function cpuPoll(e){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}const n=Date.now(),a=cpu.currentTurn?.startedAt||0;if(!a)return;if(cpu.pollBusy||(!e&&n-cpu.lastPollAt<350))return;cpu.pollBusy=!0;cpu.lastPollAt=n;try{const e=window.claudePlusTokenUsage,s={sinceMs:a},r=e&&typeof e.get==="function"?await e.get(s):await fetch("__CPP_TOKEN_USAGE_URL__?sinceMs="+encodeURIComponent(a),{cache:"no-store"}).then(e=>e.json()).catch(()=>null),t=cpuMap(r&&r.usage);if(!t)return;const o=t.id||t.updatedAt||0;if(o&&o===cpu.lastProxyId){cpuScheduleFinalRender();return}cpu.lastProxyId=o||Date.now();cpuRememberUsage(t,t.elapsed,t.source||"proxy")}catch(e){}finally{cpu.pollBusy=!1}}
+async function cpuPoll(e){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}const n=Date.now(),a=cpu.currentTurn?.startedAt||0;if(!a)return;if(cpu.pollBusy||(!e&&n-cpu.lastPollAt<350))return;cpu.pollBusy=!0;cpu.lastPollAt=n;try{const e=window.claudePlusTokenUsage,s={sinceMs:a},r=e&&typeof e.get==="function"?await e.get(s):null,t=cpuMap(r&&r.usage);if(!t)return;const o=t.id||t.updatedAt||0;if(o&&o===cpu.lastProxyId){cpuScheduleFinalRender();return}cpu.lastProxyId=o||Date.now();cpuRememberUsage(t,t.elapsed,t.source||"proxy")}catch(e){}finally{cpu.pollBusy=!1}}
 function cpuInstallObservers(){if(!window.__claudePlusEnhanceTokenUsageV1)return;cpuInstallFetchObserver();cpuInstallXhrObserver();cpuInstallWebSocketObserver();cpuInstallPostMessageObserver();cpuInstallContextMeterObserver();["submit","click","keydown"].forEach(e=>document.addEventListener(e,cpuStart,!0))}
 function cpuTick(){if(!window.__claudePlusEnhanceTokenUsageV1){cpuRender();return}cpuStampScope({});const busy=cpuBusy();if(busy){if(!cpu.currentTurn)cpuBeginTurn();cpuPoll(!0);cpu.wasBusy=!0;return}if(cpu.wasBusy&&!busy)cpuScheduleFinalRender();cpu.wasBusy=busy;cpu.currentTurn&&cpuPoll();cpuMergeContext();if(!cpu.polling){cpu.polling=!0;setInterval(()=>cpu.currentTurn&&cpuPoll(!0),1200)}}
 cpuPublish();async function s(e){if(e.open==="custom3p"||e.open==="custom3p_connectors"){const n=window["claude.settings"]?.Custom3pSetup?.openSetupWindow||window.claude?.settings?.Custom3pSetup?.openSetupWindow;if(typeof n==="function"){try{e.open==="custom3p_connectors"&&localStorage.setItem("claudePlusCustom3pPane","connectors");await n();return}catch(t){}}return}if(e.open==="skills"){B();return}const n=new URL(e.path,location.origin),t=n.pathname+n.search+n.hash;try{history.pushState(null,"",t);window.dispatchEvent(new PopStateEvent("popstate",{state:history.state}));window.dispatchEvent(new Event("pushstate"));window.dispatchEvent(new Event("locationchange"))}catch(r){location.assign(n.toString())}}
@@ -1343,7 +1338,7 @@ D();
             assert!(token_usage.available);
             for feature in list {
                 let expected = match feature.id.as_str() {
-                    "conversation_title_i18n" | "token_usage" => "v0.3",
+                    "conversation_title_i18n" | "token_usage" => "v0.4",
                     _ => "v0.2",
                 };
                 assert_eq!(feature.version, expected, "{}", feature.id);
@@ -1505,18 +1500,21 @@ D();
         #[test]
         fn conversation_title_i18n_uses_preload_bridge_instead_of_page_fetch() {
             assert!(INJECT_SCRIPT.contains("window.claudePlusTitleI18n"));
-            let title_i18n_fetch = format!(
-                r#"fetch("{}"#,
-                super::local_gateway_url("/claude-plus/conversation-title-i18n")
-            );
-            assert!(!INJECT_SCRIPT.contains(&title_i18n_fetch));
+            assert!(!INJECT_SCRIPT.contains("fetch(\"http://127.0.0.1:"));
+            assert!(!INJECT_SCRIPT.contains("/claude-plus/conversation-title-i18n"));
 
             let preload = super::title_i18n_preload_bridge_script();
             let main = super::title_i18n_main_bridge_script();
             assert!(preload.contains("contextBridge.exposeInMainWorld"));
             assert!(preload.contains("claudePlusTitleI18n"));
             assert!(main.contains("ipcMain.handle"));
+            assert!(main.contains("function cppPort()"));
+            assert!(main.contains("CLAUDE_PLUS_PROXY_PORT"));
+            assert!(main.contains("settings.json"));
+            assert!(main.contains("proxyPort??e.proxy_port"));
+            assert!(main.contains("cppUrl(\"/claude-plus/conversation-title-i18n\")"));
             assert!(main.contains("/claude-plus/conversation-title-i18n"));
+            assert!(!main.contains("http://127.0.0.1:15722/claude-plus"));
         }
 
         #[test]
@@ -1561,7 +1559,7 @@ D();
             assert!(INJECT_SCRIPT.contains("window.claudePlusSkills"));
             assert!(INJECT_SCRIPT.contains("width:min(886px,calc(100vw - 48px))"));
             assert!(INJECT_SCRIPT.contains("height:min(713px,calc(100vh - 48px))"));
-            assert!(!INJECT_SCRIPT.contains(&super::local_gateway_url("/claude-plus/skills")));
+            assert!(!INJECT_SCRIPT.contains("/claude-plus/skills"));
             assert!(!INJECT_SCRIPT.contains("无法连接 Claude++ 本地服务"));
         }
 
@@ -1631,7 +1629,7 @@ D();
             assert!(INJECT_SCRIPT.contains("__claudePlusEnhanceTokenUsageV1"));
             assert!(INJECT_SCRIPT.contains("claude-plus-token-usage"));
             assert!(INJECT_SCRIPT.contains("window.claudePlusTokenUsage"));
-            assert!(INJECT_SCRIPT.contains("/claude-plus/token-usage"));
+            assert!(!INJECT_SCRIPT.contains("/claude-plus/token-usage"));
             assert!(INJECT_SCRIPT.contains("cpuPoll"));
             assert!(INJECT_SCRIPT.contains("cpuLatestAssistant"));
             assert!(INJECT_SCRIPT.contains("[data-message-author-role=\"assistant\"]"));
@@ -1657,10 +1655,7 @@ D();
             assert!(INJECT_SCRIPT.contains("a=cpu.currentTurn?.startedAt||0;if(!a)return"));
             assert!(INJECT_SCRIPT.contains("s={sinceMs:a}"));
             assert!(INJECT_SCRIPT.contains("await e.get(s)"));
-            assert!(INJECT_SCRIPT.contains(&format!(
-                "{}?sinceMs=\"+encodeURIComponent(a)",
-                super::local_gateway_url("/claude-plus/token-usage")
-            )));
+            assert!(INJECT_SCRIPT.contains(r#"e&&typeof e.get==="function"?await e.get(s):null"#));
             assert!(!INJECT_SCRIPT.contains("a?{sinceMs:a}:{}"));
             assert!(!INJECT_SCRIPT.contains("a?(\"?sinceMs=\"+encodeURIComponent(a))"));
             assert!(INJECT_SCRIPT.contains("cpu.currentTurn&&cpuPoll()"));
@@ -1675,7 +1670,7 @@ D();
                 .contains("[\"submit\",\"click\",\"keydown\"].forEach(e=>document.addEventListener(e,cpuStart,!0))"));
             assert!(INJECT_SCRIPT.contains("cpu.pollBusy||(!e&&n-cpu.lastPollAt<350)"));
             assert!(!INJECT_SCRIPT.contains("setInterval(()=>cpuPoll(!0),1200)"));
-            assert!(INJECT_SCRIPT.contains(&super::local_gateway_url("/claude-plus/token-usage")));
+            assert!(!INJECT_SCRIPT.contains("http://127.0.0.1:"));
             assert!(!INJECT_SCRIPT.contains("__CPP_TOKEN_USAGE_URL__"));
             assert!(!INJECT_SCRIPT.contains("function cpuHost"));
             assert!(!INJECT_SCRIPT.contains("n.appendChild(e)"));
@@ -1688,8 +1683,13 @@ D();
             assert!(preload.contains("claudePlusTokenUsage"));
             assert!(preload.contains("get:e=>ipcRenderer.invoke"));
             assert!(preload.contains("e||{}"));
-            assert!(main.contains(&super::local_gateway_url("/claude-plus/token-usage")));
-            assert!(main.contains("?sinceMs=\"+encodeURIComponent(e.sinceMs)"));
+            assert!(main.contains("function cppPort()"));
+            assert!(main.contains("CLAUDE_PLUS_PROXY_PORT"));
+            assert!(main.contains("settings.json"));
+            assert!(main.contains("proxyPort??e.proxy_port"));
+            assert!(main.contains("cppUrl(\"/claude-plus/token-usage\")"));
+            assert!(main.contains("t+\"?sinceMs=\"+encodeURIComponent(e.sinceMs)"));
+            assert!(!main.contains("http://127.0.0.1:15722/claude-plus"));
             assert!(main.contains("ipcMain.handle(\"claude-plus:token-usage\",(e,n)=>getUsage(n))"));
             assert!(!main.contains("__CPP_TOKEN_USAGE_URL__"));
             assert!(main.contains("ipcMain.handle"));
@@ -1963,10 +1963,13 @@ D();
             assert!(main.contains("fetch("));
             assert!(main.contains("local-gateway-token"));
             assert!(main.contains("x-claude-plus-gateway-token"));
-            assert!(main.contains(&super::local_gateway_url(
-                "/claude-plus/conversation-title-i18n"
-            )));
+            assert!(main.contains("function cppPort()"));
+            assert!(main.contains("CLAUDE_PLUS_PROXY_PORT"));
+            assert!(main.contains("settings.json"));
+            assert!(main.contains("cppUrl(\"/claude-plus/conversation-title-i18n\")"));
+            assert!(!main.contains("http://127.0.0.1:15722/claude-plus"));
             assert!(!main.contains("__CPP_TITLE_I18N_URL__"));
+            assert!(!main.contains("__CPP_GATEWAY_RUNTIME__"));
             assert!(!main.contains("__CPP_TOKEN_READER__"));
             assert!(!main.contains("shell.trashItem"));
         }
@@ -1977,8 +1980,13 @@ D();
 
             assert!(main.contains("local-gateway-token"));
             assert!(main.contains("x-claude-plus-gateway-token"));
-            assert!(main.contains(&super::local_gateway_url("/claude-plus/token-usage")));
+            assert!(main.contains("function cppPort()"));
+            assert!(main.contains("CLAUDE_PLUS_PROXY_PORT"));
+            assert!(main.contains("settings.json"));
+            assert!(main.contains("cppUrl(\"/claude-plus/token-usage\")"));
+            assert!(!main.contains("http://127.0.0.1:15722/claude-plus"));
             assert!(!main.contains("__CPP_TOKEN_USAGE_URL__"));
+            assert!(!main.contains("__CPP_GATEWAY_RUNTIME__"));
             assert!(!main.contains("__CPP_TOKEN_READER__"));
         }
 
