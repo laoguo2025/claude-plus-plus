@@ -364,19 +364,24 @@ function App() {
           </div>
           <div className="topbarActions" aria-label="页面操作">
             <button
+              className="iconButton restartButton"
+              disabled={busy}
+              onClick={restartClaudeDesktop}
+              title="重启 Claude Desktop"
+            >
+              <Power size={16} />
+              <span>重启 Claude Desktop</span>
+            </button>
+            <button className="iconButton square" disabled={busy} onClick={refreshAll} title="全局刷新" aria-label="全局刷新">
+              <RefreshCw size={16} />
+            </button>
+            <button
               className="iconButton square"
               onClick={toggleTheme}
               title={theme === "dark" ? "切换亮色主题" : "切换暗色主题"}
               aria-label={theme === "dark" ? "切换亮色主题" : "切换暗色主题"}
             >
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-            <button className="iconButton" disabled={busy} onClick={restartClaudeDesktop} title="重启 Claude Desktop">
-              <Power size={16} />
-              <span>重启 Claude Desktop</span>
-            </button>
-            <button className="iconButton square" disabled={busy} onClick={refreshAll} title="全局刷新" aria-label="全局刷新">
-              <RefreshCw size={16} />
             </button>
           </div>
         </header>
@@ -738,7 +743,6 @@ function EnhancePage({
             <EnhanceCard
               key={feature.id}
               feature={feature}
-              section={section}
               disabled={disabledByMissingClaude || !feature.available}
               onInstall={() => installClaudeEnhance(feature.id)}
               onUninstall={() => uninstallClaudeEnhance(feature.id)}
@@ -910,13 +914,11 @@ function QrCard({
 
 function EnhanceCard({
   feature,
-  section,
   disabled,
   onInstall,
   onUninstall,
 }: {
   feature: ClaudeEnhanceFeature;
-  section: EnhanceSection;
   disabled: boolean;
   onInstall: () => void;
   onUninstall: () => void;
@@ -929,7 +931,6 @@ function EnhanceCard({
       </div>
       <div className="workflowCopy">
         <strong>
-          {section !== "quick_access" && <span className="enhanceCategory">{feature.category}</span>}
           {feature.label}
           <span className="enhanceVersion">{feature.version}</span>
           {feature.id === "conversation_title_i18n" && (

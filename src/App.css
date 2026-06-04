@@ -1107,6 +1107,17 @@ select {
   white-space: nowrap;
 }
 
+.iconButton.restartButton {
+  border-color: var(--brand-strong);
+  background: var(--brand-strong);
+  color: var(--on-brand);
+}
+
+.iconButton.restartButton:hover:not(:disabled) {
+  border-color: var(--brand-strong);
+  background: var(--brand-strong);
+}
+
 .iconButton.square {
   width: 34px;
   min-width: 34px;
