@@ -445,7 +445,6 @@ function App() {
               busy={busy}
               welcomeStatus={welcomeStatus}
               setErr={setErr}
-              enableClaudeDeveloperMode={enableClaudeDeveloperMode}
               installClaudeCode={installClaudeCode}
             />
           )}
@@ -466,8 +465,10 @@ function App() {
             <LocalizationPage
               busy={busy}
               zhStatus={zhStatus}
+              welcomeStatus={welcomeStatus}
               zhScope={zhScope}
               setZhScope={setZhScope}
+              enableClaudeDeveloperMode={enableClaudeDeveloperMode}
               installClaudeZh={installClaudeZh}
               backupClaudeZh={backupClaudeZh}
               uninstallClaudeZh={uninstallClaudeZh}
@@ -637,16 +638,20 @@ function OverviewPage({
 function LocalizationPage({
   busy,
   zhStatus,
+  welcomeStatus,
   zhScope,
   setZhScope,
+  enableClaudeDeveloperMode,
   installClaudeZh,
   backupClaudeZh,
   uninstallClaudeZh,
 }: {
   busy: boolean;
   zhStatus: ClaudeZhStatus | null;
+  welcomeStatus: WelcomeStatus | null;
   zhScope: LocalizationScope;
   setZhScope: (value: LocalizationScope) => void;
+  enableClaudeDeveloperMode: () => Promise<void>;
   installClaudeZh: () => Promise<void>;
   backupClaudeZh: () => Promise<void>;
   uninstallClaudeZh: () => Promise<void>;
@@ -662,6 +667,8 @@ function LocalizationPage({
       ? "完整汉化：语言文件、前端文案、菜单与 3P 模型校验补丁"
       : "安全汉化：跳过 app.asar 与 Claude.exe 完整性补丁";
   const disabledByMissingClaude = busy || !zhStatus?.supported || !zhStatus?.claude_found;
+  const developerModeEnabled = welcomeStatus?.developer_mode_enabled === true;
+  const developerModeLoading = welcomeStatus === null;
 
   return (
     <div className="localizationFlow">
@@ -691,6 +698,25 @@ function LocalizationPage({
               !zhStatus?.backup_available ? (
                 <button disabled={disabledByMissingClaude} onClick={backupClaudeZh}>
                   备份
+                </button>
+              ) : undefined
+            }
+          />
+          <WorkflowRow
+            ok={developerModeEnabled}
+            title="开发者模式"
+            description={
+              developerModeLoading
+                ? "正在检测 Claude Desktop 开发者模式状态。"
+                : developerModeEnabled
+                  ? "已开启 Claude Desktop 开发者模式。"
+                  : "开启后可支持开发与汉化相关能力。"
+            }
+            tone={developerModeEnabled ? "success" : "warning"}
+            action={
+              !developerModeLoading && !developerModeEnabled ? (
+                <button disabled={busy} onClick={enableClaudeDeveloperMode}>
+                  一键开启
                 </button>
               ) : undefined
             }
@@ -824,13 +850,11 @@ function WelcomePage({
   busy,
   welcomeStatus,
   setErr,
-  enableClaudeDeveloperMode,
   installClaudeCode,
 }: {
   busy: boolean;
   welcomeStatus: WelcomeStatus | null;
   setErr: (error: string) => void;
-  enableClaudeDeveloperMode: () => Promise<void>;
   installClaudeCode: () => Promise<void>;
 }) {
   const loading = welcomeStatus === null;
@@ -915,23 +939,6 @@ function WelcomePage({
               : {
                   label: "下载",
                   onClick: () => void downloadClaudeDesktop(),
-                  disabled: busy,
-                  primary: true,
-                }
-          }
-        />
-        <RouteStatusCard
-          loading={loading}
-          active={!!welcomeStatus?.developer_mode_enabled}
-          label="开发者模式"
-          value={loading ? "检测中" : welcomeStatus?.developer_mode_enabled ? "已开启" : "未开启"}
-          detail={loading ? undefined : welcomeStatus?.developer_mode_enabled ? undefined : "点击后一键开启"}
-          action={
-            loading || welcomeStatus?.developer_mode_enabled
-              ? undefined
-              : {
-                  label: "一键开启",
-                  onClick: () => void enableClaudeDeveloperMode(),
                   disabled: busy,
                   primary: true,
                 }
