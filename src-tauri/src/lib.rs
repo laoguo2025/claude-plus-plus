@@ -495,7 +495,10 @@ fn should_restore_proxy_for_state(cd_applied: bool) -> bool {
 }
 
 fn enhance_feature_needs_local_gateway(feature: &str) -> bool {
-    matches!(feature, "conversation_title_i18n" | "token_usage")
+    matches!(
+        feature,
+        "plugins" | "conversation_title_i18n" | "token_usage"
+    )
 }
 
 fn show_main_window<R: tauri::Runtime>(manager: &impl Manager<R>) {
@@ -638,7 +641,7 @@ mod tests {
             "conversation_title_i18n"
         ));
         assert!(enhance_feature_needs_local_gateway("token_usage"));
-        assert!(!enhance_feature_needs_local_gateway("plugins"));
+        assert!(enhance_feature_needs_local_gateway("plugins"));
         assert!(!enhance_feature_needs_local_gateway("timeline"));
     }
 }

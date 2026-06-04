@@ -59,6 +59,8 @@ if(globalThis[MARK])return;
 Object.defineProperty(globalThis,MARK,{value:!0});
 try{
 const{ipcMain,shell}=require("electron"),fs=require("fs"),path=require("path"),crypto=require("crypto");
+__CPP_GATEWAY_RUNTIME__
+__CPP_TOKEN_READER__
 const home=process.env.USERPROFILE||process.env.HOME||"",claudeHome=path.join(home,".claude");
 function norm(e){try{return path.resolve(e)}catch{return String(e||"")}}
 function id(e){return crypto.createHash("sha256").update(norm(e).toLowerCase()).digest("hex").slice(0,32)}
@@ -74,11 +76,17 @@ function decodeProjectName(e){const t=e.split("--").filter(Boolean),r=(t[0]||"")
 function projectPaths(){const e=new Set;for(const t of fromClaudeJson())try{fs.existsSync(t)&&fs.statSync(t).isDirectory()&&e.add(norm(t))}catch{};const t=path.join(claudeHome,"projects");walk(t,e);try{for(const r of fs.readdirSync(t,{withFileTypes:!0}))if(r.isDirectory()){const t=decodeProjectName(r.name);t&&fs.existsSync(t)&&e.add(norm(t))}}catch{}return Array.from(e).sort()}
 function listSkills(){const e=[],t=[];const r=path.join(claudeHome,"skills");fs.existsSync(r)&&(t.push(norm(r)),collectRoot(r,"global","全局",null,e));const n=projectPaths();for(const r of n){const n=path.join(r,".claude","skills");fs.existsSync(n)&&(t.push(norm(n)),collectRoot(n,"project","项目",r,e))}e.sort((e,t)=>e.scope.localeCompare(t.scope)||String(e.project_path||"").localeCompare(String(t.project_path||""))||e.name.localeCompare(t.name));return{skills:e,roots:t,project_count:n.length}}
 async function trashSkill(e){const t=listSkills().skills.find(t=>t.id===e);if(!t)throw new Error("未找到该 skill，可能已经被删除或路径已变化");const r=norm(t.path);if(!fs.existsSync(r)||!fs.statSync(r).isDirectory()||!fs.existsSync(path.join(r,"SKILL.md")))throw new Error("目标不是有效 skill 目录");await shell.trashItem(r);return{ok:!0}}
+async function gatewayList(){const e=await fetch(cppUrl("/claude-plus/skills"),{cache:"no-store",headers:{"x-claude-plus-gateway-token":cppToken()}});if(!e.ok)throw new Error("Claude++ skills gateway failed: "+e.status);return await e.json()}
+async function gatewayTrash(e){const t=await fetch(cppUrl("/claude-plus/skills/"+encodeURIComponent(e)+"/trash"),{method:"POST",headers:{"x-claude-plus-gateway-token":cppToken()}});if(!t.ok)throw new Error("Claude++ skills gateway failed: "+t.status);return await t.json().catch(()=>({ok:true}))}
+async function listSkillsFast(){try{return await gatewayList()}catch(e){return listSkills()}}
+async function trashSkillFast(e){try{return await gatewayTrash(e)}catch(t){return trashSkill(e)}}
 ipcMain.removeHandler("__CPP_SKILLS_LIST__");ipcMain.removeHandler("__CPP_SKILLS_TRASH__");
-ipcMain.handle("__CPP_SKILLS_LIST__",()=>listSkills());
-ipcMain.handle("__CPP_SKILLS_TRASH__",(e,t)=>trashSkill(String(t||"")));
+ipcMain.handle("__CPP_SKILLS_LIST__",()=>listSkillsFast());
+ipcMain.handle("__CPP_SKILLS_TRASH__",(e,t)=>trashSkillFast(String(t||"")));
 }catch(e){console.error("[Claude++] skills main bridge failed",e)}
 })();"##
+            .replace("__CPP_GATEWAY_RUNTIME__", &local_gateway_runtime_js())
+            .replace("__CPP_TOKEN_READER__", local_gateway_token_js())
             .replace("__CPP_SKILLS_LIST__", SKILLS_LIST_CHANNEL)
             .replace("__CPP_SKILLS_TRASH__", SKILLS_TRASH_CHANNEL);
         match locale {
@@ -1338,6 +1346,7 @@ D();
             assert!(token_usage.available);
             for feature in list {
                 let expected = match feature.id.as_str() {
+                    "plugins" => "v0.3",
                     "conversation_title_i18n" | "token_usage" => "v0.4",
                     _ => "v0.2",
                 };
@@ -1930,9 +1939,18 @@ D();
             assert!(script.contains("ipcMain.handle"));
             assert!(script.contains("require(\"fs\")"));
             assert!(script.contains("shell.trashItem"));
+            assert!(script.contains("fetch(cppUrl(\"/claude-plus/skills\")"));
+            assert!(script.contains("x-claude-plus-gateway-token"));
+            assert!(script.contains("local-gateway-token"));
+            assert!(script.contains("async function listSkillsFast"));
+            assert!(script.contains("async function trashSkillFast"));
+            assert!(script.contains("return listSkills()"));
+            assert!(script.contains("return trashSkill(e)"));
             assert!(script.contains("listSkills"));
             assert!(script.contains(SKILLS_LIST_CHANNEL));
             assert!(script.contains(SKILLS_TRASH_CHANNEL));
+            assert!(!script.contains("__CPP_GATEWAY_RUNTIME__"));
+            assert!(!script.contains("__CPP_TOKEN_READER__"));
         }
 
         #[test]
