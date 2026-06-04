@@ -353,6 +353,14 @@ pub fn run() {
                 }
             }
             spawn_mapping_monitor(handle);
+            if let (Some(window), Some(icon)) = (
+                app.get_webview_window("main"),
+                app.default_window_icon().cloned(),
+            ) {
+                if let Err(e) = window.set_icon(icon) {
+                    tracing::error!("set main window icon failed: {e}");
+                }
+            }
             let show = MenuItem::with_id(app, "show", "Show Claude++", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
