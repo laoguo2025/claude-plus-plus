@@ -736,7 +736,7 @@ function LocalizationPage({
             description="只移除中文语言资源并把语言设回 en-US，不覆盖页面增强脚本。"
             action={
               <button disabled={busy || !zhStatus?.installed} onClick={uninstallClaudeZh}>
-                恢复英文
+                一键恢复
               </button>
             }
           />
