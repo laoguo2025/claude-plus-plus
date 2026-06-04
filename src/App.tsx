@@ -301,7 +301,7 @@ function App() {
         refreshSteps.push(refreshEnhanceStatus);
       }
       if (route === "diagnostics") {
-        refreshSteps.push(refreshLogs, refreshDiagnostics);
+        refreshSteps.push(refreshLogs);
       }
       const errors: string[] = [];
       for (const refreshStep of refreshSteps) {
@@ -331,8 +331,13 @@ function App() {
   useEffect(() => {
     if (route !== "diagnostics") return;
     refreshLogs();
-    refreshDiagnostics();
-  }, [route, refreshLogs, refreshDiagnostics]);
+  }, [route, refreshLogs]);
+
+  useEffect(() => {
+    if (route !== "diagnostics") return;
+    const t = setInterval(refreshLogs, 10000);
+    return () => clearInterval(t);
+  }, [route, refreshLogs]);
 
   const copyText = async (text: string) => {
     if (!text) return;
@@ -1086,7 +1091,7 @@ function DiagnosticsPage({
         <div className="panelHead">
           <div>
             <h2>诊断报告</h2>
-            <p>包含自动判定、路由、模型映射、汉化、增强和本地路径信息。</p>
+            <p>只读检查路由、模型映射、汉化、增强和关键本地路径，敏感信息会自动脱敏。</p>
           </div>
           <Activity size={20} />
         </div>
@@ -1094,10 +1099,13 @@ function DiagnosticsPage({
           className="diagnosticsReport"
           readOnly
           spellCheck={false}
-          value={diagnostics?.report ?? "尚未生成诊断报告。"}
+          placeholder="点击生成报告后显示诊断内容。"
+          value={diagnostics?.report ?? ""}
         />
         <div className="diagnosticsToolbar">
-          <button onClick={() => void refreshDiagnostics()}>重新生成</button>
+          <button onClick={() => void refreshDiagnostics()}>
+            {diagnostics?.report ? "重新生成" : "生成报告"}
+          </button>
           <button
             disabled={!diagnostics?.report}
             onClick={() => void copyText(diagnostics?.report ?? "")}
