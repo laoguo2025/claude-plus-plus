@@ -1086,7 +1086,7 @@ function DiagnosticsPage({
         <div className="panelHead">
           <div>
             <h2>诊断报告</h2>
-            <p>包含路由、模型映射、汉化、增强和本地路径信息。</p>
+            <p>包含自动判定、路由、模型映射、汉化、增强和本地路径信息。</p>
           </div>
           <Activity size={20} />
         </div>

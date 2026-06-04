@@ -43,7 +43,10 @@ const previewWelcomeStatus: WelcomeStatus = {
 };
 
 export function previewEnhanceFeatures(): ClaudeEnhanceFeature[] {
-  return enhanceFeatureDefinitions.map((feature) => ({ ...feature, enabled: false }));
+  return enhanceFeatureDefinitions.map((feature) => ({
+    ...feature,
+    enabled: false,
+  }));
 }
 
 export function previewCommand<T>(cmd: string): T {
@@ -54,7 +57,9 @@ export function previewCommand<T>(cmd: string): T {
     return clone(previewStatus) as T;
   }
   if (cmd === "get_mappings") {
-    throw new Error("浏览器预览无法读取 CC Switch 数据库；请在 Claude++ EXE 中查看真实服务商和模型映射。");
+    throw new Error(
+      "浏览器预览无法读取 CC Switch 数据库；请在 Claude++ EXE 中查看真实服务商和模型映射。",
+    );
   }
   if (cmd === "claude_zh_status") {
     return clone(previewZhStatus) as T;
@@ -73,7 +78,9 @@ export function previewCommand<T>(cmd: string): T {
     return previewLogs() as T;
   }
   if (cmd === "generate_diagnostics") {
-    return { report: previewDiagnosticsReport() } satisfies DiagnosticsPayload as T;
+    return {
+      report: previewDiagnosticsReport(),
+    } satisfies DiagnosticsPayload as T;
   }
   throw new Error(`浏览器预览不支持命令: ${cmd}`);
 }
@@ -141,15 +148,157 @@ function previewLogs(): LogsPayload {
 function previewDiagnosticsReport(): string {
   return JSON.stringify(
     {
+      schemaVersion: 2,
       generatedAtMs: Date.now(),
       version: PREVIEW_APP_VERSION,
+      summary: {
+        health: "warning",
+        errorCount: 0,
+        warningCount: 1,
+        findingCount: 2,
+        topFinding: {
+          severity: "warning",
+          code: "preview_only",
+          title: "浏览器预览无法读取本机运行状态",
+          impact: "真实问题需要在 Claude++ EXE 中生成诊断报告。",
+          fixHint: "在桌面应用的诊断日志页点击重新生成并复制报告。",
+          evidence: {},
+        },
+      },
+      findings: [
+        {
+          severity: "warning",
+          code: "preview_only",
+          title: "浏览器预览无法读取本机运行状态",
+          impact: "真实问题需要在 Claude++ EXE 中生成诊断报告。",
+          fixHint: "在桌面应用的诊断日志页点击重新生成并复制报告。",
+          evidence: {},
+        },
+        {
+          severity: "info",
+          code: "diagnostics_redacted",
+          title: "报告只输出脱敏后的 key/token 状态",
+          impact: "可用于定位配置是否存在，同时避免复制密钥原文。",
+          fixHint: "不要手工补充 API key、token 或完整 Authorization 头。",
+          evidence: { apiKeyPresent: true, apiKeyLength: 64 },
+        },
+      ],
       overview: {
         app: "Claude++",
         status: previewStatus,
+        mappings: {
+          status: "ok",
+          provider_name: "Preview Provider",
+          provider_id: "preview",
+          mappings: [
+            {
+              display: "Claude Sonnet Preview",
+              role: "sonnet",
+              role_kind: "sonnet",
+              model: "sonnet-preview",
+            },
+          ],
+        },
+        claude_zh: previewZhStatus,
+        claude_enhance: previewEnhanceStatus(),
+        developer_mode: {
+          enabled: previewWelcomeStatus.developer_mode_enabled,
+          candidates: [],
+        },
+      },
+      checks: {
+        settings: {
+          effectiveProxyPort: __DEFAULT_PROXY_PORT__,
+          effectiveProxyPortSource: "default",
+        },
+        gateway: {
+          expectedPort: __DEFAULT_PROXY_PORT__,
+          statusRunning: previewStatus.running,
+          statusPort: previewStatus.port,
+          tcpAcceptsExpectedPort: previewStatus.running,
+          localGatewayToken: { exists: true, validFormat: true, length: 64 },
+        },
+        ccSwitch: {
+          database: {
+            exists: true,
+            path: "%USERPROFILE%\\.cc-switch\\cc-switch.db",
+          },
+          proxyConfig: {
+            status: "ok",
+            proxyEnabled: true,
+            listenAddress: "127.0.0.1",
+            listenPort: 15721,
+            reachable: true,
+          },
+          gatewayProfile: {
+            status: "ok",
+            baseUrl: {
+              rawPresent: true,
+              parseOk: true,
+              scheme: "http",
+              host: "127.0.0.1",
+              port: 15721,
+              path: "/v1",
+            },
+            apiKeyPresent: true,
+            apiKeyLength: 64,
+          },
+          mappings: {
+            status: "ok",
+            count: 1,
+            providerName: "Preview Provider",
+            providerId: "preview",
+          },
+        },
+        configLibrary: {
+          isApplied: previewStatus.cd_applied,
+          candidates: [
+            {
+              path: "%APPDATA%\\Claude\\configLibrary",
+              exists: true,
+              appliedId: "00000000-0000-4000-8000-000000157220",
+              claudePlusEntry: {
+                exists: true,
+                baseUrl: {
+                  rawPresent: true,
+                  parseOk: true,
+                  scheme: "http",
+                  host: "127.0.0.1",
+                  port: __DEFAULT_PROXY_PORT__,
+                  path: "/claude-desktop",
+                },
+                apiKeyPresent: true,
+                apiKeyLength: 64,
+                portMatchesExpected: true,
+                pathIsClaudeDesktop: true,
+              },
+            },
+          ],
+        },
+        claudeDesktop: {
+          supported: true,
+          found: previewZhStatus.claude_found,
+          running: false,
+          files: { appAsar: { status: "ok", readable: true } },
+        },
+        logs: {
+          path: "%USERPROFILE%\\.claude-plus-plus\\claude-plus-plus.log",
+          exists: true,
+          tailLineCount: 2,
+          eventCounts: {
+            "manager.proxy_status": 1,
+            "manager.generate_diagnostics": 1,
+          },
+          recentErrors: [],
+        },
       },
       paths: {
+        appStateDir: "%USERPROFILE%\\.claude-plus-plus",
         ccSwitchDb: "%USERPROFILE%\\.cc-switch\\cc-switch.db",
+        settings: "%USERPROFILE%\\.claude-plus-plus\\settings.json",
         diagnosticLog: "%USERPROFILE%\\.claude-plus-plus\\claude-plus-plus.log",
+        localGatewayToken:
+          "%USERPROFILE%\\.claude-plus-plus\\local-gateway-token",
       },
     },
     null,
