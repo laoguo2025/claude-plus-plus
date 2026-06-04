@@ -314,7 +314,7 @@ select {
 
 .welcomeHero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+  grid-template-columns: minmax(0, 1fr) 170px;
   gap: 12px;
   min-height: 0;
   overflow: visible;
@@ -391,7 +391,7 @@ select {
 }
 
 .qrCard img {
-  width: min(132px, 100%);
+  width: min(118px, 100%);
   max-width: 100%;
   aspect-ratio: 1;
   border: 1px solid var(--border-soft);
