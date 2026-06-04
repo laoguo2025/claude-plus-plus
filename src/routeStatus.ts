@@ -17,10 +17,22 @@ export function ccswitchRouteDetailText(
     return "无法读取 CC Switch 路由配置";
   }
   if (!route.configured) {
-    return "请在 CCS 开启路由";
+    return "请在 CC Switch 开启路由总开关";
   }
   if (route.reachable === false) {
-    return "路由已开启，端口暂不可达或仍在启动中";
+    return "总开关已开启，端口暂不可达或仍在启动中";
+  }
+  return undefined;
+}
+
+export function claudeRouteDetailText(
+  route: CcSwitchRouteStatus | null | undefined,
+): string | undefined {
+  if (!route || route.configured === null) {
+    return "无法读取 CC Switch 路由配置";
+  }
+  if (!route.claude_route_enabled) {
+    return "对应 CC Switch 的 Claude 应用接管开关";
   }
   return undefined;
 }

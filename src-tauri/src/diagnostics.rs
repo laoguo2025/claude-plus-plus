@@ -219,6 +219,7 @@ fn collect_ccswitch(mappings_value: &Value) -> Value {
         |config| {
             json!({
                 "proxyEnabled": config.proxy_enabled,
+                "claudeRouteEnabled": config.claude_route_enabled,
                 "listenAddress": config.listen_address,
                 "listenPort": config.listen_port,
                 "reachable": config.proxy_enabled

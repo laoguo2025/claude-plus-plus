@@ -98,6 +98,8 @@ struct StatusInfo {
 
 #[derive(serde::Serialize)]
 struct CcSwitchRouteStatus {
+    claude_route_enabled: bool,
+    proxy_enabled: bool,
     enabled: bool,
     configured: Option<bool>,
     has_mappings: bool,
@@ -137,9 +139,19 @@ fn ccswitch_route_status() -> CcSwitchRouteStatus {
         })
         .unwrap_or(false);
     let has_mappings = ccswitch_db::load_mappings(&server::default_db_path()).is_ok();
+    let proxy_enabled = proxy_config
+        .as_ref()
+        .map(|config| config.proxy_enabled)
+        .unwrap_or(false);
+    let claude_route_enabled = proxy_config
+        .as_ref()
+        .map(|config| config.claude_route_enabled)
+        .unwrap_or(false);
 
     CcSwitchRouteStatus {
-        enabled: configured.unwrap_or(false),
+        claude_route_enabled,
+        proxy_enabled,
+        enabled: proxy_enabled,
         configured,
         has_mappings,
         reachable,

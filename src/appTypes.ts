@@ -19,6 +19,8 @@ export interface StatusInfo {
 }
 
 export interface CcSwitchRouteStatus {
+  claude_route_enabled: boolean;
+  proxy_enabled: boolean;
   enabled: boolean;
   configured: boolean | null;
   has_mappings: boolean;

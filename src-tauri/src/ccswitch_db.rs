@@ -49,6 +49,7 @@ pub struct ProviderMappings {
 #[derive(Debug, Clone, Serialize)]
 pub struct ProxyConfig {
     pub proxy_enabled: bool,
+    pub claude_route_enabled: bool,
     pub listen_address: String,
     pub listen_port: u16,
 }
@@ -162,10 +163,12 @@ pub fn load_proxy_config(db_path: &std::path::Path) -> Result<ProxyConfig, Strin
 
     let listen_port =
         u16::try_from(listen_port).map_err(|_| "proxy listen_port out of range".to_string())?;
-    let route_enabled = enabled.unwrap_or(0) != 0 || proxy_enabled.unwrap_or(0) != 0;
+    let proxy_enabled = proxy_enabled.unwrap_or(0) != 0;
+    let claude_route_enabled = enabled.map(|value| value != 0).unwrap_or(proxy_enabled);
 
     Ok(ProxyConfig {
-        proxy_enabled: route_enabled,
+        proxy_enabled,
+        claude_route_enabled,
         listen_address,
         listen_port,
     })
@@ -358,12 +361,13 @@ mod tests {
         std::fs::remove_file(&path).ok();
 
         assert!(config.proxy_enabled);
+        assert!(!config.claude_route_enabled);
         assert_eq!(config.listen_address, "127.0.0.1");
         assert_eq!(config.listen_port, 15721);
     }
 
     #[test]
-    fn proxy_config_accepts_enabled_when_proxy_enabled_is_off() {
+    fn proxy_config_keeps_claude_route_separate_when_proxy_enabled_is_off() {
         let path = proxy_config_test_db(
             "app_type TEXT, proxy_enabled INTEGER, enabled INTEGER, listen_address TEXT, listen_port INTEGER",
             "'claude', 0, 1, '127.0.0.1', 15721",
@@ -371,7 +375,8 @@ mod tests {
         let config = load_proxy_config(&path).expect("query proxy config");
         std::fs::remove_file(&path).ok();
 
-        assert!(config.proxy_enabled);
+        assert!(!config.proxy_enabled);
+        assert!(config.claude_route_enabled);
         assert_eq!(config.listen_address, "127.0.0.1");
         assert_eq!(config.listen_port, 15721);
     }
@@ -386,6 +391,7 @@ mod tests {
         std::fs::remove_file(&path).ok();
 
         assert!(config.proxy_enabled);
+        assert!(config.claude_route_enabled);
         assert_eq!(config.listen_address, "127.0.0.1");
         assert_eq!(config.listen_port, 15721);
     }

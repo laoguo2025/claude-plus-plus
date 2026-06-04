@@ -45,7 +45,7 @@ import {
   routes,
 } from "./appConstants";
 import { previewEnhanceFeatures, PREVIEW_APP_VERSION } from "./previewCommands";
-import { routeSummaryText, ccswitchRouteDetailText } from "./routeStatus";
+import { routeSummaryText, ccswitchRouteDetailText, claudeRouteDetailText } from "./routeStatus";
 import { callCommand, openExternalUrl } from "./tauriClient";
 import "./App.css";
 
@@ -538,7 +538,14 @@ function OverviewPage({
   const ccswitchRoute = status?.ccswitch_route;
   const routeSummary = routeSummaryText(status);
   const providerConfigured = !!pm;
-  const ccswitchSwitchOn = ccswitchRoute?.configured === true;
+  const claudeRouteOn = ccswitchRoute?.claude_route_enabled === true;
+  const ccswitchSwitchOn = ccswitchRoute?.proxy_enabled === true;
+  const ccswitchSwitchValue = ccswitchSwitchOn
+    ? ccswitchRoute?.reachable === false
+      ? "端口不可达"
+      : "已开启"
+    : "未开启";
+  const claudeRouteDetail = claudeRouteDetailText(ccswitchRoute);
   const ccswitchSwitchDetail = ccswitchRouteDetailText(ccswitchRoute);
   const claudePlusTakenOver = !!status?.cd_applied && !!status?.running;
 
@@ -565,9 +572,15 @@ function OverviewPage({
         </div>
         <div className="routeCardBody">
           <RouteStatusCard
-            active={ccswitchSwitchOn}
-            label="CC Switch 路由开关"
-            value={ccswitchSwitchOn ? "已开启" : "未开启"}
+            active={claudeRouteOn}
+            label="Claude 路由开关"
+            value={claudeRouteOn ? "已开启" : "未开启"}
+            detail={claudeRouteDetail}
+          />
+          <RouteStatusCard
+            active={ccswitchSwitchOn && ccswitchRoute?.reachable !== false}
+            label="CC Switch 路由总开关"
+            value={ccswitchSwitchValue}
             detail={ccswitchSwitchDetail}
           />
           <RouteStatusCard
@@ -581,12 +594,6 @@ function OverviewPage({
               disabled: busy,
               primary: !claudePlusTakenOver,
             }}
-          />
-          <RouteStatusCard
-            active={providerConfigured}
-            label="模型服务商配置"
-            value={providerConfigured ? "已配置" : "未配置"}
-            detail={providerConfigured ? undefined : mappingError || "请在 CC Switch 中配置模型服务商"}
           />
         </div>
         {restartNeeded && (
@@ -603,6 +610,13 @@ function OverviewPage({
         <div className="panelHead">
           <div>
             <h2>当前服务商与模型映射</h2>
+          </div>
+        </div>
+        <div className="providerStrip">
+          <span>模型服务商配置</span>
+          <div>
+            <strong>{providerConfigured ? "已配置" : "未配置"}</strong>
+            {!providerConfigured && <small>{mappingError || "请在 CC Switch 中配置模型服务商"}</small>}
           </div>
         </div>
         <div className="providerStrip">

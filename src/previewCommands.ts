@@ -16,6 +16,8 @@ const previewStatus: StatusInfo = {
   port: __DEFAULT_PROXY_PORT__,
   cd_applied: true,
   ccswitch_route: {
+    claude_route_enabled: true,
+    proxy_enabled: true,
     enabled: true,
     configured: true,
     has_mappings: true,
