@@ -1073,7 +1073,7 @@ select {
 }
 
 .releaseCard .aboutInfoRow {
-  grid-template-columns: minmax(120px, 0.24fr) minmax(0, 1fr);
+  grid-template-columns: minmax(120px, 0.24fr) minmax(0, 1fr) auto;
   min-height: 40px;
   padding: 9px 0;
 }

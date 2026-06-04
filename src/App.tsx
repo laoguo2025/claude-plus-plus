@@ -35,6 +35,8 @@ import {
   ALIPAY_QR_PATH,
   CC_SWITCH_DOWNLOAD_URL,
   CLAUDE_DESKTOP_DOWNLOAD_URL,
+  GITHUB_RELEASES_URL,
+  GITHUB_REPOSITORY_URL,
   QQ_GROUP_QR_PATH,
   routeMeta,
   routes,
@@ -426,6 +428,7 @@ function App() {
             <AboutPage
               appVersion={appVersion}
               claudeDesktopVersion={zhStatus?.claude_version ?? (zhStatus?.claude_found ? "版本未知" : "未定位到资源目录")}
+              setErr={setErr}
             />
           )}
 
@@ -938,10 +941,30 @@ function enhanceIcon(id: string): Icon {
 function AboutPage({
   appVersion,
   claudeDesktopVersion,
+  setErr,
 }: {
   appVersion: string;
   claudeDesktopVersion: string;
+  setErr: (error: string) => void;
 }) {
+  const openRepository = async () => {
+    setErr("");
+    try {
+      await openExternalUrl(GITHUB_REPOSITORY_URL);
+    } catch (e) {
+      setErr(String(e));
+    }
+  };
+
+  const openReleases = async () => {
+    setErr("");
+    try {
+      await openExternalUrl(GITHUB_RELEASES_URL);
+    } catch (e) {
+      setErr(String(e));
+    }
+  };
+
   return (
     <div className="pageGrid aboutPage">
       <section className="panel aboutPanel">
@@ -950,7 +973,8 @@ function AboutPage({
           <AboutInfoRow label="Claude Desktop 版本" value={claudeDesktopVersion} />
           <AboutInfoRow
             label="仓库地址"
-            value="未配置公开仓库地址"
+            value={GITHUB_REPOSITORY_URL}
+            action={<button onClick={() => void openRepository()}>打开仓库</button>}
           />
           <div className="releaseCard">
             <div className="releaseCardHead">
@@ -958,12 +982,16 @@ function AboutPage({
               <span>当前版本 {appVersion}</span>
             </div>
             <AboutInfoRow label="状态" value="未接入自动检查" />
-            <AboutInfoRow label="最新版本" value="请以 GitHub Release 为准" />
-            <AboutInfoRow label="资源" value="本地构建和手动发布" />
+            <AboutInfoRow
+              label="最新版本"
+              value="请以 GitHub Release 为准"
+              action={<button onClick={() => void openReleases()}>打开 Release</button>}
+            />
+            <AboutInfoRow label="资源" value="GitHub Release 与本地构建脚本" />
             <textarea
               className="releaseNotes"
               readOnly
-              value={`当前应用版本: ${appVersion}\n\nClaude++ 目前未接入自动更新。需要确认新版时，请前往 GitHub 项目主页或使用本地 release 构建脚本。`}
+              value={`当前应用版本: ${appVersion}\n\nClaude++ 目前未接入自动更新。需要确认新版时，请打开 GitHub Release，或使用本地 release 构建脚本。`}
             />
           </div>
         </div>

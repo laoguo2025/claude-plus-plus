@@ -13,6 +13,7 @@
 - The default proxy port is `15722`. Runtime port overrides are read from `CLAUDE_PLUS_PROXY_PORT` first, then `%USERPROFILE%\.claude-plus-plus\settings.json` (`proxyPort` or `proxy_port`), then the default.
 - The local gateway must not be exposed just because the Claude++ app starts. Startup restores the proxy only when Claude Desktop is already configured to use Claude++; installing page enhancements that depend on the local gateway (`conversation_title_i18n`, `token_usage`) starts the proxy after the install succeeds.
 - Local gateway requests with a browser `Origin` header must be rejected unless they come from trusted local/Tauri origins or Claude-owned HTTPS origins. Non-browser callers without `Origin` remain allowed so Claude Desktop main/preload bridge fetches keep working.
+- Tauri webview security policy must stay explicit, not `null`. Production CSP allows only self, Tauri IPC, local asset protocol, and inline styles required by the app shell. Development CSP may additionally allow the Vite dev server. The `opener:default` capability remains required only for explicit external-link buttons that call the app-side opener wrapper.
 - Claude Desktop discovers gateway models only during app startup in the observed Windows Store build. `Claude++` still sends no-cache headers on `/v1/models` and refreshes its own Claude Desktop configLibrary entry when CC Switch mappings change so credentials stay current, but the Claude Desktop model picker requires a Claude Desktop restart to show a changed model list.
 - Model discovery IDs must be unique by role, not by CC Switch display label, because multiple roles can share the same labelOverride. Discovery display names must preserve the CC Switch menu display label exactly; duplicate labels are user configuration and should not be rewritten by Claude++. Request forwarding maps the generated internal ID back to the CC Switch role key and keeps legacy role-prefixed names compatible.
 - Windows Claude Desktop localization is an optional local patch surface. It writes only Claude Desktop resource/config files, keeps backups under Claude `resources\.zh-cn-backups`, and must preserve a recovery path before changing frontend bundles, `app.asar`, or `Claude.exe`. Localization supports only `zh-CN`; `zh-TW` and `zh-HK` may appear only in legacy cleanup paths. Localization restore must remove only localization-owned language files, language-list entries, display-name patch, and locale state; it must not restore whole shared frontend or ASAR files from `.zh-cn-backups` because page enhancement scripts share those files.
@@ -40,7 +41,9 @@
 - Rust checks on Windows require the MSVC environment. Run from `src-tauri` with `cmd.exe /c 'call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" && cargo check'`.
 - Full Rust unit coverage for the local library: run the same MSVC wrapper with `cargo test --lib`.
 - Frontend build and TypeScript check: `npm run build` from the repo root.
+- Declared toolchains: Node and npm are declared in `package.json` / `package-lock.json`; Rust uses `rust-toolchain.toml`.
 - Reusable local validation scripts: `npm run typecheck`, `npm run check:rust`, `npm run test:rust`, `npm run audit:claude-zh`.
+- Production dependency gate: run `npm audit --audit-level=high --omit=dev`; CI runs the same audit in the frontend job.
 
 ## Rollback
 - In the app, use the revert command to set Claude Desktop `appliedId` back to CC Switch's `00000000-0000-4000-8000-000000157210` entry.
