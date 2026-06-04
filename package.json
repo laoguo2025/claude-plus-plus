@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "typecheck": "tsc --noEmit --pretty false",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "audit:claude-zh": "node .workbench/tools/audit-claude-zh-visible.cjs",
+    "check:rust": "build.bat check",
+    "test:rust": "build.bat test --lib",
     "tauri": "tauri"
   },
   "dependencies": {

@@ -156,8 +156,13 @@ struct TitleI18nRequest {
 
 async fn handle_conversation_title_i18n(
     State(state): State<AppState>,
+    headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Response {
+    if let Some(response) = reject_untrusted_local_origin(&headers) {
+        return response;
+    }
+
     let title = match parse_title_i18n_request(&body) {
         Some(title) => title,
         None => {
@@ -260,7 +265,11 @@ fn allow_title_i18n_request(state: &AppState) -> bool {
         .unwrap_or(false)
 }
 
-async fn handle_skills() -> Response {
+async fn handle_skills(headers: HeaderMap) -> Response {
+    if let Some(response) = reject_untrusted_local_origin(&headers) {
+        return response;
+    }
+
     let mut response = (
         StatusCode::OK,
         axum::Json(crate::claude_skills::list_skills()),
@@ -270,7 +279,11 @@ async fn handle_skills() -> Response {
     response
 }
 
-async fn handle_trash_skill(Path(id): Path<String>) -> Response {
+async fn handle_trash_skill(headers: HeaderMap, Path(id): Path<String>) -> Response {
+    if let Some(response) = reject_untrusted_local_origin(&headers) {
+        return response;
+    }
+
     match crate::claude_skills::trash_skill(&id) {
         Ok(()) => {
             let mut response = (
@@ -301,8 +314,13 @@ struct TokenUsageQuery {
 
 async fn handle_token_usage(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Query(query): Query<TokenUsageQuery>,
 ) -> Response {
+    if let Some(response) = reject_untrusted_local_origin(&headers) {
+        return response;
+    }
+
     let mut token_usage = state
         .token_usage
         .read()
@@ -353,6 +371,48 @@ async fn handle_token_usage(
     response
 }
 
+fn reject_untrusted_local_origin(headers: &HeaderMap) -> Option<Response> {
+    if trusted_local_origin(headers) {
+        return None;
+    }
+
+    let mut response = (
+        StatusCode::FORBIDDEN,
+        axum::Json(serde_json::json!({ "ok": false, "error": "untrusted origin" })),
+    )
+        .into_response();
+    apply_json_headers(response.headers_mut());
+    Some(response)
+}
+
+fn trusted_local_origin(headers: &HeaderMap) -> bool {
+    let Some(origin) = headers
+        .get("origin")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return true;
+    };
+
+    trusted_origin_value(origin)
+}
+
+fn trusted_origin_value(origin: &str) -> bool {
+    let Ok(uri) = origin.parse::<Uri>() else {
+        return false;
+    };
+    let scheme = uri.scheme_str().unwrap_or_default().to_ascii_lowercase();
+    let host = uri.host().unwrap_or_default().to_ascii_lowercase();
+    if host == "127.0.0.1" || host == "localhost" || host == "::1" {
+        return true;
+    }
+    if host == "claude.ai" || host.ends_with(".claude.ai") {
+        return scheme == "https";
+    }
+    matches!(scheme.as_str(), "tauri" | "asset") && (host.is_empty() || host == "localhost")
+}
+
 fn token_usage_fresh_for_query(
     updated_at_ms: u64,
     since_ms: Option<u64>,
@@ -398,7 +458,11 @@ fn apply_json_headers(headers: &mut HeaderMap) {
     );
 }
 
-async fn handle_models(State(state): State<AppState>) -> Response {
+async fn handle_models(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if let Some(response) = reject_untrusted_local_origin(&headers) {
+        return response;
+    }
+
     let mappings = state.mappings();
     let data: Vec<serde_json::Value> = mappings
         .iter()
@@ -559,6 +623,10 @@ async fn handle_proxy(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Response {
+    if let Some(response) = reject_untrusted_local_origin(&headers) {
+        return response;
+    }
+
     // 拼上游 URL:保留原 path 中 /claude-desktop 之后的部分 + query
     let upstream = state.upstream();
     let path = uri.path();
@@ -1176,6 +1244,24 @@ mod tests {
         assert!(text.contains("Prepare quarterly roadmap"));
         assert!(text.contains("不要 Markdown"));
         assert_eq!(body["thinking"]["type"], "disabled");
+    }
+
+    #[test]
+    fn local_auxiliary_routes_reject_untrusted_web_origins() {
+        assert!(!trusted_origin_value("https://example.com"));
+        assert!(!trusted_origin_value("http://claude.ai"));
+        assert!(trusted_origin_value("https://claude.ai"));
+        assert!(trusted_origin_value("https://console.claude.ai"));
+        assert!(trusted_origin_value("http://127.0.0.1:1420"));
+        assert!(trusted_origin_value("http://localhost:1420"));
+        assert!(trusted_origin_value("tauri://localhost"));
+        assert!(trusted_origin_value("asset://localhost"));
+    }
+
+    #[test]
+    fn local_auxiliary_routes_allow_non_browser_callers_without_origin() {
+        let headers = HeaderMap::new();
+        assert!(trusted_local_origin(&headers));
     }
 
     #[test]

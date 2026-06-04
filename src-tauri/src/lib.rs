@@ -63,7 +63,9 @@ fn ccswitch_route_status() -> CcSwitchRouteStatus {
     let configured = proxy_config.as_ref().map(|config| config.proxy_enabled);
     let reachable = proxy_config
         .as_ref()
-        .map(|config| config.proxy_enabled && tcp_endpoint_accepts(&config.listen_address, config.listen_port))
+        .map(|config| {
+            config.proxy_enabled && tcp_endpoint_accepts(&config.listen_address, config.listen_port)
+        })
         .unwrap_or(false);
     let has_mappings = ccswitch_db::load_mappings(&server::default_db_path()).is_ok();
 
@@ -270,8 +272,15 @@ fn claude_enhance_status() -> claude_enhance::ClaudeEnhanceStatus {
 }
 
 #[tauri::command]
-fn install_claude_enhance(feature: String) -> Result<(), String> {
-    claude_enhance::install(&feature)
+fn install_claude_enhance(
+    feature: String,
+    state: tauri::State<ServerHandle>,
+) -> Result<(), String> {
+    let result = claude_enhance::install(&feature);
+    if result.is_ok() && enhance_feature_needs_local_gateway(&feature) {
+        state.ensure_running(settings::proxy_port(), server::default_db_path())?;
+    }
+    result
 }
 
 #[tauri::command]
@@ -336,11 +345,12 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(ServerHandle::default())
         .setup(|app| {
-            // 启动即自动开代理
             let handle = app.state::<ServerHandle>().inner().clone();
-            let port = settings::proxy_port();
-            if let Err(e) = handle.ensure_running(port, server::default_db_path()) {
-                tracing::error!("auto start proxy failed: {e}");
+            if should_restore_proxy_on_startup() {
+                let port = settings::proxy_port();
+                if let Err(e) = handle.ensure_running(port, server::default_db_path()) {
+                    tracing::error!("auto start proxy failed: {e}");
+                }
             }
             spawn_mapping_monitor(handle);
             let show = MenuItem::with_id(app, "show", "Show Claude++", true, None::<&str>)?;
@@ -409,6 +419,18 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+fn should_restore_proxy_on_startup() -> bool {
+    should_restore_proxy_for_state(cd_config::is_applied())
+}
+
+fn should_restore_proxy_for_state(cd_applied: bool) -> bool {
+    cd_applied
+}
+
+fn enhance_feature_needs_local_gateway(feature: &str) -> bool {
+    matches!(feature, "conversation_title_i18n" | "token_usage")
 }
 
 fn show_main_window<R: tauri::Runtime>(manager: &impl Manager<R>) {
@@ -531,5 +553,26 @@ fn refresh_cd_config(port: u16, reason: &str) -> bool {
             }),
         );
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn startup_proxy_restores_only_when_route_is_applied() {
+        assert!(!should_restore_proxy_for_state(false));
+        assert!(should_restore_proxy_for_state(true));
+    }
+
+    #[test]
+    fn gateway_enhance_features_start_proxy_after_install() {
+        assert!(enhance_feature_needs_local_gateway(
+            "conversation_title_i18n"
+        ));
+        assert!(enhance_feature_needs_local_gateway("token_usage"));
+        assert!(!enhance_feature_needs_local_gateway("plugins"));
+        assert!(!enhance_feature_needs_local_gateway("timeline"));
     }
 }
