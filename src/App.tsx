@@ -834,8 +834,8 @@ function WelcomePage({
           <img className="welcomeLogo" src={botLogo} alt="Claude++" />
           <div className="welcomeCopy">
             <h2>Claude++</h2>
-            <p>本地 Claude Desktop 增强，并优化与 CC Switch 桥接的工具。</p>
-            <p>包含 CCS 转接、一键安装、一键汉化、页面增强、诊断日志等能力。</p>
+            <p>Claude++，是一款 Claude Desktop 的本地增强工具，</p>
+            <p>提供 CCS 转接优化、一键汉化、第三方API接入、对话增强等能力。</p>
           </div>
         </div>
         <div className="welcomeQrGroup">

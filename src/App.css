@@ -349,6 +349,7 @@ select {
   margin-top: 0;
   justify-items: center;
   text-align: center;
+  transform: translateY(10px);
 }
 
 .welcomeCopy h2 {
@@ -415,6 +416,7 @@ select {
   font-size: 15px;
   font-weight: 600;
   line-height: 1.6;
+  text-align: center;
 }
 
 .welcomeStatusGrid {

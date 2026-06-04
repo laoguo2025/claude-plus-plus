@@ -24,6 +24,60 @@ use tauri::{
     Manager, WindowEvent,
 };
 
+#[cfg(windows)]
+fn set_windows_taskbar_icon(window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    use std::ptr::null;
+    use windows_sys::{
+        core::PCWSTR,
+        Win32::{
+            Foundation::{HINSTANCE, HWND, LPARAM, WPARAM},
+            System::LibraryLoader::GetModuleHandleW,
+            UI::WindowsAndMessaging::{
+                GCLP_HICON, GCLP_HICONSM, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE,
+                LR_SHARED, LoadImageW, SendMessageW, SetClassLongPtrW, WM_SETICON,
+            },
+        },
+    };
+
+    const APP_ICON_RESOURCE_ID: u16 = 32512;
+
+    fn resource_id(id: u16) -> PCWSTR {
+        id as usize as PCWSTR
+    }
+
+    let hwnd = window.hwnd()?.0 as HWND;
+    let hinstance = unsafe { GetModuleHandleW(null()) } as HINSTANCE;
+    let icon = unsafe {
+        LoadImageW(
+            hinstance,
+            resource_id(APP_ICON_RESOURCE_ID),
+            IMAGE_ICON,
+            0,
+            0,
+            LR_DEFAULTSIZE | LR_SHARED,
+        )
+    };
+
+    if icon.is_null() {
+        tracing::error!("load embedded window icon failed");
+        return Ok(());
+    }
+
+    unsafe {
+        SendMessageW(hwnd, WM_SETICON, ICON_SMALL as WPARAM, icon as LPARAM);
+        SendMessageW(hwnd, WM_SETICON, ICON_BIG as WPARAM, icon as LPARAM);
+        SetClassLongPtrW(hwnd, GCLP_HICONSM, icon as isize);
+        SetClassLongPtrW(hwnd, GCLP_HICON, icon as isize);
+    }
+
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn set_windows_taskbar_icon(_window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    Ok(())
+}
+
 #[derive(serde::Serialize)]
 struct StatusInfo {
     running: bool,
@@ -359,6 +413,9 @@ pub fn run() {
             ) {
                 if let Err(e) = window.set_icon(icon) {
                     tracing::error!("set main window icon failed: {e}");
+                }
+                if let Err(e) = set_windows_taskbar_icon(&window) {
+                    tracing::error!("set main taskbar icon failed: {e}");
                 }
             }
             let show = MenuItem::with_id(app, "show", "Show Claude++", true, None::<&str>)?;
