@@ -35,6 +35,17 @@ export interface ClaudeZhStatus {
   resources_path: string | null;
   locale: string | null;
   language_files: string[];
+  resource_metadata: ClaudeZhResourceMetadata;
+}
+
+export interface ClaudeZhResourceMetadata {
+  language: string;
+  source_repository: string;
+  source_commit: string;
+  source_release: string;
+  synchronized_at: string;
+  resource_scope: string[];
+  merge_policy: string;
 }
 
 export interface ClaudeEnhanceFeature {

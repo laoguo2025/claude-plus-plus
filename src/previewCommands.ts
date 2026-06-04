@@ -33,6 +33,16 @@ const previewZhStatus: ClaudeZhStatus = {
   resources_path: null,
   locale: "en-US",
   language_files: [],
+  resource_metadata: {
+    language: "zh-CN",
+    source_repository: "javaht/claude-desktop-zh-cn",
+    source_commit: "8505555ef344df5a26a0a17c9d6fac2a7c235d93",
+    source_release: "1.2.0",
+    synchronized_at: "2026-06-05",
+    resource_scope: ["frontend", "frontend-hardcoded", "desktop", "statsig"],
+    merge_policy:
+      "Import upstream zh-CN entries only when Claude++ is missing the key or still falls back to English; keep Claude++ visible overrides and existing hardcoded translations authoritative.",
+  },
 };
 
 const previewWelcomeStatus: WelcomeStatus = {

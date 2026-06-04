@@ -1638,5 +1638,713 @@
   [
     "defaultMessage:\"Relaunching\"",
     "defaultMessage:\"正在重新启动\""
+  ],
+  [
+    "Add header",
+    "添加请求头"
+  ],
+  [
+    "Application",
+    "应用"
+  ],
+  [
+    "Allow Claude to automatically classify sessions as blocked, ready for review, or done. Classifying sessions counts towards your plan usage. Applies to new sessions.",
+    "允许 Claude 自动将会话分类为已阻止、待审核或已完成。分类会话会计入你的计划用量。适用于新会话。"
+  ],
+  [
+    "Are you sure you want to delete 1 chat? This cannot be undone.",
+    "你确定要删除 1 个聊天吗？此操作无法撤消。"
+  ],
+  [
+    "Are you sure you want to delete {count} chat? This cannot be undone.",
+    "你确定要删除 {count} 个聊天吗？此操作无法撤消。"
+  ],
+  [
+    "Are you sure you want to delete {count} chats? This cannot be undone.",
+    "你确定要删除 {count} 个聊天吗？此操作无法撤消。"
+  ],
+  [
+    "Authorization tokens",
+    "授权令牌"
+  ],
+  [
+    "Auto-archive after PR merge or close",
+    "PR 合并或关闭后自动归档"
+  ],
+  [
+    "Automatically archive desktop sessions when the associated pull request is merged or closed.",
+    "关联的拉取请求合并或关闭后，自动归档桌面会话。"
+  ],
+  [
+    "Autofix pull requests",
+    "自动修复拉取请求"
+  ],
+  [
+    "Auto-populate the model picker from /v1/models at launch.",
+    "启动时从 /v1/models 自动填充模型选择器。"
+  ],
+  [
+    "Auto-populate the model picker from {url} at launch.",
+    "启动时从 {url} 自动填充模型选择器。"
+  ],
+  [
+    "Claude understands your codebase and helps you build, debug, and ship faster. Upgrade your plan to get started.",
+    "Claude 了解你的代码库，能帮助你更快地构建、调试和发布。升级你的计划即可开始使用。"
+  ],
+  [
+    "Claude understands your codebase and helps you build, debug, and ship faster. Get started in the desktop app.",
+    "Claude 了解你的代码库，能帮助你更快地构建、调试和发布。请在桌面应用中开始使用。"
+  ],
+  [
+    "Claude Code (CLI, Desktop, IDE)",
+    "Claude Code（CLI、桌面版、IDE）"
+  ],
+  [
+    "Claude Light",
+    "Claude 浅色"
+  ],
+  [
+    "Claude Dark",
+    "Claude 深色"
+  ],
+  [
+    "Classify session states",
+    "分类会话状态"
+  ],
+  [
+    "Created when you sign in to Claude Code. Revoke a token to sign out from that device.",
+    "登录 Claude Code 时创建。撤销令牌即可让该设备退出登录。"
+  ],
+  [
+    "Choose where Claude Desktop sends inference requests.",
+    "选择 Claude Desktop 将推理请求发送到哪里。"
+  ],
+  [
+    "Connection",
+    "连接"
+  ],
+  [
+    "Connectors & extensions",
+    "连接器与扩展"
+  ],
+  [
+    "Credential kind",
+    "凭据类型"
+  ],
+  [
+    "Custom inference headers",
+    "自定义推理请求头"
+  ],
+  [
+    "Default",
+    "默认"
+  ],
+  [
+    "Egress Requirements",
+    "出站要求"
+  ],
+  [
+    "Delete sessions stored by Anthropic",
+    "删除 Anthropic 存储的会话"
+  ],
+  [
+    "Permanently delete Anthropic's server-side copies of your Claude Code sessions. Sessions stored locally on your computer aren't affected. Claude Code on the web sessions are managed separately — go to Claude Code.",
+    "永久删除 Anthropic 服务器端保存的 Claude Code 会话副本。本机存储的会话不受影响。网页版 Claude Code 会话需要单独管理，请前往 Claude Code。"
+  ],
+  [
+    "Permanently delete Anthropic’s server-side copies of your Claude Code sessions. Sessions stored locally on your computer aren’t affected. Claude Code on the web sessions are managed separately — go to Claude Code.",
+    "永久删除 Anthropic 服务器端保存的 Claude Code 会话副本。本机存储的会话不受影响。网页版 Claude Code 会话需要单独管理，请前往 Claude Code。"
+  ],
+  [
+    "Extra HTTP headers sent on every inference request to the configured provider. For tenant routing, org IDs, Bedrock Guardrails, etc.",
+    "每次向所配置提供商发送推理请求时附加的 HTTP 请求头。可用于租户路由、组织 ID、Bedrock Guardrails 等场景。"
+  ],
+  [
+    "High-contrast dark theme",
+    "高对比度深色主题"
+  ],
+  [
+    "Use a darker, near-black background when dark mode is on.",
+    "开启深色模式时使用更暗、接近黑色的背景。"
+  ],
+  [
+    "When you create a pull request, Claude automatically monitors it for CI failures and review comments, then responds proactively. Claude may post comments on your behalf.",
+    "创建拉取请求后，Claude 会自动监控 CI 失败和评审评论，并主动响应。Claude 可能会代表你发表评论。"
+  ],
+  [
+    "Browse extensions",
+    "浏览扩展"
+  ],
+  [
+    "Full URL of the inference gateway endpoint.",
+    "推理网关端点的完整 URL。"
+  ],
+  [
+    "Gateway",
+    "网关"
+  ],
+  [
+    "Gateway base URL",
+    "网关基础 URL"
+  ],
+  [
+    "GATEWAY CREDENTIALS",
+    "网关凭据"
+  ],
+  [
+    "网关 credentials",
+    "网关凭据"
+  ],
+  [
+    "{provider} credentials",
+    "{provider} 凭据"
+  ],
+  [
+    "Learn more",
+    "了解更多"
+  ],
+  [
+    "Model discovery",
+    "模型发现"
+  ],
+  [
+    "Model list",
+    "模型列表"
+  ],
+  [
+    "Models",
+    "模型"
+  ],
+  [
+    "Models to show in the picker. First entry is the default.",
+    "显示在模型选择器中的模型。第一项为默认模型。"
+  ],
+  [
+    "MODELS",
+    "模型"
+  ],
+  [
+    "Override the auto-discovered model list. First entry is the default.",
+    "覆盖自动发现的模型列表。第一项为默认模型。"
+  ],
+  [
+    "Plugins & skills",
+    "插件与技能"
+  ],
+  [
+    "Search settings",
+    "搜索设置"
+  ],
+  [
+    "Selects the credential source. When set, only that source is used (no fallback).",
+    "选择凭据来源。设置后只会使用该来源，不会回退。"
+  ],
+  [
+    "Telemetry & updates",
+    "诊断与更新"
+  ],
+  [
+    "Usage limits",
+    "使用限制"
+  ],
+  [
+    "Workspace restrictions",
+    "工作区限制"
+  ],
+  [
+    "Allow all",
+    "全部允许"
+  ],
+  [
+    "Allow desktop extensions",
+    "允许桌面扩展"
+  ],
+  [
+    "Allowed egress hosts",
+    "允许的出站主机"
+  ],
+  [
+    "Allowed workspace folders",
+    "允许的工作区文件夹"
+  ],
+  [
+    "ANTHROPIC TELEMETRY",
+    "Anthropic 诊断数据"
+  ],
+  [
+    "Built-in tool policy",
+    "内置工具策略"
+  ],
+  [
+    "Choose from disk",
+    "从磁盘选择"
+  ],
+  [
+    "Choose...",
+    "选择..."
+  ],
+  [
+    "Copy",
+    "复制"
+  ],
+  [
+    "Disable Claude.ai sign-in",
+    "禁用 Claude.ai 登录"
+  ],
+  [
+    "Disable claude:// deep-link handling",
+    "禁用 claude:// 深度链接处理"
+  ],
+  [
+    "Disabled built-in tools",
+    "禁用内置工具"
+  ],
+  [
+    "Domains Cowork's tools may reach during a turn. Also surfaced under 出站要求.",
+    "Cowork 的工具在一次任务中可以访问的域名。也会显示在出站要求中。"
+  ],
+  [
+    "Max tokens per window",
+    "每窗口最大令牌数"
+  ],
+  [
+    "Mount plugin bundles to this folder using your device-management tool and Cowork will load them at launch. The folder is read-only; tool policies you set below are saved in this configuration.",
+    "使用设备管理工具将插件包挂载到此文件夹，Cowork 会在启动时加载。该文件夹为只读；下面设置的工具策略会保存在此配置中。"
+  ],
+  [
+    "ORGANIZATION PLUGINS",
+    "组织插件"
+  ],
+  [
+    "Organization UUID",
+    "组织 UUID"
+  ],
+  [
+    "Org-pushed MCP servers: remote (HTTP/SSE) or local (stdio command). May embed bearer tokens.",
+    "组织推送的 MCP 服务器：远程（HTTP/SSE）或本地（stdio 命令）。可能嵌入 Bearer 令牌。"
+  ],
+  [
+    "Per-tool approval policy. \"ask\" requires user approval before each call; \"allow\" is the default. Use Disabled built-in tools to remove a tool entirely.",
+    "按工具设置的审批策略。\"ask\" 表示每次调用前都需要用户批准；\"allow\" 为默认值。如需完全移除某个工具，请使用“禁用内置工具”。"
+  ],
+  [
+    "Prompts, completions, and your data are never sent to Anthropic. Telemetry covers crash and usage signals only.",
+    "提示、补全和你的数据绝不会发送给 Anthropic。诊断数据只包含崩溃和使用信号。"
+  ],
+  [
+    "Tags telemetry events with your organization's UUID so Anthropic support can find them. Not used for auth.",
+    "使用你组织的 UUID 标记诊断数据事件，方便 Anthropic 支持人员定位。不会用于认证。"
+  ],
+  [
+    "tokens",
+    "令牌"
+  ],
+  [
+    "Users see only this provider at the login screen. The option to sign in to Claude.ai is hidden.",
+    "用户在登录页只会看到此提供商。Claude.ai 登录选项会被隐藏。"
+  ],
+  [
+    "Add server policy",
+    "添加服务器策略"
+  ],
+  [
+    "+ Add server policy",
+    "+ 添加服务器策略"
+  ],
+  [
+    "Add policy",
+    "添加策略"
+  ],
+  [
+    "OpenTelemetry",
+    "OpenTelemetry 诊断数据"
+  ],
+  [
+    "<b>{category}</b> needs {count, plural, one {{label}} other {# fields}}",
+    "<b>{category}</b> 需要 {count, plural, one {{label}} other {# 个字段}}"
+  ],
+  [
+    "Per-tool approval policy. \"ask\" requires user approval before each call; \"allow\" is the default. Use 禁用内置工具 to remove a tool entirely.",
+    "按工具设置的审批策略。“ask” 表示每次调用前都需要用户批准；“allow” 为默认值。如需完全移除某个工具，请使用“禁用内置工具”。"
+  ],
+  [
+    "Hi! How can I help you today?",
+    "你好！今天我能为你提供什么帮助？"
+  ],
+  [
+    "Write a message...",
+    "输入消息..."
+  ],
+  [
+    "Write a message…",
+    "输入消息..."
+  ],
+  [
+    "Qf=\"Local\"",
+    "Qf=\"本地\""
+  ],
+  [
+    "Gf=\"Cloud\"",
+    "Gf=\"云端\""
+  ],
+  [
+    "Yf=\"All\"",
+    "Yf=\"全部\""
+  ],
+  [
+    "RJt={recents:\"最近使用\",shared:\"Shared\"}",
+    "RJt={recents:\"最近使用\",shared:\"已共享\"}"
+  ],
+  [
+    "PJt={all:\"No tasks yet.\",active:\"No active tasks.\",archived:\"No archived tasks.\"}",
+    "PJt={all:\"还没有任务。\",active:\"还没有活跃任务。\",archived:\"还没有已归档任务。\"}"
+  ],
+  [
+    "Active",
+    "活跃"
+  ],
+  [
+    "Archived",
+    "已归档"
+  ],
+  [
+    "All",
+    "全部"
+  ],
+  [
+    "Untitled",
+    "未命名"
+  ],
+  [
+    "Search chats...",
+    "搜索聊天..."
+  ],
+  [
+    "Search chats…",
+    "搜索聊天..."
+  ],
+  [
+    "Delete selected",
+    "删除所选"
+  ],
+  [
+    "cancelText:l=\"Cancel\"",
+    "cancelText:l=\"取消\""
+  ],
+  [
+    "confirmText:o=\"Confirm\",cancelText:a=\"Cancel\"",
+    "confirmText:o=\"Confirm\",cancelText:a=\"取消\""
+  ],
+  [
+    "Archive selected",
+    "归档所选"
+  ],
+  [
+    "Custom groups",
+    "自定义分组"
+  ],
+  [
+    "title:F?\"Archive selected\"",
+    "title:F?\"归档所选\""
+  ],
+  [
+    "title:z?\"Archive selected\"",
+    "title:z?\"归档所选\""
+  ],
+  [
+    "message:F?`Archive ${j.items.length} ${1===j.items.length?b.noun:b.nouns}? You can find ${1===j.items.length?\"it\":\"them\"} in the Archived tab.`",
+    "message:F?`归档 ${j.items.length} 个${1===j.items.length?b.noun:b.nouns}？你可以在“已归档”标签页中找到${1===j.items.length?\"它\":\"它们\"}。`"
+  ],
+  [
+    "message:z?`Archive ${_.items.length} ${1===_.items.length?b.noun:b.nouns}? You can find ${1===_.items.length?\"it\":\"them\"} in the Archived tab.`",
+    "message:z?`归档 ${_.items.length} 个${1===_.items.length?b.noun:b.nouns}？你可以在“已归档”标签页中找到${1===_.items.length?\"它\":\"它们\"}。`"
+  ],
+  [
+    "message:F?`归档 ${j.items.length} ${1===j.items.length?b.noun:b.nouns}？你可以在“已归档”标签页中找到${1===j.items.length?\"它\":\"它们\"}。`",
+    "message:F?`归档 ${j.items.length} 个${1===j.items.length?b.noun:b.nouns}？你可以在“已归档”标签页中找到${1===j.items.length?\"它\":\"它们\"}。`"
+  ],
+  [
+    "confirmText:F?\"Archive\":\"Delete\"",
+    "confirmText:F?\"归档\":\"Delete\""
+  ],
+  [
+    "confirmText:z?\"Archive\":\"Delete\"",
+    "confirmText:z?\"归档\":\"Delete\""
+  ],
+  [
+    "s>0&&C(`${s} ${1===s?b.noun:b.nouns} ${F?\"archived\":\"deleted\"}`)",
+    "s>0&&C(F?`${s} 个${1===s?b.noun:b.nouns}已归档`:`${s} ${1===s?b.noun:b.nouns} deleted`)"
+  ],
+  [
+    "n>0?g(`${n} ${1===n?b.noun:b.nouns} could not be ${F?\"archived\":\"deleted\"}. You can try again.`,{messageForLogging:\"ChatsSurface bulk delete partial failure\"})",
+    "n>0?g(F?`${n} 个${1===n?b.noun:b.nouns}无法归档。你可以再试一次。`:`${n} ${1===n?b.noun:b.nouns} could not be deleted. You can try again.`,{messageForLogging:\"ChatsSurface bulk delete partial failure\"})"
+  ],
+  [
+    "g(`Failed to ${F?\"archive\":\"delete\"} some ${b.nouns}. You can try again.`,{error:a,messageForLogging:\"ChatsSurface bulk action failure\"})",
+    "g(F?`部分${b.nouns}归档失败。你可以再试一次。`:`Failed to delete some ${b.nouns}. You can try again.`,{error:a,messageForLogging:\"ChatsSurface bulk action failure\"})"
+  ],
+  [
+    "\"aria-label\":\"Sort by\"",
+    "\"aria-label\":\"排序依据\""
+  ],
+  [
+    "Filter chats",
+    "筛选聊天"
+  ],
+  [
+    "title:\"Chats\",noun:\"chat\",nouns:\"chats\",searchPlaceholder:\"Filter chats\",noResults:\"No chats match your search.\",emptyByTab:{recents:\"No chats yet.\",shared:\"You haven't shared any chats yet.\"}",
+    "title:\"聊天\",noun:\"聊天\",nouns:\"聊天\",searchPlaceholder:\"筛选聊天\",noResults:\"没有匹配的聊天。\",emptyByTab:{recents:\"还没有聊天。\",shared:\"你还没有共享任何聊天。\"}"
+  ],
+  [
+    "const ya=\"Scheduled\"",
+    "const ya=\"计划任务\""
+  ],
+  [
+    "defaultMessage:\"Scheduled\",id:\"cXAlMRerxW\"",
+    "defaultMessage:\"计划任务\",id:\"cXAlMRerxW\""
+  ],
+  [
+    "DJt={all:\"All\",active:\"Active\",archived:\"Archived\"}",
+    "DJt={all:\"全部\",active:\"活跃\",archived:\"已归档\"}"
+  ],
+  [
+    "defaultMessage:\"Allowed surfaces\",id:\"XhBz9JhRHE\"",
+    "defaultMessage:\"功能界面\",id:\"XhBz9JhRHE\""
+  ],
+  [
+    "defaultMessage:\"General restrictions\",id:\"fHh9zisMLR\"",
+    "defaultMessage:\"通用限制\",id:\"fHh9zisMLR\""
+  ],
+  [
+    "defaultMessage:\"These apply regardless of which surfaces are enabled.\",id:\"kTD7aU+1xd\"",
+    "defaultMessage:\"无论启用哪些功能界面，这些限制都会生效。\",id:\"kTD7aU+1xd\""
+  ],
+  [
+    "defaultMessage:\"Enable the Cowork tab. Claude works on longer tasks like research, analysis, and documents.\",id:\"eMWhsJ8TiO\"",
+    "defaultMessage:\"启用 Cowork 标签页。Claude 会处理较长任务，例如研究、分析和文档。\",id:\"eMWhsJ8TiO\""
+  ],
+  [
+    "defaultMessage:\"Enable the Code tab. Claude writes and runs code.\",id:\"By5fKNRgdP\"",
+    "defaultMessage:\"启用 Code 标签页。Claude 会编写并运行代码。\",id:\"By5fKNRgdP\""
+  ],
+  [
+    "defaultMessage:\"Hostnames the agent's tools may reach from the Cowork and Code tabs. Also surfaced under Egress Requirements.\",id:\"fyxtQTQ7BA\"",
+    "defaultMessage:\"代理工具可从 Cowork 和 Code 标签页访问的主机名。也会显示在出站要求中。\",id:\"fyxtQTQ7BA\""
+  ],
+  [
+    "help:{body:\"Applies to both the Cowork and Code tabs.\\n\\n",
+    "help:{body:\"适用于 Cowork 和 Code 标签页。\\n\\n"
+  ],
+  [
+    "message:z?`Archive ${j.items.length} ${1===j.items.length?y.noun:y.nouns}? You can find ${1===j.items.length?\"it\":\"them\"} in the Archived tab.`",
+    "message:z?`归档 ${j.items.length} 个${1===j.items.length?y.noun:y.nouns}？你可以在“已归档”标签页中找到${1===j.items.length?\"它\":\"它们\"}。`"
+  ],
+  [
+    "Claude will keep these in mind across chats and Cowork within Anthropic's guidelines.",
+    "Claude 会在聊天和 Cowork 中记住这些内容，并遵循 Anthropic 的指南。"
+  ],
+  [
+    "Claude will keep these in mind across chats and Cowork within",
+    "Claude 会在聊天和 Cowork 中记住这些内容，并遵循"
+  ],
+  [
+    "Anthropic's guidelines",
+    "Anthropic 的指南"
+  ],
+  [
+    "e.g. when learning new concepts, I find analogies particularly helpful",
+    "例如学习新概念时，我觉得类比特别有帮助"
+  ],
+  [
+    "Learn how your information is protected when using Anthropic products, and visit our",
+    "了解你在使用 Anthropic 产品时信息如何受到保护，并访问我们的"
+  ],
+  [
+    "for more details.",
+    "了解更多详情。"
+  ],
+  [
+    "Allow Claude to access common package managers to install packages and libraries for data analysis, visualizations, and file processing.",
+    "允许 Claude 访问常用包管理器，以安装用于数据分析、可视化和文件处理的软件包和库。"
+  ],
+  [
+    "View package manager domains.",
+    "查看包管理器域名。"
+  ],
+  [
+    "View package manager domains",
+    "查看包管理器域名"
+  ],
+  [
+    "Monitor chats closely as this comes with",
+    "请密切关注聊天，因为这会带来"
+  ],
+  [
+    ". Monitor chats closely as this comes with",
+    "。请密切关注聊天，因为这会带来"
+  ],
+  [
+    "security risks",
+    "安全风险"
+  ],
+  [
+    "Skills have moved to",
+    "技能已移至"
+  ],
+  [
+    "Back at it, claude",
+    "继续开始吧，claude"
+  ],
+  [
+    "Permanently delete Anthropic's server-side copies of your Claude Code sessions. Sessions stored locally on your computer aren't affected. Claude Code on the web sessions are managed separately — go to",
+    "永久删除 Anthropic 服务器端保存的 Claude Code 会话副本。本机存储的会话不受影响。网页版 Claude Code 会话需要单独管理，请前往"
+  ],
+  [
+    "Permanently delete Anthropic’s server-side copies of your Claude Code sessions. Sessions stored locally on your computer aren’t affected. Claude Code on the web sessions are managed separately — go to",
+    "永久删除 Anthropic 服务器端保存的 Claude Code 会话副本。本机存储的会话不受影响。网页版 Claude Code 会话需要单独管理，请前往"
+  ],
+  [
+    "Allow Claude to use coarse location metadata (city/region) to improve product experiences.",
+    "允许 Claude 使用粗略位置元数据（城市/地区）来改进产品体验。"
+  ],
+  [
+    "Allow the use of your chats and coding sessions to train and improve Anthropic AI models.",
+    "允许使用你的聊天和编码会话来训练和改进 Anthropic AI 模型。"
+  ],
+  [
+    "Allow Claude to remember relevant context from your chats. This setting controls memory for both chats and projects.",
+    "允许 Claude 记住你聊天中的相关上下文。此设置会同时控制聊天和项目的记忆。"
+  ],
+  [
+    "Import memory from other AI providers",
+    "从其他 AI 提供商导入记忆"
+  ],
+  [
+    "Bring relevant context and data from another AI provider to Claude. We'll provide a prompt you can use to fetch the memory from your other account.",
+    "将其他 AI 提供商中的相关上下文和数据导入 Claude。我们会提供一段提示词，你可以用它从其他账号获取记忆。"
+  ],
+  [
+    "Start import",
+    "开始导入"
+  ],
+  [
+    "Connectors have moved to",
+    "连接器已移至"
+  ],
+  [
+    "Head there to browse, connect, and manage them.",
+    "请前往那里浏览、连接和管理它们。"
+  ],
+  [
+    ". Head there to browse, connect, and manage them.",
+    "。请前往那里浏览、连接和管理它们。"
+  ],
+  [
+    "Add and manage MCP servers that you’re working on.",
+    "添加并管理你正在使用的 MCP 服务器。"
+  ],
+  [
+    "Add and manage MCP servers that you're working on.",
+    "添加并管理你正在使用的 MCP 服务器。"
+  ],
+  [
+    "Delete...",
+    "删除..."
+  ],
+  [
+    "Delete…",
+    "删除..."
+  ],
+  [
+    "BOOTSTRAP CONFIG URL",
+    "引导配置 URL"
+  ],
+  [
+    "Point this configuration at a bootstrap URL to have your organization manage these settings remotely.",
+    "将此配置指向一个引导 URL，让你的组织远程管理这些设置。"
+  ],
+  [
+    "Tasks",
+    "任务"
+  ],
+  [
+    "Archive 1 task? You can find it in the Archived tab.",
+    "要归档 1 个任务吗？你可以在“已归档”标签页中找到它。"
+  ],
+  [
+    "message:F?`Archive ${j.items.length} ${1===j.items.length?y.noun:y.nouns}? You can find ${1===j.items.length?\"it\":\"them\"} in the Archived tab.`",
+    "message:F?`归档 ${j.items.length} 个${1===j.items.length?y.noun:y.nouns}？你可以在“已归档”标签页中找到${1===j.items.length?\"它\":\"它们\"}。`"
+  ],
+  [
+    "Cancel",
+    "取消"
+  ],
+  [
+    "children:\"Cancel\"",
+    "children:\"取消\""
+  ],
+  [
+    "label:\"Local\"",
+    "label:\"本地\""
+  ],
+  [
+    "label:\"Cloud\"",
+    "label:\"云端\""
+  ],
+  [
+    "children:\"Local\"",
+    "children:\"本地\""
+  ],
+  [
+    "children:\"Cloud\"",
+    "children:\"云端\""
+  ],
+  [
+    "More ideas",
+    "更多想法"
+  ],
+  [
+    "Mark done",
+    "标记为完成"
+  ],
+  [
+    "Mark undone",
+    "标记为未完成"
+  ],
+  [
+    "Scheduled",
+    "计划任务"
+  ],
+  [
+    "Allow Auto mode",
+    "允许 Auto mode"
+  ],
+  [
+    "Offer Auto mode in the Cowork and Code permission selectors. Claude decides which actions need approval.",
+    "在 Cowork 和 Code 权限选择器中提供 Auto mode。Claude 会决定哪些操作需要批准。"
+  ],
+  [
+    "When enabled, users can select Auto mode (Code tab) / Act without asking (Cowork tab). Claude runs a safety classifier on each action and only prompts for approval on actions it judges risky.",
+    "启用后，用户可以选择 Auto mode（Code 标签页）/ Act without asking（Cowork 标签页）。Claude 会对每个操作运行安全分类器，并且只在判断为有风险的操作上请求批准。"
+  ],
+  [
+    "When enabled, users can select **Auto mode** (Code tab) / **Act without asking** (Cowork tab). Claude runs a safety classifier on each action and only prompts for approval on actions it judges risky.\\n\\nRequires a model that supports the classifier (Claude 4.6+). Older models show the option greyed out.\\n\\nThis is the permissive opposite of the per-tool `ask` policy above; both may be set.",
+    "启用后，用户可以选择 **Auto mode**（Code 标签页）/ **Act without asking**（Cowork 标签页）。Claude 会对每个操作运行安全分类器，并且只在判断为有风险的操作上请求批准。\\n\\n需要支持该分类器的模型（Claude 4.6+）。较旧模型会将此选项显示为灰色。\\n\\n这是上方按工具设置的 `ask` 策略的宽松反向选项；两者可以同时设置。"
+  ],
+  [
+    "Requires a model that supports the classifier (Claude 4.6+). Older models show the option greyed out.",
+    "需要支持该分类器的模型（Claude 4.6+）。较旧模型会将此选项显示为灰色。"
+  ],
+  [
+    "This is the permissive opposite of the per-tool ask policy above; both may be set.",
+    "这是上方按工具设置的 ask 策略的宽松反向选项；两者可以同时设置。"
+  ],
+  [
+    "\"Nonessential\" covers two things: **product-usage analytics** (which features get used, navigation patterns; no prompts or completions) and the **Send** action in Help \\u2192 Generate Diagnostic Report. Turning this on stops both.\\n\\nDestination for both: `claude.ai`. Already listed under Egress Requirements \\u2192 Nonessential telemetry.",
+    "“Nonessential”包括两项：**product-usage analytics**（会使用哪些功能、导航模式；不含提示词或补全）以及 Help → Generate Diagnostic Report 中的 **Send** 操作。开启此项会同时停止两者。\\n\\n两者的目标地址都是：`claude.ai`。已列在 Egress Requirements → Nonessential telemetry 下。"
+  ],
+  [
+    "Speed",
+    "速度"
   ]
 ]

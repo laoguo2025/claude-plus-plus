@@ -4,7 +4,7 @@ mod imp {
     use crate::claude_patch_common as patch;
     use crate::constants::CLAUDE_STORE_PACKAGE_NAME;
     use regex::{bytes::Regex as BytesRegex, Regex};
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
     use serde_json::{Map, Value};
     use std::{
         env, fs, io,
@@ -16,6 +16,18 @@ mod imp {
     const BASE_LANGUAGE_LIST: &str = r#"["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID""#;
     const ASAR_PATCH_TARGET: &str = ".vite/build/index.js";
     const BACKUP_DIR_NAME: &str = ".zh-cn-backups";
+    const BUNDLED_RESOURCE_METADATA: &str = include_str!("../resources/claude-zh/metadata-zh-CN.json");
+
+    #[derive(Clone, Deserialize, Serialize)]
+    pub struct ClaudeZhResourceMetadata {
+        pub language: String,
+        pub source_repository: String,
+        pub source_commit: String,
+        pub source_release: String,
+        pub synchronized_at: String,
+        pub resource_scope: Vec<String>,
+        pub merge_policy: String,
+    }
 
     #[derive(Serialize)]
     pub struct ClaudeZhStatus {
@@ -28,6 +40,7 @@ mod imp {
         pub resources_path: Option<String>,
         pub locale: Option<String>,
         pub language_files: Vec<String>,
+        pub resource_metadata: ClaudeZhResourceMetadata,
     }
 
     struct LanguagePack {
@@ -72,7 +85,22 @@ mod imp {
             resources_path: resources_path.as_ref().map(|p| p.display().to_string()),
             locale: read_current_locale(),
             language_files,
+            resource_metadata: bundled_resource_metadata(),
         }
+    }
+
+    fn bundled_resource_metadata() -> ClaudeZhResourceMetadata {
+        serde_json::from_str(BUNDLED_RESOURCE_METADATA).unwrap_or_else(|_| {
+            ClaudeZhResourceMetadata {
+                language: "zh-CN".to_string(),
+                source_repository: "unknown".to_string(),
+                source_commit: "unknown".to_string(),
+                source_release: "unknown".to_string(),
+                synchronized_at: "unknown".to_string(),
+                resource_scope: Vec::new(),
+                merge_policy: "metadata parse failed".to_string(),
+            }
+        })
     }
 
     pub fn install(language: &str, skip_asar_patch: bool) -> Result<(), String> {
@@ -979,6 +1007,22 @@ mod imp {
         }
 
         #[test]
+        fn status_exposes_bundled_resource_metadata() {
+            let status = super::status();
+
+            assert_eq!(status.resource_metadata.language, "zh-CN");
+            assert_eq!(
+                status.resource_metadata.source_repository,
+                "javaht/claude-desktop-zh-cn"
+            );
+            assert!(!status.resource_metadata.source_commit.is_empty());
+            assert!(status
+                .resource_metadata
+                .resource_scope
+                .contains(&"frontend".to_string()));
+        }
+
+        #[test]
         #[ignore = "writes Claude Desktop resources; set CLAUDE_PLUS_VERIFY_INSTALL=1"]
         fn verify_install_zh_cn_keeps_cowork_identifiers() {
             if std::env::var("CLAUDE_PLUS_VERIFY_INSTALL").ok().as_deref() != Some("1") {
@@ -1012,6 +1056,17 @@ mod imp {
     use serde::Serialize;
 
     #[derive(Serialize)]
+    pub struct ClaudeZhResourceMetadata {
+        pub language: String,
+        pub source_repository: String,
+        pub source_commit: String,
+        pub source_release: String,
+        pub synchronized_at: String,
+        pub resource_scope: Vec<String>,
+        pub merge_policy: String,
+    }
+
+    #[derive(Serialize)]
     pub struct ClaudeZhStatus {
         pub supported: bool,
         pub claude_found: bool,
@@ -1022,6 +1077,7 @@ mod imp {
         pub resources_path: Option<String>,
         pub locale: Option<String>,
         pub language_files: Vec<String>,
+        pub resource_metadata: ClaudeZhResourceMetadata,
     }
 
     pub fn status() -> ClaudeZhStatus {
@@ -1035,6 +1091,20 @@ mod imp {
             resources_path: None,
             locale: None,
             language_files: Vec::new(),
+            resource_metadata: ClaudeZhResourceMetadata {
+                language: "zh-CN".to_string(),
+                source_repository: "javaht/claude-desktop-zh-cn".to_string(),
+                source_commit: "8505555ef344df5a26a0a17c9d6fac2a7c235d93".to_string(),
+                source_release: "1.2.0".to_string(),
+                synchronized_at: "2026-06-05".to_string(),
+                resource_scope: vec![
+                    "frontend".to_string(),
+                    "frontend-hardcoded".to_string(),
+                    "desktop".to_string(),
+                    "statsig".to_string(),
+                ],
+                merge_policy: "Import upstream zh-CN entries only when Claude++ is missing the key or still falls back to English; keep Claude++ visible overrides and existing hardcoded translations authoritative.".to_string(),
+            },
         }
     }
 

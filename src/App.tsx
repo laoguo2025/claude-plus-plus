@@ -647,6 +647,9 @@ function LocalizationPage({
     zhScope === "complete"
       ? "完整汉化：语言文件、前端文案、菜单与 3P 模型校验补丁"
       : "安全汉化：跳过 app.asar 与 Claude.exe 完整性补丁";
+  const resourceMetadataText = zhStatus?.resource_metadata
+    ? `内置资源 ${zhStatus.resource_metadata.source_release}，同步于 ${zhStatus.resource_metadata.synchronized_at}`
+    : "内置资源版本未知";
   const disabledByMissingClaude = busy || !zhStatus?.supported || !zhStatus?.claude_found;
 
   return (
@@ -706,6 +709,13 @@ function LocalizationPage({
               </button>
             </div>
           </div>
+          <WorkflowRow
+            ok={!!zhStatus?.resource_metadata}
+            title="内置汉化资源版本"
+            description={resourceMetadataText}
+            badge={zhStatus?.resource_metadata.language}
+            tone="success"
+          />
           <WorkflowRow
             ok={!!zhStatus?.claude_found}
             title="一键汉化"
