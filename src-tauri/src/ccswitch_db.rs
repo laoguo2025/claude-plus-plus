@@ -131,35 +131,47 @@ pub fn load_proxy_config(db_path: &std::path::Path) -> Result<ProxyConfig, Strin
     )
     .map_err(|e| format!("open db failed: {e}"))?;
 
-    let enabled_column = proxy_config_has_enabled_column(&conn)?;
-    let route_enabled_column = if enabled_column {
-        "enabled"
-    } else {
+    let columns = proxy_config_columns(&conn)?;
+    let has_enabled = columns.iter().any(|column| column == "enabled");
+    let has_proxy_enabled = columns.iter().any(|column| column == "proxy_enabled");
+    if !has_enabled && !has_proxy_enabled {
+        return Err("proxy_config enabled column missing".to_string());
+    }
+    let enabled_expr = if has_enabled { "enabled" } else { "NULL" };
+    let proxy_enabled_expr = if has_proxy_enabled {
         "proxy_enabled"
+    } else {
+        "NULL"
     };
     let query = format!(
-        "SELECT {route_enabled_column}, listen_address, listen_port \
+        "SELECT {enabled_expr}, {proxy_enabled_expr}, listen_address, listen_port \
              FROM proxy_config \
              WHERE app_type = 'claude' LIMIT 1"
     );
 
-    let (route_enabled, listen_address, listen_port): (i64, String, i64) = conn
+    let (enabled, proxy_enabled, listen_address, listen_port): (
+        Option<i64>,
+        Option<i64>,
+        String,
+        i64,
+    ) = conn
         .query_row(&query, [], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
         })
         .map_err(|e| format!("query proxy config failed: {e}"))?;
 
     let listen_port =
         u16::try_from(listen_port).map_err(|_| "proxy listen_port out of range".to_string())?;
+    let route_enabled = enabled.unwrap_or(0) != 0 || proxy_enabled.unwrap_or(0) != 0;
 
     Ok(ProxyConfig {
-        proxy_enabled: route_enabled != 0,
+        proxy_enabled: route_enabled,
         listen_address,
         listen_port,
     })
 }
 
-fn proxy_config_has_enabled_column(conn: &Connection) -> Result<bool, String> {
+fn proxy_config_columns(conn: &Connection) -> Result<Vec<String>, String> {
     let mut stmt = conn
         .prepare("PRAGMA table_info(proxy_config)")
         .map_err(|e| format!("query proxy_config schema failed: {e}"))?;
@@ -167,13 +179,12 @@ fn proxy_config_has_enabled_column(conn: &Connection) -> Result<bool, String> {
         .query_map([], |row| row.get::<_, String>(1))
         .map_err(|e| format!("query proxy_config schema failed: {e}"))?;
 
+    let mut names = Vec::new();
     for column in columns {
-        if column.map_err(|e| format!("query proxy_config schema failed: {e}"))? == "enabled" {
-            return Ok(true);
-        }
+        names.push(column.map_err(|e| format!("query proxy_config schema failed: {e}"))?);
     }
 
-    Ok(false)
+    Ok(names)
 }
 
 /// 只读读取 CC Switch 已落库的 Claude Desktop 用量。
@@ -338,7 +349,7 @@ mod tests {
     }
 
     #[test]
-    fn proxy_config_prefers_enabled_column_when_present() {
+    fn proxy_config_accepts_proxy_enabled_when_enabled_column_is_stale() {
         let path = proxy_config_test_db(
             "app_type TEXT, proxy_enabled INTEGER, enabled INTEGER, listen_address TEXT, listen_port INTEGER",
             "'claude', 1, 0, '127.0.0.1', 15721",
@@ -346,7 +357,21 @@ mod tests {
         let config = load_proxy_config(&path).expect("query proxy config");
         std::fs::remove_file(&path).ok();
 
-        assert!(!config.proxy_enabled);
+        assert!(config.proxy_enabled);
+        assert_eq!(config.listen_address, "127.0.0.1");
+        assert_eq!(config.listen_port, 15721);
+    }
+
+    #[test]
+    fn proxy_config_accepts_enabled_when_proxy_enabled_is_off() {
+        let path = proxy_config_test_db(
+            "app_type TEXT, proxy_enabled INTEGER, enabled INTEGER, listen_address TEXT, listen_port INTEGER",
+            "'claude', 0, 1, '127.0.0.1', 15721",
+        );
+        let config = load_proxy_config(&path).expect("query proxy config");
+        std::fs::remove_file(&path).ok();
+
+        assert!(config.proxy_enabled);
         assert_eq!(config.listen_address, "127.0.0.1");
         assert_eq!(config.listen_port, 15721);
     }
@@ -404,7 +429,10 @@ mod tests {
         assert_eq!(role_kind_of("claude-opus-4-7-r2"), "opus");
         assert_eq!(role_kind_of("claude-sonnet-4-6"), "sonnet");
         assert_eq!(role_kind_of("claude-haiku-4-5"), "haiku");
-        assert_eq!(role_kind_of("claude-notopus-4-7-r2"), "claude-notopus-4-7-r2");
+        assert_eq!(
+            role_kind_of("claude-notopus-4-7-r2"),
+            "claude-notopus-4-7-r2"
+        );
         assert_eq!(role_kind_of("sonnetlite"), "sonnetlite");
     }
 }
