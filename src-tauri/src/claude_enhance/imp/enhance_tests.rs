@@ -662,6 +662,38 @@ fn token_usage_matches_codex_plus_scope_context_and_debug_contract() {
 }
 
 #[test]
+fn token_usage_capture_tuning_is_injected_from_runtime_settings() {
+    let mut tuning = crate::settings::ProxyRuntimeTuning::default();
+    tuning.token_usage_capture.recent_limit = 3;
+    tuning.token_usage_capture.debug_limit = 4;
+    tuning.token_usage_capture.ledger_limit = 5;
+    tuning.token_usage_capture.context_poll_interval_ms = 600;
+    tuning.token_usage_capture.turn_idle_timeout_ms = 700;
+    tuning.token_usage_capture.context_merge_window_ms = 800;
+    tuning.token_usage_capture.cross_source_dedupe_window_ms = 900;
+    tuning.token_usage_capture.final_render_delay_ms = 1000;
+    tuning.token_usage_capture.max_capture_text_length = 1100;
+    tuning.token_usage_capture.max_capture_blob_bytes = 1200;
+    tuning.token_usage_capture.max_collect_depth = 2;
+
+    let script =
+        super::inject_script_for_locale_with_tuning(super::EnhanceScriptLocale::ZhCn, &tuning);
+
+    assert!(script.contains("const CPU_RECENT_LIMIT=3"));
+    assert!(script.contains("const CPU_DEBUG_LIMIT=4"));
+    assert!(script.contains("const CPU_LEDGER_LIMIT=5"));
+    assert!(script.contains("const CPU_CONTEXT_POLL_INTERVAL_MS=600"));
+    assert!(script.contains("const CPU_TURN_IDLE_TIMEOUT_MS=700"));
+    assert!(script.contains("const CPU_CONTEXT_MERGE_WINDOW_MS=800"));
+    assert!(script.contains("const CPU_CROSS_SOURCE_DEDUPE_WINDOW_MS=900"));
+    assert!(script.contains("const CPU_FINAL_RENDER_DELAY_MS=1000"));
+    assert!(script.contains("const CPU_MAX_CAPTURE_TEXT_LENGTH=1100"));
+    assert!(script.contains("const CPU_MAX_CAPTURE_BLOB_BYTES=1200"));
+    assert!(script.contains("const CPU_MAX_COLLECT_DEPTH=2"));
+    assert!(!script.contains("__CPU_"));
+}
+
+#[test]
 fn token_usage_waits_for_turn_end_and_uses_requested_display_contract() {
     assert!(INJECT_SCRIPT.contains("const CPU_FINAL_RENDER_DELAY_MS=900"));
     assert!(INJECT_SCRIPT.contains("function cpuScheduleFinalRender"));

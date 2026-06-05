@@ -58,6 +58,8 @@ import "./App.css";
 
 type EnhanceSection = "quick_access" | "enhance";
 
+const ROUTE_STATE_POLL_INTERVAL_MS = 4_000;
+const LOG_REFRESH_POLL_INTERVAL_MS = 10_000;
 const QUICK_ACCESS_FEATURE_IDS = new Set(["third_party_api", "plugins", "mcp"]);
 
 function loadInitialTheme(): Theme {
@@ -191,7 +193,7 @@ function App() {
   useEffect(() => {
     if (route !== "overview") return;
     if (!routeStatePollingEnabled) return;
-    const t = setInterval(refreshRouteState, 4000);
+    const t = setInterval(refreshRouteState, ROUTE_STATE_POLL_INTERVAL_MS);
     return () => clearInterval(t);
   }, [refreshRouteState, route, routeStatePollingEnabled]);
 
@@ -351,7 +353,7 @@ function App() {
 
   useEffect(() => {
     if (route !== "diagnostics") return;
-    const t = setInterval(refreshLogs, 10000);
+    const t = setInterval(refreshLogs, LOG_REFRESH_POLL_INTERVAL_MS);
     return () => clearInterval(t);
   }, [route, refreshLogs]);
 

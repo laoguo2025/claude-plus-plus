@@ -28,6 +28,11 @@ use std::time::{Duration, Instant};
 
 const MODEL_ID_PREFIX: &str = "claude-plus-plus";
 const LOCAL_GATEWAY_TOKEN_HEADER: &str = "x-claude-plus-gateway-token";
+const TITLE_I18N_MAX_INPUT_CHARS: usize = 120;
+const TITLE_I18N_MAX_TOKENS: u16 = 160;
+const TITLE_I18N_MAX_OUTPUT_CHARS: usize = 40;
+const TOKEN_USAGE_SCORE_TOTAL_CAP: u64 = 1_000_000;
+const TOKEN_USAGE_MAX_JSON_DEPTH: usize = 8;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum OriginTrust {
@@ -653,7 +658,7 @@ fn parse_title_i18n_request(body: &[u8]) -> Option<String> {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");
-    (!title.is_empty() && title.len() <= 120).then_some(title)
+    (!title.is_empty() && title.len() <= TITLE_I18N_MAX_INPUT_CHARS).then_some(title)
 }
 
 fn select_title_translation_model(mappings: &[Mapping]) -> Option<String> {
@@ -671,7 +676,7 @@ fn select_title_translation_model(mappings: &[Mapping]) -> Option<String> {
 fn build_title_translation_request(title: &str, model: &str) -> serde_json::Value {
     serde_json::json!({
         "model": model,
-        "max_tokens": 160,
+        "max_tokens": TITLE_I18N_MAX_TOKENS,
         "thinking": {
             "type": "disabled"
         },
@@ -723,7 +728,7 @@ fn extract_title_translation(payload: &serde_json::Value) -> Option<String> {
         .trim()
         .to_string();
     (!cleaned.is_empty()
-        && cleaned.chars().count() <= 40
+        && cleaned.chars().count() <= TITLE_I18N_MAX_OUTPUT_CHARS
         && cleaned
             .chars()
             .any(|ch| ('\u{4e00}'..='\u{9fff}').contains(&ch)))
@@ -1046,7 +1051,7 @@ fn token_usage_score(usage: &TokenUsageSnapshot) -> u64 {
     if usage.context_used > usage.total_tokens {
         score += 10;
     }
-    score + usage.total_tokens.min(1_000_000)
+    score + usage.total_tokens.min(TOKEN_USAGE_SCORE_TOTAL_CAP)
 }
 
 fn collect_token_usage_candidates(
@@ -1054,7 +1059,7 @@ fn collect_token_usage_candidates(
     depth: usize,
     candidates: &mut Vec<TokenUsageSnapshot>,
 ) {
-    if depth > 8 {
+    if depth > TOKEN_USAGE_MAX_JSON_DEPTH {
         return;
     }
     if let Some(usage) = normalize_token_usage(value) {

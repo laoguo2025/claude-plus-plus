@@ -1,8 +1,18 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import packageJson from "./package.json";
+import { readFileSync } from "node:fs";
 
-const defaultProxyPort = 15722;
+function readDefaultProxyPort(): number {
+  const constants = readFileSync("src-tauri/src/constants.rs", "utf8");
+  const match = constants.match(/pub const DEFAULT_PROXY_PORT:\s*u16\s*=\s*(\d+);/);
+  if (!match) {
+    throw new Error("Unable to read DEFAULT_PROXY_PORT from Rust constants");
+  }
+  return Number(match[1]);
+}
+
+const defaultProxyPort = readDefaultProxyPort();
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;

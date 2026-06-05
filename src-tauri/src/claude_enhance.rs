@@ -59,6 +59,7 @@ mod imp {
             title_i18n_preload_bridge_script, token_usage_main_bridge_script,
             token_usage_preload_bridge_script,
         },
+        enhance_injected::inject_script_for_locale_with_tuning,
         SKILLS_LIST_CHANNEL, SKILLS_MAIN_BRIDGE_TARGET, SKILLS_PRELOAD_BRIDGE_TARGET,
         SKILLS_TRASH_CHANNEL, TOKEN_USAGE_MAIN_BRIDGE_MARKER,
     };

@@ -14,6 +14,7 @@
 - Writes to external Claude Desktop config, resource bundles, `app.asar`, or `Claude.exe` integrity markers must use same-directory atomic replacement after any required backup. Do not use direct overwrite writes for these surfaces.
 - The proxy must stay running while Claude Desktop is configured to use `Claude++`; otherwise Claude Desktop cannot load model discovery.
 - The default proxy port is `15722`. Runtime port overrides are read from `CLAUDE_PLUS_PROXY_PORT` first, then `%USERPROFILE%\.claude-plus-plus\settings.json` (`proxyPort` or `proxy_port`), then the default. Installed Claude Desktop page-enhancement bridges must resolve this port at bridge runtime instead of baking the install-time port into `app.asar`.
+- Frontend preview defaults read `DEFAULT_PROXY_PORT` from `src-tauri/src/constants.rs` at Vite config time; do not introduce a second hardcoded frontend default port.
 - The local gateway must not be exposed just because the Claude++ app starts. Startup restores the proxy only when Claude Desktop is already configured to use Claude++; installing page enhancements that depend on the local gateway (`plugins`, `conversation_title_i18n`, `token_usage`) starts the proxy after the install succeeds.
 - Local gateway requests with a browser `Origin` header must be rejected unless they come from trusted local/Tauri origins or Claude-owned HTTPS origins. Missing `Origin` is not trusted by itself. Auxiliary `/claude-plus/*` routes that expose local skills, token usage, or title translation require the user-scoped local gateway token stored under the Claude++ app state directory. Claude Desktop proxy/model routes accept missing `Origin` only when the request also carries either that local gateway token header or the configured Claude Desktop gateway bearer key, so non-browser Claude Desktop callers continue to work without leaving unauthenticated CSRF bypasses.
 - Tauri webview security policy must stay explicit, not `null`. Production CSP allows only self, Tauri IPC, local asset protocol, and inline styles required by the app shell. Development CSP may additionally allow the Vite dev server. The `opener:default` capability remains required only for explicit external-link buttons that call the app-side opener wrapper.
@@ -37,6 +38,7 @@
 - Claude Desktop visible-copy audit: `npm run audit:claude-zh`.
 - Proxy lifecycle and CC Switch config field reads: `src-tauri/src/server.rs`.
 - Runtime settings, including proxy port resolution: `src-tauri/src/settings.rs`.
+- Runtime tuning supports `settings.json` camelCase or snake_case keys for title i18n rate limits, token usage pending/fresh windows, and token usage injected capture limits under `tokenUsageCapture` / `token_usage_capture`.
 - Shared TCP reachability checks and proxy port parsing: `src-tauri/src/net_utils.rs`.
 - Shared Claude Desktop developer settings candidate discovery: `src-tauri/src/developer_settings.rs`.
 - Welcome page environment checks, Claude Code command install launcher, and Claude Desktop developer mode enablement: `src-tauri/src/welcome.rs`.

@@ -1,7 +1,7 @@
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
-const TCP_CONNECT_TIMEOUT: Duration = Duration::from_millis(250);
+pub const TCP_CONNECT_TIMEOUT: Duration = Duration::from_millis(250);
 
 pub fn parse_port(value: &str) -> Option<u16> {
     value.trim().parse::<u16>().ok().filter(|port| *port > 0)

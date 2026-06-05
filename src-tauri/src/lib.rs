@@ -25,6 +25,9 @@ use tauri::{
     Manager, WindowEvent,
 };
 
+const MAPPING_REFRESH_DEBOUNCE: Duration = Duration::from_secs(2);
+const MAPPING_MONITOR_POLL_INTERVAL: Duration = Duration::from_secs(2);
+
 async fn run_blocking<T, F>(task: F) -> Result<T, String>
 where
     T: Send + 'static,
@@ -625,7 +628,7 @@ fn spawn_mapping_monitor(handle: ServerHandle) {
                     }
 
                     let change_ready = pending_change_since
-                        .map(|since| since.elapsed() >= Duration::from_secs(2))
+                        .map(|since| since.elapsed() >= MAPPING_REFRESH_DEBOUNCE)
                         .unwrap_or(false);
                     let pending_ready =
                         change_ready && pending_fingerprint.as_ref() == Some(&fingerprint);
@@ -655,7 +658,7 @@ fn spawn_mapping_monitor(handle: ServerHandle) {
                 }
             }
 
-            tokio::time::sleep(Duration::from_secs(2)).await;
+            tokio::time::sleep(MAPPING_MONITOR_POLL_INTERVAL).await;
         }
     });
 }

@@ -18,11 +18,58 @@ pub(crate) fn current_script_locale() -> EnhanceScriptLocale {
 }
 
 pub(crate) fn inject_script_for_locale(locale: EnhanceScriptLocale) -> String {
-    let script = INJECT_SCRIPT_TEMPLATE.to_string();
+    inject_script_for_locale_with_tuning(locale, &crate::settings::proxy_runtime_tuning())
+}
+
+pub(crate) fn inject_script_for_locale_with_tuning(
+    locale: EnhanceScriptLocale,
+    tuning: &crate::settings::ProxyRuntimeTuning,
+) -> String {
+    let script = inject_script_template_with_tuning(tuning);
     match locale {
         EnhanceScriptLocale::ZhCn => script,
         EnhanceScriptLocale::EnUs => english_inject_script(script),
     }
+}
+
+fn inject_script_template_with_tuning(tuning: &crate::settings::ProxyRuntimeTuning) -> String {
+    let capture = &tuning.token_usage_capture;
+    INJECT_SCRIPT_TEMPLATE
+        .replace("__CPU_RECENT_LIMIT__", &capture.recent_limit.to_string())
+        .replace("__CPU_DEBUG_LIMIT__", &capture.debug_limit.to_string())
+        .replace("__CPU_LEDGER_LIMIT__", &capture.ledger_limit.to_string())
+        .replace(
+            "__CPU_CONTEXT_POLL_INTERVAL_MS__",
+            &capture.context_poll_interval_ms.to_string(),
+        )
+        .replace(
+            "__CPU_TURN_IDLE_TIMEOUT_MS__",
+            &capture.turn_idle_timeout_ms.to_string(),
+        )
+        .replace(
+            "__CPU_CONTEXT_MERGE_WINDOW_MS__",
+            &capture.context_merge_window_ms.to_string(),
+        )
+        .replace(
+            "__CPU_CROSS_SOURCE_DEDUPE_WINDOW_MS__",
+            &capture.cross_source_dedupe_window_ms.to_string(),
+        )
+        .replace(
+            "__CPU_FINAL_RENDER_DELAY_MS__",
+            &capture.final_render_delay_ms.to_string(),
+        )
+        .replace(
+            "__CPU_MAX_CAPTURE_TEXT_LENGTH__",
+            &capture.max_capture_text_length.to_string(),
+        )
+        .replace(
+            "__CPU_MAX_CAPTURE_BLOB_BYTES__",
+            &capture.max_capture_blob_bytes.to_string(),
+        )
+        .replace(
+            "__CPU_MAX_COLLECT_DEPTH__",
+            &capture.max_collect_depth.to_string(),
+        )
 }
 
 fn english_inject_script(mut script: String) -> String {
@@ -150,17 +197,17 @@ function aa(e){const n=E(e.textContent);return e&&e.nodeType===1&&!e.dataset?.cl
 function ab(e){const n=document.createElement("button");n.type="button";n.className=e?.className||"claude-plus-markdown-menu-item";n.classList.add("claude-plus-markdown-menu-item");n.setAttribute("role",e?.getAttribute("role")||"menuitem");n.setAttribute("tabindex",e?.getAttribute("tabindex")||"0");n.dataset.claudePlusMarkdownMenuItem="1";n.textContent="导出 Markdown";n.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();Q()},!0);n.addEventListener("keydown",e=>{(e.key==="Enter"||e.key===" ")&&(e.preventDefault(),Q())},!0);return n}
 function P(){document.querySelectorAll(".claude-plus-markdown-export").forEach(e=>e.remove());if(!window.__claudePlusEnhanceMarkdownExportV1)return;O();document.querySelectorAll('[role="menu"],[data-radix-menu-content]').forEach(e=>{const n=Array.from(e.querySelectorAll("[data-claude-plus-markdown-menu-item]"));n.slice(1).forEach(e=>e.remove());if(n.length)return;const t=Array.from(e.querySelectorAll('button,[role="menuitem"],[cmdk-item]')).filter(aa);if(t.length<3)return;const r=t.find(e=>/存档|Archive/i.test(E(e.textContent)))||t.find(e=>/删除|Delete/i.test(E(e.textContent)));if(!r)return;const a=ab(r);r.parentElement?r.parentElement.insertBefore(a,r):e.appendChild(a)})}
 function Y(){const e=document.querySelector(".claude-plus-timeline");if(!window.__claudePlusEnhanceTimelineV1){e&&e.remove();return}O();const n=W().filter(e=>e.role==="User").slice(0,40);if(!n.length){e&&e.remove();return}const t=n.map(e=>e.a.slice(0,80)).join("|");if(e&&e.dataset.signature===t)return;e&&e.remove();const r=document.createElement("div");r.className="claude-plus-timeline";r.dataset.signature=t;r.innerHTML='<div class="claude-plus-timeline-track"></div>';n.forEach((e,t)=>{const a=document.createElement("button");a.type="button";a.className="claude-plus-timeline-marker";a.style.top=(n.length===1?50:2+t*(96/(n.length-1)))+"%";a.setAttribute("aria-label","跳转到问题 "+(t+1));const s=document.createElement("span");s.className="claude-plus-timeline-tip";s.textContent=(t+1)+". "+e.a.replace(/\s+/g," ").slice(0,60);a.appendChild(s);a.addEventListener("click",n=>{n.preventDefault();n.stopPropagation();e.node.scrollIntoView({behavior:"smooth",block:"center"});e.node.classList.add("claude-plus-timeline-target");setTimeout(()=>e.node.classList.remove("claude-plus-timeline-target"),1300)},!0);r.appendChild(a)});document.body.appendChild(r)}
-const CPU_RECENT_LIMIT=20;
-const CPU_DEBUG_LIMIT=50;
-const CPU_LEDGER_LIMIT=500;
-const CPU_CONTEXT_POLL_INTERVAL_MS=1000;
-const CPU_TURN_IDLE_TIMEOUT_MS=120000;
-const CPU_CONTEXT_MERGE_WINDOW_MS=30000;
-const CPU_CROSS_SOURCE_DEDUPE_WINDOW_MS=3000;
-const CPU_FINAL_RENDER_DELAY_MS=900;
-const CPU_MAX_CAPTURE_TEXT_LENGTH=524288;
-const CPU_MAX_CAPTURE_BLOB_BYTES=512000;
-const CPU_MAX_COLLECT_DEPTH=8;
+const CPU_RECENT_LIMIT=__CPU_RECENT_LIMIT__;
+const CPU_DEBUG_LIMIT=__CPU_DEBUG_LIMIT__;
+const CPU_LEDGER_LIMIT=__CPU_LEDGER_LIMIT__;
+const CPU_CONTEXT_POLL_INTERVAL_MS=__CPU_CONTEXT_POLL_INTERVAL_MS__;
+const CPU_TURN_IDLE_TIMEOUT_MS=__CPU_TURN_IDLE_TIMEOUT_MS__;
+const CPU_CONTEXT_MERGE_WINDOW_MS=__CPU_CONTEXT_MERGE_WINDOW_MS__;
+const CPU_CROSS_SOURCE_DEDUPE_WINDOW_MS=__CPU_CROSS_SOURCE_DEDUPE_WINDOW_MS__;
+const CPU_FINAL_RENDER_DELAY_MS=__CPU_FINAL_RENDER_DELAY_MS__;
+const CPU_MAX_CAPTURE_TEXT_LENGTH=__CPU_MAX_CAPTURE_TEXT_LENGTH__;
+const CPU_MAX_CAPTURE_BLOB_BYTES=__CPU_MAX_CAPTURE_BLOB_BYTES__;
+const CPU_MAX_COLLECT_DEPTH=__CPU_MAX_COLLECT_DEPTH__;
 const cpu={last:null,lastId:0,polling:!1,pollBusy:!1,lastPollAt:0,pending:!1,seq:0,turnSeq:0,lastProxyId:0,currentTurn:null,recent:[],ledger:[],debug:[],byScope:Object.create(null),activeProjectId:"",activeConversationId:"",contextPollTimer:0,renderTimer:0,renderReady:!1,wasBusy:!1};
 window.__claudePlusTokenUsageDebug=cpu.debug;
 function cpuN(e){const n=Number(e);return Number.isFinite(n)&&n>=0?Math.round(n):0}
