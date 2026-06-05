@@ -81,6 +81,23 @@ export interface DiagnosticsPayload {
   report: string;
 }
 
+export interface GithubReleaseInfo {
+  tag_name: string;
+  version: string;
+  name: string;
+  url: string;
+  published_at: string | null;
+  body: string;
+  assets: GithubReleaseAsset[];
+}
+
+export interface GithubReleaseAsset {
+  name: string;
+  url: string;
+  size: number;
+  kind: "windows" | "macosArm64" | "macosX64" | "other";
+}
+
 export interface WelcomeStatus {
   claude_code_installed: boolean;
   virtual_machine_platform_supported: boolean;

@@ -8,6 +8,7 @@ mod claude_zh;
 mod constants;
 mod developer_settings;
 mod diagnostics;
+mod github_release;
 mod net_utils;
 mod paths;
 mod proxy;
@@ -243,6 +244,11 @@ fn use_claude_plus_route(state: tauri::State<ServerHandle>) -> Result<(), String
 #[tauri::command]
 fn app_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
+}
+
+#[tauri::command]
+async fn latest_github_release() -> Result<github_release::ReleaseInfo, String> {
+    github_release::fetch_latest_release().await
 }
 
 #[tauri::command]
@@ -576,6 +582,7 @@ pub fn run() {
             proxy_status,
             use_claude_plus_route,
             app_version,
+            latest_github_release,
             use_ccs_route,
             get_mappings,
             apply_cd_config,

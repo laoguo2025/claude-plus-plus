@@ -4,6 +4,7 @@ import type {
   ClaudeEnhanceStatus,
   ClaudeZhStatus,
   DiagnosticsPayload,
+  GithubReleaseInfo,
   LogsPayload,
   StatusInfo,
   WelcomeStatus,
@@ -111,6 +112,9 @@ export function previewCommand<T>(cmd: string): T | void {
       report: previewDiagnosticsReport(),
     } satisfies DiagnosticsPayload as T;
   }
+  if (cmd === "latest_github_release") {
+    return previewGithubRelease() as T;
+  }
   throw new Error(`浏览器预览不支持命令: ${cmd}`);
 }
 
@@ -179,6 +183,44 @@ function previewLogs(): LogsPayload {
       '{"timestamp_ms":1780394329499,"pid":18896,"event":"manager.generate_diagnostics","detail":{}}',
     ].join("\n"),
     lines: 200,
+  };
+}
+
+function previewGithubRelease(): GithubReleaseInfo {
+  return {
+    tag_name: "v1.0.1",
+    version: PREVIEW_APP_VERSION,
+    name: `Claude++ v${PREVIEW_APP_VERSION}`,
+    url: "https://github.com/laoguo2025/claude-plus-plus/releases/tag/v1.0.1",
+    published_at: "2026-06-05T04:31:20Z",
+    body: [
+      "## 更新内容",
+      "",
+      "- 新增 Win 虚拟机平台自动开启。",
+      "- 新增一键开启 Claude Desktop 开发者模式。",
+      "- 优化一键汉化/恢复、启动状态检测、路由桥接、UI 布局、部分路径和诊断日志。",
+      "- 修复了一些 bug。",
+    ].join("\n"),
+    assets: [
+      {
+        name: "Claude++_1.0.1_x64-setup.exe",
+        url: "https://github.com/laoguo2025/claude-plus-plus/releases/download/v1.0.1/Claude%2B%2B_1.0.1_x64-setup.exe",
+        size: 5336337,
+        kind: "windows",
+      },
+      {
+        name: "Claude++_1.0.1_aarch64.dmg",
+        url: "https://github.com/laoguo2025/claude-plus-plus/releases/download/v1.0.1/Claude%2B%2B_1.0.1_aarch64.dmg",
+        size: 8594604,
+        kind: "macosArm64",
+      },
+      {
+        name: "Claude++_1.0.1_x64.dmg",
+        url: "https://github.com/laoguo2025/claude-plus-plus/releases/download/v1.0.1/Claude%2B%2B_1.0.1_x64.dmg",
+        size: 8879565,
+        kind: "macosX64",
+      },
+    ],
   };
 }
 

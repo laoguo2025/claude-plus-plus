@@ -1112,6 +1112,24 @@ select {
   border-bottom: 0;
 }
 
+.releaseAssetsRow {
+  align-items: start;
+}
+
+.releaseAssetActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 360px;
+}
+
+.releaseAssetActions button {
+  min-height: 28px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
 .releaseNotes {
   width: 100%;
   min-height: 132px;
