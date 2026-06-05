@@ -4,7 +4,7 @@ mod imp {
     use serde::Serialize;
     use serde_json::{Map, Value};
     use std::{
-        env, fs,
+        env, fs, io,
         path::{Path, PathBuf},
         process::{Command, Stdio},
         time::{SystemTime, UNIX_EPOCH},
@@ -70,7 +70,8 @@ mod imp {
         if detect_virtual_machine_platform_enabled() {
             return Ok(());
         }
-        let escaped_command = WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND.replace('\'', "''");
+        let script = write_virtual_machine_platform_enable_script()
+            .map_err(|e| format!("写入 Win 虚拟机平台开启脚本失败: {e}"))?;
         let mut command = Command::new("powershell.exe");
         command
             .args([
@@ -78,9 +79,7 @@ mod imp {
                 "-ExecutionPolicy",
                 "Bypass",
                 "-Command",
-                &format!(
-                    "Start-Process powershell.exe -Verb RunAs -ArgumentList '-NoExit -ExecutionPolicy Bypass -Command ''{escaped_command}'''"
-                ),
+                &enable_virtual_machine_platform_command(&script),
             ])
             .stdin(Stdio::null());
         command
@@ -94,54 +93,44 @@ mod imp {
     }
 
     fn detect_virtual_machine_platform_enabled() -> bool {
-        [
-            "Microsoft-Windows-Subsystem-Linux",
-            "VirtualMachinePlatform",
-        ]
-        .into_iter()
-        .all(detect_windows_optional_feature_enabled)
+        is_virtual_machine_platform_enabled_marker(
+            windows_service_exists("LxssManager"),
+            windows_service_exists("vmcompute"),
+        )
     }
 
-    fn detect_windows_optional_feature_enabled(feature: &str) -> bool {
-        let feature_arg = format!("/FeatureName:{feature}");
-        let output = Command::new("dism.exe")
-            .args(["/online", "/Get-FeatureInfo", &feature_arg, "/English"])
+    fn is_virtual_machine_platform_enabled_marker(
+        wsl_service_exists: bool,
+        vmcompute_service_exists: bool,
+    ) -> bool {
+        wsl_service_exists && vmcompute_service_exists
+    }
+
+    fn windows_service_exists(service: &str) -> bool {
+        let output = Command::new("sc.exe")
+            .args(["query", service])
             .stdin(Stdio::null())
             .output();
         let Ok(output) = output else {
             return false;
         };
         output.status.success()
-            && dism_feature_state(&String::from_utf8_lossy(&output.stdout), feature)
-                .is_some_and(|state| state == "Enabled")
     }
 
-    fn virtual_machine_platform_from_dism_output(text: &str) -> bool {
-        [
-            "Microsoft-Windows-Subsystem-Linux",
-            "VirtualMachinePlatform",
-        ]
-        .into_iter()
-        .all(|feature| dism_feature_state(text, feature).is_some_and(|state| state == "Enabled"))
+    fn write_virtual_machine_platform_enable_script() -> io::Result<PathBuf> {
+        let path = env::temp_dir().join(format!(
+            "claude-plus-plus-enable-vm-platform-{}.ps1",
+            std::process::id()
+        ));
+        fs::write(&path, WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND)?;
+        Ok(path)
     }
 
-    fn dism_feature_state(text: &str, feature: &str) -> Option<String> {
-        let mut in_target = false;
-        for line in text.lines() {
-            let Some((key, value)) = line.split_once(':') else {
-                continue;
-            };
-            let key = key.trim();
-            let value = value.trim();
-            if key.eq_ignore_ascii_case("Feature Name") {
-                in_target = value.eq_ignore_ascii_case(feature);
-                continue;
-            }
-            if in_target && key.eq_ignore_ascii_case("State") {
-                return Some(value.to_string());
-            }
-        }
-        None
+    fn enable_virtual_machine_platform_command(script: &Path) -> String {
+        let script = script.to_string_lossy().replace('\'', "''");
+        format!(
+            "Start-Process powershell.exe -Verb RunAs -ArgumentList @('-NoExit','-ExecutionPolicy','Bypass','-File','{script}')"
+        )
     }
 
     fn ensure_claude_code_proxy_settings() -> Result<(), String> {
@@ -380,10 +369,11 @@ mod imp {
         use super::{
             cc_switch_state_dir_from_home, claude_code_settings_has_proxy_managed_env,
             claude_code_settings_path_from_home, developer_mode_from_json,
+            enable_virtual_machine_platform_command,
             enable_developer_mode_at_path, ensure_claude_code_proxy_settings_at_path,
-            is_cc_switch_install_marker, virtual_machine_platform_from_dism_output,
-            windows_command_extensions, WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND,
-            WINDOWS_CLAUDE_CODE_INSTALL_COMMAND,
+            is_cc_switch_install_marker, is_virtual_machine_platform_enabled_marker,
+            windows_command_extensions, WINDOWS_CLAUDE_CODE_INSTALL_COMMAND,
+            WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND,
         };
         use serde_json::Value;
         use std::{
@@ -522,37 +512,15 @@ mod imp {
         }
 
         #[test]
-        fn virtual_machine_platform_requires_wsl_and_vm_platform_enabled() {
-            let enabled = r#"
-Feature Name : Microsoft-Windows-Subsystem-Linux
-State : Enabled
-
-Feature Name : VirtualMachinePlatform
-State : Enabled
-"#;
-            let missing_wsl = r#"
-Feature Name : Microsoft-Windows-Subsystem-Linux
-State : Disabled
-
-Feature Name : VirtualMachinePlatform
-State : Enabled
-"#;
-            let missing_vm_platform = r#"
-Feature Name : Microsoft-Windows-Subsystem-Linux
-State : Enabled
-
-Feature Name : VirtualMachinePlatform
-State : Disabled
-"#;
-
-            assert!(virtual_machine_platform_from_dism_output(enabled));
-            assert!(!virtual_machine_platform_from_dism_output(missing_wsl));
-            assert!(!virtual_machine_platform_from_dism_output(missing_vm_platform));
-            assert!(!virtual_machine_platform_from_dism_output(""));
+        fn virtual_machine_platform_requires_wsl_and_vm_platform_service_markers() {
+            assert!(is_virtual_machine_platform_enabled_marker(true, true));
+            assert!(!is_virtual_machine_platform_enabled_marker(false, true));
+            assert!(!is_virtual_machine_platform_enabled_marker(true, false));
+            assert!(!is_virtual_machine_platform_enabled_marker(false, false));
         }
 
         #[test]
-        fn virtual_machine_platform_enable_command_targets_only_required_features() {
+        fn virtual_machine_platform_enable_script_targets_only_required_features() {
             assert!(WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND
                 .contains("Microsoft-Windows-Subsystem-Linux"));
             assert!(
@@ -561,6 +529,18 @@ State : Disabled
             assert!(WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND.contains("-All"));
             assert!(WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND.contains("-NoRestart"));
             assert!(!WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND.contains("HypervisorPlatform"));
+        }
+
+        #[test]
+        fn virtual_machine_platform_elevated_command_runs_temp_script_without_nested_command() {
+            let script = PathBuf::from(r"C:\Users\Ada\AppData\Local\Temp\cpp-enable-vm.ps1");
+            let command = enable_virtual_machine_platform_command(&script);
+
+            assert!(command.contains("Start-Process powershell.exe -Verb RunAs"));
+            assert!(command.contains("-File"));
+            assert!(command.contains(r"C:\Users\Ada\AppData\Local\Temp\cpp-enable-vm.ps1"));
+            assert!(!command.contains("-Command ''"));
+            assert!(!command.contains("Win虚拟机平台已发起开启。请重启电脑后再继续使用。'"));
         }
 
         #[test]
