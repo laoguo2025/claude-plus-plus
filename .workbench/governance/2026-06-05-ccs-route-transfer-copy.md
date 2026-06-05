@@ -12,7 +12,8 @@
 ## Verification
 
 - `npm run typecheck`: passed。
-- 待执行 release 打包并核验产物。
+- `.\build-release.bat`: passed。
+- release 产物已复制到 `release/claude-plus-plus.exe` 与 `release/Claude++_1.0.0_x64-setup.exe`。
 
 ## Rollback
 
