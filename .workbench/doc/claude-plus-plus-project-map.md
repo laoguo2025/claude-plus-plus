@@ -52,6 +52,7 @@
 - Rust checks on Windows require the MSVC environment. Run from `src-tauri` with `cmd.exe /c 'call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" && cargo check'`.
 - Full Rust unit coverage for the local library: run the same MSVC wrapper with `cargo test --lib`.
 - Frontend build and TypeScript check: `npm run build` from the repo root.
+- React app shell state, command orchestration, route selection, and polling live in `src/App.tsx`; page-level UI lives under `src/pages/`, and shared presentational React components live under `src/components/`.
 - Declared toolchains: Node and npm are declared in `package.json` / `package-lock.json`; Rust uses `rust-toolchain.toml`.
 - Reusable local validation scripts: `npm run typecheck`, `npm run check:rust`, `npm run test:rust`, `npm run audit:claude-zh`.
 - Preview command contract gate: `node .workbench/tools/audit-preview-command-contract.cjs`; rejects unsafe preview noop return typing and non-exclusive preview command state branches.
