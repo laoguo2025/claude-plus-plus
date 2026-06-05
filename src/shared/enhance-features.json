@@ -12,7 +12,7 @@
     "id": "plugins",
     "category": "菜单栏增强",
     "label": "技能",
-    "version": "v0.3",
+    "version": "v0.2",
     "description": "在 Claude Desktop 左侧菜单栏，增加全局/项目 skills 快捷入口。",
     "available": true,
     "note": "侧边栏软入口"
@@ -30,7 +30,7 @@
     "id": "conversation_title_i18n",
     "category": "对话增强",
     "label": "对话列表中文化",
-    "version": "v0.4",
+    "version": "v0.2",
     "description": "把 Claude Desktop 对话列表里的英文标题自动翻译为中文显示。",
     "available": true,
     "note": "本地代理翻译"
@@ -57,7 +57,7 @@
     "id": "token_usage",
     "category": "对话增强",
     "label": "Token 使用信息",
-    "version": "v0.4",
+    "version": "v0.2",
     "description": "在每轮回复下方显示本轮调用合计、输入、输出、缓存读写、上下文、调用次数和耗时。",
     "available": true,
     "note": "CC Switch 只读用量"

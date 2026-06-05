@@ -158,12 +158,7 @@ fn feature_definitions_include_versions() {
     assert!(token_usage.description.contains("本轮调用合计"));
     assert!(token_usage.available);
     for feature in list {
-        let expected = match feature.id.as_str() {
-            "plugins" => "v0.3",
-            "conversation_title_i18n" | "token_usage" => "v0.4",
-            _ => "v0.2",
-        };
-        assert_eq!(feature.version, expected, "{}", feature.id);
+        assert_eq!(feature.version, "v0.2", "{}", feature.id);
     }
 }
 
