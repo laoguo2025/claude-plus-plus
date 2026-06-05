@@ -85,7 +85,7 @@ pub fn proxy_runtime_tuning() -> ProxyRuntimeTuning {
 fn proxy_port_from_env() -> Option<u16> {
     std::env::var(PROXY_PORT_ENV)
         .ok()
-        .and_then(|value| parse_port(&value))
+        .and_then(|value| crate::net_utils::parse_port(&value))
 }
 
 fn proxy_port_from_file() -> Result<Option<u16>, String> {
@@ -131,10 +131,6 @@ fn proxy_runtime_tuning_from_settings(settings: SettingsFile) -> ProxyRuntimeTun
     }
 }
 
-fn parse_port(value: &str) -> Option<u16> {
-    value.trim().parse::<u16>().ok().filter(|port| *port > 0)
-}
-
 #[cfg(test)]
 fn proxy_runtime_tuning_from_file(text: &str) -> Result<ProxyRuntimeTuning, String> {
     serde_json::from_str::<SettingsFile>(text)
@@ -144,7 +140,8 @@ fn proxy_runtime_tuning_from_file(text: &str) -> Result<ProxyRuntimeTuning, Stri
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_port, proxy_runtime_tuning_from_file, SettingsFile};
+    use super::{proxy_runtime_tuning_from_file, SettingsFile};
+    use crate::net_utils::parse_port;
     use std::path::PathBuf;
 
     #[test]

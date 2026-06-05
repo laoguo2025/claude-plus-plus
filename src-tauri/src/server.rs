@@ -8,10 +8,8 @@ use std::fs;
 use std::fs::File;
 #[cfg(unix)]
 use std::io::Read;
-use std::net::{SocketAddr, TcpStream};
 use std::path::PathBuf;
 use std::sync::{mpsc, Arc, Mutex};
-use std::time::Duration;
 use tauri::async_runtime::JoinHandle;
 use tokio::sync::oneshot;
 
@@ -43,11 +41,11 @@ impl ServerHandle {
         let Some(port) = self.port() else {
             return false;
         };
-        tcp_port_accepts_connections(port)
+        crate::net_utils::tcp_local_port_accepts(port)
     }
 
     pub fn is_healthy_on(&self, port: u16) -> bool {
-        self.port() == Some(port) && tcp_port_accepts_connections(port)
+        self.port() == Some(port) && crate::net_utils::tcp_local_port_accepts(port)
     }
 
     pub fn ensure_running(&self, port: u16, db_path: PathBuf) -> Result<(), String> {
@@ -119,11 +117,6 @@ impl ServerHandle {
     }
 }
 
-fn tcp_port_accepts_connections(port: u16) -> bool {
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    TcpStream::connect_timeout(&addr, Duration::from_millis(250)).is_ok()
-}
-
 pub fn local_gateway_token_path() -> PathBuf {
     crate::paths::app_state_dir().join(LOCAL_GATEWAY_TOKEN_FILE)
 }
@@ -183,7 +176,7 @@ fn fill_random_bytes(_bytes: &mut [u8]) -> Result<(), String> {
     Err("generate local gateway token failed: unsupported platform".to_string())
 }
 
-fn valid_local_gateway_token(token: &str) -> bool {
+pub(crate) fn valid_local_gateway_token(token: &str) -> bool {
     token.len() == LOCAL_GATEWAY_TOKEN_HEX_LEN && token.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 

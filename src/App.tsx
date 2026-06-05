@@ -3,7 +3,6 @@ import {
   useState,
   useCallback,
   useRef,
-  type ComponentType,
   type MutableRefObject,
   type ReactNode,
 } from "react";
@@ -25,7 +24,6 @@ import {
   Square,
   Sun,
   X,
-  type LucideProps,
 } from "lucide-react";
 import botLogo from "../src-tauri/icons/icon.png";
 import type {
@@ -49,6 +47,7 @@ import {
   GITHUB_RELEASES_URL,
   GITHUB_REPOSITORY_URL,
   QQ_GROUP_QR_PATH,
+  type Icon,
   routeMeta,
   routes,
 } from "./appConstants";
@@ -57,7 +56,6 @@ import { routeSummaryText, ccswitchRouteDetailText, claudeRouteDetailText } from
 import { callCommand, openExternalUrl } from "./tauriClient";
 import "./App.css";
 
-type Icon = ComponentType<LucideProps>;
 type EnhanceSection = "quick_access" | "enhance";
 
 const QUICK_ACCESS_FEATURE_IDS = new Set(["third_party_api", "plugins", "mcp"]);

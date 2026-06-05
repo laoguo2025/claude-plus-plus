@@ -37,6 +37,8 @@
 - Claude Desktop visible-copy audit: `npm run audit:claude-zh`.
 - Proxy lifecycle and CC Switch config field reads: `src-tauri/src/server.rs`.
 - Runtime settings, including proxy port resolution: `src-tauri/src/settings.rs`.
+- Shared TCP reachability checks and proxy port parsing: `src-tauri/src/net_utils.rs`.
+- Shared Claude Desktop developer settings candidate discovery: `src-tauri/src/developer_settings.rs`.
 - Welcome page environment checks, Claude Code command install launcher, and Claude Desktop developer mode enablement: `src-tauri/src/welcome.rs`.
 - HTTP gateway routes and model rewrite: `src-tauri/src/proxy.rs`.
 - CC Switch DB mapping and token usage reads: `src-tauri/src/ccswitch_db.rs`.

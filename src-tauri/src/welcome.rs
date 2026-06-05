@@ -241,7 +241,7 @@ mod imp {
     }
 
     fn read_developer_mode_enabled() -> bool {
-        developer_settings_candidates()
+        crate::developer_settings::developer_settings_candidates()
             .into_iter()
             .any(|path| read_allow_dev_tools(&path))
     }
@@ -269,28 +269,8 @@ mod imp {
         developer_mode_from_json(&text)
     }
 
-    fn developer_settings_candidates() -> Vec<PathBuf> {
-        let mut candidates = Vec::new();
-        if let Some(appdata) = env::var_os("APPDATA").map(PathBuf::from) {
-            candidates.push(appdata.join("Claude").join("developer_settings.json"));
-            candidates.push(appdata.join("Claude-3p").join("developer_settings.json"));
-        }
-        if let Some(local_appdata) = env::var_os("LOCALAPPDATA").map(PathBuf::from) {
-            candidates.push(
-                local_appdata
-                    .join("Packages")
-                    .join(crate::constants::CLAUDE_STORE_PACKAGE_NAME)
-                    .join("LocalCache")
-                    .join("Roaming")
-                    .join("Claude")
-                    .join("developer_settings.json"),
-            );
-        }
-        candidates
-    }
-
     fn developer_settings_write_path() -> Option<PathBuf> {
-        let candidates = developer_settings_candidates();
+        let candidates = crate::developer_settings::developer_settings_candidates();
         candidates
             .iter()
             .find(|path| path.is_file())

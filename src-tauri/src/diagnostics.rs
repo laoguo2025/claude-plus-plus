@@ -4,9 +4,8 @@ use serde_json::{json, Map, Value};
 use std::{
     fs,
     io::{Read, Seek, SeekFrom, Write},
-    net::{SocketAddr, TcpStream, ToSocketAddrs},
     path::{Path, PathBuf},
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 const DIAGNOSTIC_LOG_FILE: &str = "claude-plus-plus.log";
@@ -160,7 +159,7 @@ fn collect_settings() -> Value {
         .get("json")
         .and_then(|value| value.get("proxyPort").or_else(|| value.get("proxy_port")))
         .and_then(Value::as_u64);
-    let env_proxy_port = env_port.as_deref().and_then(parse_port);
+    let env_proxy_port = env_port.as_deref().and_then(crate::net_utils::parse_port);
     let source = if env_proxy_port.is_some() {
         "env"
     } else if file_proxy_port
@@ -192,7 +191,7 @@ fn collect_gateway(status: &Value) -> Value {
             let token = text.trim();
             json!({
                 "exists": true,
-                "validFormat": valid_local_gateway_token(token),
+                "validFormat": crate::server::valid_local_gateway_token(token),
                 "length": token.len()
             })
         }
@@ -207,7 +206,7 @@ fn collect_gateway(status: &Value) -> Value {
         "expectedPort": expected_port,
         "statusRunning": status.get("running").and_then(Value::as_bool),
         "statusPort": status.get("port").and_then(Value::as_u64),
-        "tcpAcceptsExpectedPort": tcp_accepts("127.0.0.1", expected_port),
+        "tcpAcceptsExpectedPort": crate::net_utils::tcp_endpoint_accepts("127.0.0.1", expected_port),
         "localGatewayToken": token_status
     })
 }
@@ -223,7 +222,7 @@ fn collect_ccswitch(mappings_value: &Value) -> Value {
                 "listenAddress": config.listen_address,
                 "listenPort": config.listen_port,
                 "reachable": config.proxy_enabled
-                    && tcp_accepts(&config.listen_address, config.listen_port)
+                    && crate::net_utils::tcp_endpoint_accepts(&config.listen_address, config.listen_port)
             })
         },
     ));
@@ -401,7 +400,7 @@ fn collect_claude_desktop() -> Value {
 }
 
 fn collect_developer_mode() -> Value {
-    let candidates = developer_settings_candidates();
+    let candidates = crate::developer_settings::developer_settings_candidates();
     let inspected = candidates
         .iter()
         .map(|path| {
@@ -1018,38 +1017,6 @@ fn system_time_ms(time: SystemTime) -> Option<u64> {
         .and_then(|duration| u64::try_from(duration.as_millis()).ok())
 }
 
-fn parse_port(value: &str) -> Option<u16> {
-    value.trim().parse::<u16>().ok().filter(|port| *port > 0)
-}
-
-fn tcp_accepts(host: &str, port: u16) -> bool {
-    let host = host.trim();
-    if host.is_empty() || port == 0 {
-        return false;
-    }
-
-    let connect_host = match host {
-        "0.0.0.0" | "::" | "[::]" => "127.0.0.1",
-        other => other,
-    };
-    let connect_host = connect_host
-        .strip_prefix('[')
-        .and_then(|value| value.strip_suffix(']'))
-        .unwrap_or(connect_host);
-    let addrs: Vec<SocketAddr> = match (connect_host, port).to_socket_addrs() {
-        Ok(addrs) => addrs.collect(),
-        Err(_) => return false,
-    };
-    addrs
-        .iter()
-        .take(4)
-        .any(|addr| TcpStream::connect_timeout(addr, Duration::from_millis(250)).is_ok())
-}
-
-fn valid_local_gateway_token(token: &str) -> bool {
-    token.len() == 64 && token.bytes().all(|byte| byte.is_ascii_hexdigit())
-}
-
 fn sanitize_url(raw: &str) -> Value {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
@@ -1074,26 +1041,6 @@ fn sanitize_url(raw: &str) -> Value {
             "error": error.to_string()
         }),
     }
-}
-
-fn developer_settings_candidates() -> Vec<PathBuf> {
-    let mut candidates = Vec::new();
-    if let Some(appdata) = std::env::var_os("APPDATA").map(PathBuf::from) {
-        candidates.push(appdata.join("Claude").join("developer_settings.json"));
-        candidates.push(appdata.join("Claude-3p").join("developer_settings.json"));
-    }
-    if let Some(local_appdata) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) {
-        candidates.push(
-            local_appdata
-                .join("Packages")
-                .join(crate::constants::CLAUDE_STORE_PACKAGE_NAME)
-                .join("LocalCache")
-                .join("Roaming")
-                .join("Claude")
-                .join("developer_settings.json"),
-        );
-    }
-    candidates
 }
 
 fn diagnostic_log_path() -> PathBuf {
@@ -1170,11 +1117,13 @@ mod tests {
 
     #[test]
     fn local_gateway_token_requires_64_hex_chars() {
-        assert!(valid_local_gateway_token(
+        assert!(crate::server::valid_local_gateway_token(
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
         ));
-        assert!(!valid_local_gateway_token("0123456789abcdef"));
-        assert!(!valid_local_gateway_token(
+        assert!(!crate::server::valid_local_gateway_token(
+            "0123456789abcdef"
+        ));
+        assert!(!crate::server::valid_local_gateway_token(
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeg"
         ));
     }

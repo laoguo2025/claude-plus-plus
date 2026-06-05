@@ -6,7 +6,9 @@ mod claude_patch_common;
 mod claude_skills;
 mod claude_zh;
 mod constants;
+mod developer_settings;
 mod diagnostics;
+mod net_utils;
 mod paths;
 mod proxy;
 mod server;
@@ -16,7 +18,6 @@ mod welcome;
 
 use constants::CC_SWITCH_CLAUDE_DESKTOP_ENTRY_ID;
 use server::ServerHandle;
-use std::net::ToSocketAddrs;
 use std::time::{Duration, Instant};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -151,7 +152,8 @@ fn ccswitch_route_status() -> CcSwitchRouteStatus {
     let reachable = proxy_config
         .as_ref()
         .map(|config| {
-            config.proxy_enabled && tcp_endpoint_accepts(&config.listen_address, config.listen_port)
+            config.proxy_enabled
+                && net_utils::tcp_endpoint_accepts(&config.listen_address, config.listen_port)
         })
         .unwrap_or(false);
     let has_mappings = ccswitch_db::load_mappings(&server::default_db_path()).is_ok();
@@ -172,15 +174,6 @@ fn ccswitch_route_status() -> CcSwitchRouteStatus {
         has_mappings,
         reachable,
     }
-}
-
-fn tcp_endpoint_accepts(host: &str, port: u16) -> bool {
-    let Ok(addrs) = (host, port).to_socket_addrs() else {
-        return false;
-    };
-    addrs
-        .into_iter()
-        .any(|addr| std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(250)).is_ok())
 }
 
 #[tauri::command]
