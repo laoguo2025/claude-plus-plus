@@ -11,6 +11,19 @@ import type {
 
 export const PREVIEW_APP_VERSION = __APP_VERSION__;
 
+type PreviewNoopCommand =
+  | "use_claude_plus_route"
+  | "use_ccs_route"
+  | "restart_claude_desktop"
+  | "backup_claude_zh"
+  | "install_claude_zh"
+  | "uninstall_claude_zh"
+  | "enable_claude_developer_mode"
+  | "enable_virtual_machine_platform"
+  | "install_claude_code"
+  | "install_claude_enhance"
+  | "uninstall_claude_enhance";
+
 const previewStatus: StatusInfo = {
   running: true,
   port: __DEFAULT_PROXY_PORT__,
@@ -63,7 +76,9 @@ export function previewEnhanceFeatures(): ClaudeEnhanceFeature[] {
   }));
 }
 
-export function previewCommand<T>(cmd: string): T {
+export function previewCommand(cmd: PreviewNoopCommand): void;
+export function previewCommand<T>(cmd: string): T;
+export function previewCommand<T>(cmd: string): T | void {
   if (cmd === "app_version") {
     return PREVIEW_APP_VERSION as T;
   }
@@ -86,7 +101,7 @@ export function previewCommand<T>(cmd: string): T {
   }
   if (isPreviewNoopCommand(cmd)) {
     applyPreviewCommandState(cmd);
-    return undefined as T;
+    return;
   }
   if (cmd === "read_latest_logs") {
     return previewLogs() as T;
@@ -111,39 +126,43 @@ function previewEnhanceStatus(): ClaudeEnhanceStatus {
   };
 }
 
-function isPreviewNoopCommand(cmd: string): boolean {
-  return [
-    "use_claude_plus_route",
-    "use_ccs_route",
-    "restart_claude_desktop",
-    "backup_claude_zh",
-    "install_claude_zh",
-    "uninstall_claude_zh",
-    "enable_claude_developer_mode",
-    "enable_virtual_machine_platform",
-    "install_claude_code",
-    "install_claude_enhance",
-    "uninstall_claude_enhance",
-  ].includes(cmd);
+function isPreviewNoopCommand(cmd: string): cmd is PreviewNoopCommand {
+  return (
+    cmd === "use_claude_plus_route" ||
+    cmd === "use_ccs_route" ||
+    cmd === "restart_claude_desktop" ||
+    cmd === "backup_claude_zh" ||
+    cmd === "install_claude_zh" ||
+    cmd === "uninstall_claude_zh" ||
+    cmd === "enable_claude_developer_mode" ||
+    cmd === "enable_virtual_machine_platform" ||
+    cmd === "install_claude_code" ||
+    cmd === "install_claude_enhance" ||
+    cmd === "uninstall_claude_enhance"
+  );
 }
 
-function applyPreviewCommandState(cmd: string) {
-  if (cmd === "enable_claude_developer_mode") {
-    previewWelcomeStatus.developer_mode_enabled = true;
-  }
-  if (cmd === "enable_virtual_machine_platform") {
-    previewWelcomeStatus.virtual_machine_platform_enabled = true;
-  }
-  if (cmd === "install_claude_code") {
-    previewWelcomeStatus.claude_code_installed = true;
-  }
-  if (cmd === "install_claude_zh") {
-    previewZhStatus.installed = true;
-    previewZhStatus.locale = "zh-CN";
-  }
-  if (cmd === "uninstall_claude_zh") {
-    previewZhStatus.installed = false;
-    previewZhStatus.locale = "en-US";
+function applyPreviewCommandState(cmd: PreviewNoopCommand) {
+  switch (cmd) {
+    case "enable_claude_developer_mode":
+      previewWelcomeStatus.developer_mode_enabled = true;
+      return;
+    case "enable_virtual_machine_platform":
+      previewWelcomeStatus.virtual_machine_platform_enabled = true;
+      return;
+    case "install_claude_code":
+      previewWelcomeStatus.claude_code_installed = true;
+      return;
+    case "install_claude_zh":
+      previewZhStatus.installed = true;
+      previewZhStatus.locale = "zh-CN";
+      return;
+    case "uninstall_claude_zh":
+      previewZhStatus.installed = false;
+      previewZhStatus.locale = "en-US";
+      return;
+    default:
+      return;
   }
 }
 

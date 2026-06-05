@@ -339,7 +339,6 @@ function App() {
   }, [
     detectClaudeDesktopOnce,
     refreshAppVersion,
-    refreshDiagnostics,
     refreshEnhanceStatus,
     refreshLogs,
     refreshRouteState,
@@ -1232,7 +1231,7 @@ function DiagnosticsPage({
         <div className="logLines">
           {logLines.length ? (
             logLines.map((line, index) => (
-              <div className="logLine" key={`${index}-${line.slice(0, 20)}`}>
+              <div className="logLine" key={`log-${index}`}>
                 <span>{index + 1}</span>
                 <code>{line || " "}</code>
               </div>

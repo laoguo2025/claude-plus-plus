@@ -50,6 +50,7 @@
 - Frontend build and TypeScript check: `npm run build` from the repo root.
 - Declared toolchains: Node and npm are declared in `package.json` / `package-lock.json`; Rust uses `rust-toolchain.toml`.
 - Reusable local validation scripts: `npm run typecheck`, `npm run check:rust`, `npm run test:rust`, `npm run audit:claude-zh`.
+- Preview command contract gate: `node .workbench/tools/audit-preview-command-contract.cjs`; rejects unsafe preview noop return typing and non-exclusive preview command state branches.
 - Production dependency gate: run `npm audit --audit-level=high --omit=dev`; CI runs the same audit in the frontend job.
 
 ## Rollback

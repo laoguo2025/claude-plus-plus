@@ -5,6 +5,7 @@
 - 项目地图: `.workbench/doc/claude-plus-plus-project-map.md`
 - 长期文档登记: `.workbench/doc/workbench-longterm-doc-registry.md`
 - 本次过程留痕: `.workbench/governance/`
+- 可复用工具: `.workbench/tools/`
 
 ## 开工顺序
 
