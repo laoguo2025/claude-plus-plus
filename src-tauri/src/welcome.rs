@@ -634,20 +634,17 @@ mod imp {
     pub fn install_claude_code() -> Result<(), String> {
         #[cfg(target_os = "macos")]
         {
-            return Command::new("osascript")
+            Command::new("osascript")
                 .args(["-e", MACOS_TERMINAL_SCRIPT.as_str()])
                 .spawn()
                 .map(|_| ())
-                .map_err(|e| format!("启动 Claude Code 安装命令失败: {e}"));
+                .map_err(|e| format!("启动 Claude Code 安装命令失败: {e}"))
         }
 
         #[cfg(all(unix, not(target_os = "macos")))]
         {
-            return launch_linux_terminal();
+            launch_linux_terminal()
         }
-
-        #[allow(unreachable_code)]
-        Err("当前系统不支持自动启动 Claude Code 安装命令".to_string())
     }
 
     pub fn enable_developer_mode() -> Result<(), String> {

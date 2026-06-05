@@ -31,6 +31,7 @@ const PROCESS_EXIT_TIMEOUT: Duration = Duration::from_secs(10);
 #[cfg(target_os = "windows")]
 const PROCESS_START_TIMEOUT: Duration = Duration::from_secs(10);
 
+#[cfg(target_os = "windows")]
 const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(200);
 
 #[cfg(target_os = "windows")]
