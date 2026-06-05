@@ -158,7 +158,11 @@ fn feature_definitions_include_versions() {
     assert!(token_usage.description.contains("本轮调用合计"));
     assert!(token_usage.available);
     for feature in list {
-        assert_eq!(feature.version, "v0.2", "{}", feature.id);
+        let expected = match feature.id.as_str() {
+            "plugins" | "token_usage" => "v0.3",
+            _ => "v0.2",
+        };
+        assert_eq!(feature.version, expected, "{}", feature.id);
     }
 }
 
@@ -504,7 +508,7 @@ fn token_usage_polls_local_proxy_usage_and_renders_badge() {
     assert!(INJECT_SCRIPT.contains("Good response"));
     assert!(INJECT_SCRIPT.contains("inputTokens"));
     assert!(INJECT_SCRIPT.contains("cachedTokens"));
-    assert!(INJECT_SCRIPT.contains("n=e.cachedReadTokens||e.cacheReadTokens||0"));
+    assert!(INJECT_SCRIPT.contains("r=e.cachedReadTokens||e.cacheReadTokens||0"));
     assert!(!INJECT_SCRIPT.contains("Math.min(e.cachedReadTokens||e.cacheReadTokens||0,t)"));
     assert!(INJECT_SCRIPT.contains("本轮调用合计 "));
     assert!(INJECT_SCRIPT.contains("function cpuMount"));
@@ -570,6 +574,9 @@ fn token_usage_captures_page_network_like_codex_plus_script() {
     assert!(INJECT_SCRIPT.contains("window.__claudePlusTokenUsage"));
     assert!(INJECT_SCRIPT.contains("function cpuNormalizeUsage"));
     assert!(INJECT_SCRIPT.contains("function cpuExtractUsages"));
+    assert!(INJECT_SCRIPT.contains("CPU_MAX_CAPTURE_TEXT_LENGTH"));
+    assert!(INJECT_SCRIPT.contains("CPU_MAX_CAPTURE_BLOB_BYTES"));
+    assert!(INJECT_SCRIPT.contains("CPU_MAX_COLLECT_DEPTH"));
     assert!(INJECT_SCRIPT.contains("function cpuInstallFetchObserver"));
     assert!(INJECT_SCRIPT.contains("function cpuInstallXhrObserver"));
     assert!(INJECT_SCRIPT.contains("function cpuInstallWebSocketObserver"));
@@ -581,6 +588,15 @@ fn token_usage_captures_page_network_like_codex_plus_script() {
     assert!(INJECT_SCRIPT.contains("cacheCreationTokens"));
     assert!(INJECT_SCRIPT.contains("cachedReadTokens"));
     assert!(INJECT_SCRIPT.contains(r"!/\/claude-plus\/token-usage\b/i.test(t)"));
+}
+
+#[test]
+fn skills_modal_uses_dom_builders_for_dynamic_content() {
+    assert!(INJECT_SCRIPT.contains("function cpsText"));
+    assert!(INJECT_SCRIPT.contains("function cpsRenderSections"));
+    assert!(INJECT_SCRIPT.contains("function cpsSetStatus"));
+    assert!(!INJECT_SCRIPT.contains("n.innerHTML=C(a,\"global\")+C(a,\"project\")"));
+    assert!(!INJECT_SCRIPT.contains("function z(e)"));
 }
 
 #[test]
@@ -724,11 +740,11 @@ fn token_usage_distinguishes_zero_from_unknown_cache_and_clears_on_next_turn() {
     assert!(INJECT_SCRIPT.contains("const r=t+n+(o||0)"));
     assert!(INJECT_SCRIPT.contains("return e&&r?cpuPct(Math.min(n,r),r):\"未知\""));
     assert!(!INJECT_SCRIPT.contains("return e&&t?cpuPct(n,t):\"未知\""));
-    assert!(INJECT_SCRIPT.contains("cpuRateText(e.cacheReadKnown,n,t,e.cacheCreationTokens||0)"));
+    assert!(INJECT_SCRIPT.contains("cpuRateText(e.cacheReadKnown,r,t,e.cacheCreationTokens||0)"));
     assert!(INJECT_SCRIPT.contains("function cpuContextText"));
     assert!(INJECT_SCRIPT.contains("if(!a)return \"\""));
     assert!(INJECT_SCRIPT.contains("return \"上下文 \"+cpuF(r)+\"/\"+cpuF(a)"));
-    assert!(INJECT_SCRIPT.contains("c?\" · \"+c:\"\""));
+    assert!(INJECT_SCRIPT.contains("s?\" · \"+s:\"\""));
     assert!(!INJECT_SCRIPT.contains("(0%)"));
     assert!(INJECT_SCRIPT.contains("cpuClear();return cpu.currentTurn"));
     assert!(INJECT_SCRIPT.contains("width:min(592px,calc(100% - 48px))"));

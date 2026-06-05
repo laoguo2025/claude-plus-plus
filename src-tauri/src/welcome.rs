@@ -11,7 +11,7 @@ mod imp {
     };
 
     const WINDOWS_CLAUDE_CODE_INSTALL_COMMAND: &str =
-        "irm https://claude.ai/install.ps1 | iex; $claudeDir = Join-Path $HOME '.claude'; New-Item -ItemType Directory -Force -Path $claudeDir | Out-Null; $settingsPath = Join-Path $claudeDir 'settings.json'; $settings = @{}; if (Test-Path -LiteralPath $settingsPath) { try { $json = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json; if ($json -is [pscustomobject]) { $json.PSObject.Properties | ForEach-Object { $settings[$_.Name] = $_.Value } } } catch { $settings = @{} } }; $envMap = @{}; if ($settings.ContainsKey('env') -and $null -ne $settings['env']) { if ($settings['env'] -is [System.Collections.IDictionary]) { $envMap = $settings['env'] } elseif ($settings['env'] -is [pscustomobject]) { $settings['env'].PSObject.Properties | ForEach-Object { $envMap[$_.Name] = $_.Value } } }; $envMap['ANTHROPIC_AUTH_TOKEN'] = 'PROXY_MANAGED'; $settings['env'] = $envMap; $settings | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $settingsPath -Encoding UTF8; Write-Host ''; Write-Host 'Claude Code 安装脚本已结束，代理配置已写入。可关闭此窗口。'";
+        "$ErrorActionPreference = 'Stop'; $installUrl = 'https://claude.ai/install.ps1'; $installScript = Join-Path $env:TEMP ('claude-ai-install-' + [guid]::NewGuid().ToString('N') + '.ps1'); Invoke-WebRequest -Uri $installUrl -OutFile $installScript -UseBasicParsing; if (!(Test-Path -LiteralPath $installScript)) { throw 'Claude Code 安装脚本下载失败。' }; if ((Get-Item -LiteralPath $installScript).Length -lt 100) { throw 'Claude Code 安装脚本内容异常。' }; & $installScript; $claudeDir = Join-Path $HOME '.claude'; New-Item -ItemType Directory -Force -Path $claudeDir | Out-Null; $settingsPath = Join-Path $claudeDir 'settings.json'; $settings = @{}; if (Test-Path -LiteralPath $settingsPath) { try { $json = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json; if ($json -is [pscustomobject]) { $json.PSObject.Properties | ForEach-Object { $settings[$_.Name] = $_.Value } } } catch { $settings = @{} } }; $envMap = @{}; if ($settings.ContainsKey('env') -and $null -ne $settings['env']) { if ($settings['env'] -is [System.Collections.IDictionary]) { $envMap = $settings['env'] } elseif ($settings['env'] -is [pscustomobject]) { $settings['env'].PSObject.Properties | ForEach-Object { $envMap[$_.Name] = $_.Value } } }; $envMap['ANTHROPIC_AUTH_TOKEN'] = 'PROXY_MANAGED'; $settings['env'] = $envMap; $settings | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $settingsPath -Encoding UTF8; Write-Host ''; Write-Host 'Claude Code 安装脚本已结束，代理配置已写入。可关闭此窗口。'";
     const WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND: &str =
         "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux,VirtualMachinePlatform -All -NoRestart; Write-Host ''; Write-Host 'Win虚拟机平台已发起开启。请重启电脑后再继续使用。'; Read-Host '按回车关闭窗口'";
 
@@ -48,8 +48,7 @@ mod imp {
         command
             .args([
                 "-NoExit",
-                "-ExecutionPolicy",
-                "Bypass",
+                "-NoProfile",
                 "-Command",
                 WINDOWS_CLAUDE_CODE_INSTALL_COMMAND,
             ])
@@ -369,11 +368,10 @@ mod imp {
         use super::{
             cc_switch_state_dir_from_home, claude_code_settings_has_proxy_managed_env,
             claude_code_settings_path_from_home, developer_mode_from_json,
-            enable_virtual_machine_platform_command,
-            enable_developer_mode_at_path, ensure_claude_code_proxy_settings_at_path,
-            is_cc_switch_install_marker, is_virtual_machine_platform_enabled_marker,
-            windows_command_extensions, WINDOWS_CLAUDE_CODE_INSTALL_COMMAND,
-            WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND,
+            enable_developer_mode_at_path, enable_virtual_machine_platform_command,
+            ensure_claude_code_proxy_settings_at_path, is_cc_switch_install_marker,
+            is_virtual_machine_platform_enabled_marker, windows_command_extensions,
+            WINDOWS_CLAUDE_CODE_INSTALL_COMMAND, WINDOWS_ENABLE_VIRTUAL_MACHINE_PLATFORM_COMMAND,
         };
         use serde_json::Value;
         use std::{
@@ -397,8 +395,12 @@ mod imp {
         #[test]
         fn claude_code_windows_install_command_uses_official_script() {
             assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("https://claude.ai/install.ps1"));
-            assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("irm "));
-            assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains(" | iex"));
+            assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("Invoke-WebRequest"));
+            assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("-OutFile"));
+            assert!(WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("& $installScript"));
+            assert!(!WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains(" | iex"));
+            assert!(!WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("irm "));
+            assert!(!WINDOWS_CLAUDE_CODE_INSTALL_COMMAND.contains("Invoke-Expression"));
         }
 
         #[test]

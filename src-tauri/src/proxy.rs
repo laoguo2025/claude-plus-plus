@@ -29,6 +29,13 @@ use std::time::{Duration, Instant};
 const MODEL_ID_PREFIX: &str = "claude-plus-plus";
 const LOCAL_GATEWAY_TOKEN_HEADER: &str = "x-claude-plus-gateway-token";
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum OriginTrust {
+    Trusted,
+    Missing,
+    Untrusted,
+}
+
 #[derive(Debug)]
 struct RateLimiter {
     window_started: Instant,
@@ -387,22 +394,14 @@ async fn handle_token_usage(
     response
 }
 
-fn reject_untrusted_local_origin(headers: &HeaderMap) -> Option<Response> {
-    if trusted_local_origin(headers) {
-        return None;
-    }
-
-    let mut response = (
-        StatusCode::FORBIDDEN,
-        axum::Json(serde_json::json!({ "ok": false, "error": "untrusted origin" })),
-    )
-        .into_response();
-    apply_json_headers(response.headers_mut());
-    Some(response)
-}
-
 fn reject_untrusted_auxiliary_request(state: &AppState, headers: &HeaderMap) -> Option<Response> {
-    if let Some(response) = reject_untrusted_local_origin(headers) {
+    if matches!(local_origin_trust(headers), OriginTrust::Untrusted) {
+        let mut response = (
+            StatusCode::FORBIDDEN,
+            axum::Json(serde_json::json!({ "ok": false, "error": "untrusted origin" })),
+        )
+            .into_response();
+        apply_json_headers(response.headers_mut());
         return Some(response);
     }
     if local_gateway_token_matches(headers, &state.local_gateway_token) {
@@ -418,10 +417,11 @@ fn reject_untrusted_auxiliary_request(state: &AppState, headers: &HeaderMap) -> 
     Some(response)
 }
 
-fn proxy_gateway_profile(profile: Option<CcSwitchGatewayProfile>) -> Option<CcSwitchGatewayProfile> {
-    profile.filter(|profile| {
-        !profile.api_key.trim().is_empty() && !profile.base_url.trim().is_empty()
-    })
+fn proxy_gateway_profile(
+    profile: Option<CcSwitchGatewayProfile>,
+) -> Option<CcSwitchGatewayProfile> {
+    profile
+        .filter(|profile| !profile.api_key.trim().is_empty() && !profile.base_url.trim().is_empty())
 }
 
 fn forward_proxy_header(name: &str) -> bool {
@@ -443,16 +443,74 @@ fn local_gateway_token_matches(headers: &HeaderMap, expected: &str) -> bool {
 }
 
 fn trusted_local_origin(headers: &HeaderMap) -> bool {
+    matches!(local_origin_trust(headers), OriginTrust::Trusted)
+}
+
+fn local_origin_trust(headers: &HeaderMap) -> OriginTrust {
     let Some(origin) = headers
         .get("origin")
         .and_then(|value| value.to_str().ok())
         .map(str::trim)
         .filter(|value| !value.is_empty())
     else {
-        return true;
+        return OriginTrust::Missing;
     };
 
-    trusted_origin_value(origin)
+    if trusted_origin_value(origin) {
+        OriginTrust::Trusted
+    } else {
+        OriginTrust::Untrusted
+    }
+}
+
+fn bearer_token_matches(headers: &HeaderMap, expected: &str) -> bool {
+    if expected.trim().is_empty() {
+        return false;
+    }
+    headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .and_then(|value| {
+            value
+                .strip_prefix("Bearer ")
+                .or_else(|| value.strip_prefix("bearer "))
+        })
+        .map(str::trim)
+        .is_some_and(|value| value == expected)
+}
+
+fn reject_untrusted_claude_desktop_request(
+    state: &AppState,
+    profile: Option<&CcSwitchGatewayProfile>,
+    headers: &HeaderMap,
+) -> Option<Response> {
+    match local_origin_trust(headers) {
+        OriginTrust::Trusted => None,
+        OriginTrust::Untrusted => {
+            let mut response = (
+                StatusCode::FORBIDDEN,
+                axum::Json(serde_json::json!({ "ok": false, "error": "untrusted origin" })),
+            )
+                .into_response();
+            apply_json_headers(response.headers_mut());
+            Some(response)
+        }
+        OriginTrust::Missing => {
+            if local_gateway_token_matches(headers, &state.local_gateway_token)
+                || profile.is_some_and(|profile| bearer_token_matches(headers, &profile.api_key))
+            {
+                return None;
+            }
+            let mut response = (
+                StatusCode::UNAUTHORIZED,
+                axum::Json(serde_json::json!({ "ok": false, "error": "local gateway credentials required" })),
+            )
+                .into_response();
+            apply_json_headers(response.headers_mut());
+            Some(response)
+        }
+    }
 }
 
 fn trusted_origin_value(origin: &str) -> bool {
@@ -512,11 +570,14 @@ fn apply_json_headers(headers: &mut HeaderMap) {
 }
 
 async fn handle_models(State(state): State<AppState>, headers: HeaderMap) -> Response {
-    if let Some(response) = reject_untrusted_local_origin(&headers) {
+    let mappings = state.mappings();
+    let profile = state.gateway_profile();
+    if let Some(response) =
+        reject_untrusted_claude_desktop_request(&state, profile.as_ref(), &headers)
+    {
         return response;
     }
 
-    let mappings = state.mappings();
     let data: Vec<serde_json::Value> = mappings
         .iter()
         .map(|m| {
@@ -676,10 +737,6 @@ async fn handle_proxy(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Response {
-    if let Some(response) = reject_untrusted_local_origin(&headers) {
-        return response;
-    }
-
     // 拼上游 URL:保留原 path 中 /claude-desktop 之后的部分 + query
     let Some(profile) = state.gateway_profile() else {
         let mut response = (
@@ -690,6 +747,12 @@ async fn handle_proxy(
         apply_json_headers(response.headers_mut());
         return response;
     };
+    if let Some(response) =
+        reject_untrusted_claude_desktop_request(&state, Some(&profile), &headers)
+    {
+        return response;
+    }
+
     let upstream = profile.base_url.trim_end_matches('/');
     let path = uri.path();
     let suffix = path.strip_prefix("/claude-desktop").unwrap_or(path);
@@ -1346,9 +1409,50 @@ mod tests {
     }
 
     #[test]
-    fn local_auxiliary_routes_allow_non_browser_callers_without_origin() {
+    fn local_gateway_rejects_missing_origin_without_credentials() {
         let headers = HeaderMap::new();
-        assert!(trusted_local_origin(&headers));
+        assert!(!trusted_local_origin(&headers));
+    }
+
+    #[test]
+    fn claude_desktop_routes_allow_missing_origin_with_gateway_bearer() {
+        let state = AppState::new(PathBuf::from("missing.db"), "secret-token".to_string());
+        let profile = CcSwitchGatewayProfile {
+            api_key: "cc-switch-key".to_string(),
+            base_url: "http://127.0.0.1:15721/claude-desktop".to_string(),
+        };
+        let mut headers = HeaderMap::new();
+
+        assert!(
+            reject_untrusted_claude_desktop_request(&state, Some(&profile), &headers).is_some()
+        );
+
+        headers.insert(
+            "authorization",
+            HeaderValue::from_static("Bearer cc-switch-key"),
+        );
+        assert!(
+            reject_untrusted_claude_desktop_request(&state, Some(&profile), &headers).is_none()
+        );
+    }
+
+    #[test]
+    fn claude_desktop_routes_reject_untrusted_origin_even_with_credentials() {
+        let state = AppState::new(PathBuf::from("missing.db"), "secret-token".to_string());
+        let profile = CcSwitchGatewayProfile {
+            api_key: "cc-switch-key".to_string(),
+            base_url: "http://127.0.0.1:15721/claude-desktop".to_string(),
+        };
+        let mut headers = HeaderMap::new();
+        headers.insert("origin", HeaderValue::from_static("https://example.com"));
+        headers.insert(
+            "authorization",
+            HeaderValue::from_static("Bearer cc-switch-key"),
+        );
+
+        assert!(
+            reject_untrusted_claude_desktop_request(&state, Some(&profile), &headers).is_some()
+        );
     }
 
     #[test]
