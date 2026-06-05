@@ -794,7 +794,9 @@ fn read_u32_le(bytes: &[u8], offset: usize) -> Result<u32, String> {
     let slice = bytes
         .get(offset..offset + 4)
         .ok_or_else(|| "读取 u32 越界".to_string())?;
-    Ok(u32::from_le_bytes(slice.try_into().unwrap()))
+    let mut value = [0u8; 4];
+    value.copy_from_slice(slice);
+    Ok(u32::from_le_bytes(value))
 }
 
 #[cfg(target_os = "windows")]
@@ -802,7 +804,9 @@ fn read_i32_le(bytes: &[u8], offset: usize) -> Result<i32, String> {
     let slice = bytes
         .get(offset..offset + 4)
         .ok_or_else(|| "读取 i32 越界".to_string())?;
-    Ok(i32::from_le_bytes(slice.try_into().unwrap()))
+    let mut value = [0u8; 4];
+    value.copy_from_slice(slice);
+    Ok(i32::from_le_bytes(value))
 }
 
 #[cfg(target_os = "windows")]

@@ -248,7 +248,7 @@ mod imp {
     }
 
     fn feature_list(enabled: &[FeatureState]) -> Vec<EnhanceFeature> {
-        feature_definitions()
+        feature_definitions_from_json(ENHANCE_FEATURES_JSON)
             .into_iter()
             .filter_map(|definition| {
                 let feature = EnhanceFeatureId::parse(&definition.id)?;
@@ -266,9 +266,14 @@ mod imp {
             .collect()
     }
 
-    fn feature_definitions() -> Vec<EnhanceFeatureDefinition> {
-        serde_json::from_str(ENHANCE_FEATURES_JSON)
-            .expect("embedded enhance feature definitions should be valid")
+    fn feature_definitions_from_json(text: &str) -> Vec<EnhanceFeatureDefinition> {
+        match serde_json::from_str(text) {
+            Ok(definitions) => definitions,
+            Err(error) => {
+                tracing::error!("embedded enhance feature definitions invalid: {error}");
+                Vec::new()
+            }
+        }
     }
 
     fn is_enabled(enabled: &[FeatureState], feature: EnhanceFeatureId) -> bool {
@@ -504,7 +509,7 @@ mod imp {
 
     fn feature_version(feature: EnhanceFeatureId) -> String {
         let id = feature.id();
-        feature_definitions()
+        feature_definitions_from_json(ENHANCE_FEATURES_JSON)
             .into_iter()
             .find_map(|definition| (definition.id == id).then_some(definition.version))
             .unwrap_or_else(|| "v0.2".to_string())

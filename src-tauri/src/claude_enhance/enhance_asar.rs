@@ -98,9 +98,9 @@ pub(crate) fn patch_bridge_files_for_test(
     contents
         .into_iter()
         .map(|(_, content)| {
-            patch_bridge_content(content.as_bytes(), script, enabled, remover).map(|patched| {
+            patch_bridge_content(content.as_bytes(), script, enabled, remover).and_then(|patched| {
                 String::from_utf8(patched.unwrap_or_else(|| content.as_bytes().to_vec()))
-                    .expect("patched bridge should be utf8")
+                    .map_err(|e| format!("patched bridge is not UTF-8: {e}"))
             })
         })
         .collect()

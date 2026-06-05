@@ -790,7 +790,7 @@ async fn handle_proxy(
         .client
         .request(method, &upstream_url)
         .bearer_auth(profile.api_key)
-        .body(out_body.clone());
+        .body(out_body);
     for (k, val) in headers.iter() {
         if !forward_proxy_header(k.as_str()) {
             continue;

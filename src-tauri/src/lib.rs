@@ -135,7 +135,7 @@ fn proxy_status_for_mode(state: &ServerHandle, mode: StatusMode) -> StatusInfo {
         running: state.is_healthy_on(port),
         port: Some(port),
         cd_applied: cd_config::is_applied(),
-        ccswitch_route: ccswitch_route_status(),
+        ccswitch_route: ccswitch_route_status_for_mode(mode),
     }
 }
 
@@ -147,6 +147,24 @@ fn status_mode_restores_proxy(mode: StatusMode) -> bool {
 async fn proxy_status(state: tauri::State<'_, ServerHandle>) -> Result<StatusInfo, String> {
     let state = state.inner().clone();
     run_blocking(move || proxy_status_blocking(&state)).await
+}
+
+fn ccswitch_route_status_for_mode(mode: StatusMode) -> CcSwitchRouteStatus {
+    match mode {
+        StatusMode::Manager => lightweight_ccswitch_route_status(),
+        StatusMode::Diagnostics => ccswitch_route_status(),
+    }
+}
+
+fn lightweight_ccswitch_route_status() -> CcSwitchRouteStatus {
+    CcSwitchRouteStatus {
+        claude_route_enabled: false,
+        proxy_enabled: false,
+        enabled: false,
+        configured: None,
+        has_mappings: false,
+        reachable: false,
+    }
 }
 
 fn ccswitch_route_status() -> CcSwitchRouteStatus {
@@ -736,6 +754,18 @@ mod tests {
     fn diagnostics_status_does_not_request_proxy_restore() {
         assert!(!status_mode_restores_proxy(StatusMode::Diagnostics));
         assert!(status_mode_restores_proxy(StatusMode::Manager));
+    }
+
+    #[test]
+    fn manager_status_uses_lightweight_ccswitch_route_status() {
+        let status = ccswitch_route_status_for_mode(StatusMode::Manager);
+
+        assert!(!status.claude_route_enabled);
+        assert!(!status.proxy_enabled);
+        assert!(!status.enabled);
+        assert_eq!(status.configured, None);
+        assert!(!status.has_mappings);
+        assert!(!status.reachable);
     }
 
     #[test]

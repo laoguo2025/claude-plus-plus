@@ -167,6 +167,13 @@ fn feature_definitions_include_versions() {
 }
 
 #[test]
+fn invalid_feature_definition_json_returns_empty_list() {
+    let definitions = super::feature_definitions_from_json("{not-json");
+
+    assert!(definitions.is_empty());
+}
+
+#[test]
 fn feature_payload_writes_current_version() {
     let payload = feature_payload(NAV_API_MARKER);
 
