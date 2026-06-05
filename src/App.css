@@ -926,16 +926,6 @@ select {
   min-height: 0;
 }
 
-.developerModePanel {
-  padding: 0;
-}
-
-.developerModePanel .workflowRow {
-  min-height: 72px;
-  border: 0;
-  background: transparent;
-}
-
 .workflowRows {
   display: grid;
   gap: 9px;

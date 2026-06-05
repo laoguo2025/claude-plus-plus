@@ -689,26 +689,28 @@ function LocalizationPage({
   return (
     <div className="localizationFlow">
       <section className="panel developerModePanel">
-        <WorkflowRow
-          ok={developerModeEnabled}
-          title="开发者模式"
-          description={
-            developerModeLoading
-              ? "正在检测 Claude Desktop 开发者模式状态。"
-              : developerModeEnabled
-                ? "已开启 Claude Desktop 开发者模式。"
-                : "开启后可支持开发与汉化相关能力。"
-          }
-          tone={developerModeEnabled ? "success" : "warning"}
-          badge={developerModeEnabled ? "已开启" : undefined}
-          action={
-            !developerModeLoading && !developerModeEnabled ? (
-              <button disabled={busy} onClick={enableClaudeDeveloperMode}>
-                一键开启
-              </button>
-            ) : undefined
-          }
-        />
+        <div className="workflowRows">
+          <WorkflowRow
+            ok={developerModeEnabled}
+            title="开发者模式"
+            description={
+              developerModeLoading
+                ? "正在检测 Claude Desktop 开发者模式状态。"
+                : developerModeEnabled
+                  ? "已开启 Claude Desktop 开发者模式。"
+                  : "开启后可支持开发与汉化相关能力。"
+            }
+            tone={developerModeEnabled ? "success" : "warning"}
+            badge={developerModeEnabled ? "已开启" : undefined}
+            action={
+              !developerModeLoading && !developerModeEnabled ? (
+                <button disabled={busy} onClick={enableClaudeDeveloperMode}>
+                  一键开启
+                </button>
+              ) : undefined
+            }
+          />
+        </div>
       </section>
       <section className="panel localizationChecklist">
         <div className="workflowRows">
