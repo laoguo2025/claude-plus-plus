@@ -55,7 +55,17 @@ export function AboutPage({
             <textarea
               className="releaseNotes"
               readOnly
-              value={`当前应用版本: ${appVersion}\n\nClaude++ 目前未接入自动更新。需要确认新版时，请打开 GitHub Release，或使用本地 release 构建脚本。`}
+              value={[
+                `当前应用版本: ${appVersion}`,
+                "",
+                "1.0.1 更新内容:",
+                "- 新增 Win 虚拟机平台自动开启。",
+                "- 新增一键开启 Claude Desktop 开发者模式。",
+                "- 优化一键汉化/恢复、启动状态检测、路由桥接、UI 布局、部分路径和诊断日志。",
+                "- 修复了一些 bug。",
+                "",
+                "Claude++ 目前未接入自动更新。需要确认新版时，请打开 GitHub Release，或使用本地 release 构建脚本。",
+              ].join("\n")}
             />
           </div>
         </div>
