@@ -157,13 +157,27 @@ fn ccswitch_route_status_for_mode(mode: StatusMode) -> CcSwitchRouteStatus {
 }
 
 fn lightweight_ccswitch_route_status() -> CcSwitchRouteStatus {
+    lightweight_ccswitch_route_status_from_db(&server::default_db_path())
+}
+
+fn lightweight_ccswitch_route_status_from_db(db_path: &std::path::Path) -> CcSwitchRouteStatus {
+    let proxy_config = ccswitch_db::load_proxy_config(db_path).ok();
+    let proxy_enabled = proxy_config
+        .as_ref()
+        .map(|config| config.proxy_enabled)
+        .unwrap_or(false);
+    let claude_route_enabled = proxy_config
+        .as_ref()
+        .map(|config| config.claude_route_enabled)
+        .unwrap_or(false);
+
     CcSwitchRouteStatus {
-        claude_route_enabled: false,
-        proxy_enabled: false,
-        enabled: false,
-        configured: None,
+        claude_route_enabled,
+        proxy_enabled,
+        enabled: proxy_enabled,
+        configured: proxy_config.as_ref().map(|config| config.proxy_enabled),
         has_mappings: false,
-        reachable: false,
+        reachable: proxy_enabled,
     }
 }
 
@@ -760,12 +774,44 @@ mod tests {
     fn manager_status_uses_lightweight_ccswitch_route_status() {
         let status = ccswitch_route_status_for_mode(StatusMode::Manager);
 
-        assert!(!status.claude_route_enabled);
-        assert!(!status.proxy_enabled);
-        assert!(!status.enabled);
-        assert_eq!(status.configured, None);
         assert!(!status.has_mappings);
-        assert!(!status.reachable);
+    }
+
+    #[test]
+    fn lightweight_status_preserves_proxy_config_without_mapping_probe() {
+        let path = std::env::temp_dir().join(format!(
+            "claude-plus-plus-lightweight-status-{}.db",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        {
+            let conn = rusqlite::Connection::open(&path).expect("open temp cc-switch db");
+            conn.execute_batch(
+                "CREATE TABLE proxy_config (
+                    app_type TEXT PRIMARY KEY,
+                    enabled INTEGER NOT NULL,
+                    proxy_enabled INTEGER NOT NULL,
+                    listen_address TEXT NOT NULL,
+                    listen_port INTEGER NOT NULL
+                );
+                INSERT INTO proxy_config
+                    (app_type, enabled, proxy_enabled, listen_address, listen_port)
+                VALUES
+                    ('claude', 1, 1, '127.0.0.1', 15721);",
+            )
+            .expect("seed proxy_config");
+        }
+
+        let status = lightweight_ccswitch_route_status_from_db(&path);
+
+        let _ = std::fs::remove_file(&path);
+
+        assert!(status.claude_route_enabled);
+        assert!(status.proxy_enabled);
+        assert!(status.enabled);
+        assert_eq!(status.configured, Some(true));
+        assert!(!status.has_mappings);
+        assert!(status.reachable);
     }
 
     #[test]
