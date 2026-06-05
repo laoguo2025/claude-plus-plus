@@ -688,9 +688,28 @@ function LocalizationPage({
 
   return (
     <div className="localizationFlow">
-      <div className="actionNotice localizationActionNotice">
-        汉化写入后，需点击上方重启Claude Desktop按钮，让新语言资源立即生效。
-      </div>
+      <section className="panel developerModePanel">
+        <WorkflowRow
+          ok={developerModeEnabled}
+          title="开发者模式"
+          description={
+            developerModeLoading
+              ? "正在检测 Claude Desktop 开发者模式状态。"
+              : developerModeEnabled
+                ? "已开启 Claude Desktop 开发者模式。"
+                : "开启后可支持开发与汉化相关能力。"
+          }
+          tone={developerModeEnabled ? "success" : "warning"}
+          badge={developerModeEnabled ? "已开启" : undefined}
+          action={
+            !developerModeLoading && !developerModeEnabled ? (
+              <button disabled={busy} onClick={enableClaudeDeveloperMode}>
+                一键开启
+              </button>
+            ) : undefined
+          }
+        />
+      </section>
       <section className="panel localizationChecklist">
         <div className="workflowRows">
           <WorkflowRow
@@ -714,25 +733,6 @@ function LocalizationPage({
               !zhStatus?.backup_available ? (
                 <button disabled={disabledByMissingClaude} onClick={backupClaudeZh}>
                   备份
-                </button>
-              ) : undefined
-            }
-          />
-          <WorkflowRow
-            ok={developerModeEnabled}
-            title="开发者模式"
-            description={
-              developerModeLoading
-                ? "正在检测 Claude Desktop 开发者模式状态。"
-                : developerModeEnabled
-                  ? "已开启 Claude Desktop 开发者模式。"
-                  : "开启后可支持开发与汉化相关能力。"
-            }
-            tone={developerModeEnabled ? "success" : "warning"}
-            action={
-              !developerModeLoading && !developerModeEnabled ? (
-                <button disabled={busy} onClick={enableClaudeDeveloperMode}>
-                  一键开启
                 </button>
               ) : undefined
             }

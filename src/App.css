@@ -827,7 +827,7 @@ select {
 .localizationFlow {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
+  gap: 14px;
   height: 100%;
   min-height: 0;
 }
@@ -924,6 +924,16 @@ select {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   min-height: 0;
+}
+
+.developerModePanel {
+  padding: 0;
+}
+
+.developerModePanel .workflowRow {
+  min-height: 72px;
+  border: 0;
+  background: transparent;
 }
 
 .workflowRows {
