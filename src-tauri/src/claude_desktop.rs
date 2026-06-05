@@ -1,12 +1,10 @@
-use std::time::Duration;
-
 #[cfg(target_os = "windows")]
 use std::{
     env,
     path::PathBuf,
     process::{Command, Stdio},
     thread,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 #[cfg(target_os = "windows")]

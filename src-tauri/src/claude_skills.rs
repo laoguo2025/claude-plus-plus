@@ -4,9 +4,11 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
     time::UNIX_EPOCH,
 };
+
+#[cfg(target_os = "windows")]
+use std::process::{Command, Stdio};
 
 #[derive(Clone, Serialize)]
 pub struct ClaudeSkill {

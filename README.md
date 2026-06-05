@@ -133,8 +133,11 @@ macOS DMG 构建示例：
 
 ```bash
 npm ci
-npx tauri build --bundles dmg --target aarch64-apple-darwin --no-sign
-npx tauri build --bundles dmg --target x86_64-apple-darwin --no-sign
+npm run tauri:build:macos
+
+# 可选：分别构建 Apple Silicon / Intel
+npm run tauri:build:macos:arm64
+npm run tauri:build:macos:x64
 ```
 
 `--no-sign` 生成的 DMG 仅适合测试或开源分发，用户首次打开时需要按上面的 macOS 未签名提示手动放行。正式免拦截分发需要 Apple Developer ID 签名和公证。
@@ -275,8 +278,11 @@ macOS DMG build:
 
 ```bash
 npm ci
-npx tauri build --bundles dmg --target aarch64-apple-darwin --no-sign
-npx tauri build --bundles dmg --target x86_64-apple-darwin --no-sign
+npm run tauri:build:macos
+
+# Optional: build Apple Silicon / Intel separately
+npm run tauri:build:macos:arm64
+npm run tauri:build:macos:x64
 ```
 
 DMGs built with `--no-sign` are suitable for testing or open-source distribution, but users need to manually allow the app on first launch. Public distribution without that warning requires Apple Developer ID signing and notarization.

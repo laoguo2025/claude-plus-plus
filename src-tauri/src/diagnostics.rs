@@ -994,6 +994,7 @@ fn file_brief(path: &Path) -> Value {
     }
 }
 
+#[cfg(target_os = "windows")]
 fn dir_brief(path: &Path) -> Value {
     match fs::metadata(path) {
         Ok(meta) => json!({

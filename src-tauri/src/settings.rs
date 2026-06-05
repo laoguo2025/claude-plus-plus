@@ -86,8 +86,10 @@ impl ProxyRuntimeTuning {
 struct SettingsFile {
     #[serde(alias = "proxy_port")]
     proxy_port: Option<u16>,
+    #[cfg(target_os = "windows")]
     #[serde(alias = "claude_desktop_path")]
     claude_desktop_path: Option<PathBuf>,
+    #[cfg(target_os = "windows")]
     #[serde(alias = "claude_desktop_resources_path")]
     claude_desktop_resources_path: Option<PathBuf>,
     #[serde(alias = "title_i18n_rate_limit_window_secs")]
@@ -139,6 +141,7 @@ pub fn settings_path() -> PathBuf {
     crate::paths::app_state_dir().join(SETTINGS_FILE)
 }
 
+#[cfg(target_os = "windows")]
 pub fn claude_desktop_path_overrides() -> Vec<PathBuf> {
     read_settings_file()
         .map(|settings| {
@@ -393,6 +396,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "windows")]
     fn settings_reads_claude_desktop_path_overrides() {
         let settings = serde_json::from_str::<SettingsFile>(
             r#"{

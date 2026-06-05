@@ -447,6 +447,7 @@ fn local_gateway_token_matches(headers: &HeaderMap, expected: &str) -> bool {
         .is_some_and(|value| value == expected)
 }
 
+#[cfg(test)]
 fn trusted_local_origin(headers: &HeaderMap) -> bool {
     matches!(local_origin_trust(headers), OriginTrust::Trusted)
 }
