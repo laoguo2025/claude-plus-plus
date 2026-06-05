@@ -1006,7 +1006,7 @@ function WelcomePage({
           loading={loading}
           active={!!welcomeStatus?.claude_desktop_found}
           label="Claude Desktop"
-          value={loading ? "检测中" : welcomeStatus?.claude_desktop_found ? "已定位" : "未定位"}
+          value={loading ? "检测中" : welcomeStatus?.claude_desktop_found ? "已安装" : "未安装"}
           detail={loading ? undefined : welcomeStatus?.claude_desktop_found ? undefined : "点击后从网盘下载"}
           action={
             loading || welcomeStatus?.claude_desktop_found
