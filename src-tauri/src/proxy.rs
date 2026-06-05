@@ -3,7 +3,6 @@
 // POST /claude-desktop/v1/messages -> body.model 显示名->角色ID,转发 :15721,SSE 逐块透传
 // 其它 /claude-desktop/*           -> 含 model 则改写后透传,否则原样透传
 use crate::ccswitch_db::{self, Mapping};
-use crate::constants::UPSTREAM_FALLBACK_URL;
 use crate::server::CcSwitchGatewayProfile;
 use crate::settings::ProxyRuntimeTuning;
 use crate::time_utils::now_ms;
@@ -85,11 +84,8 @@ impl AppState {
     }
 
     /// 上游网关配置,实时跟随 CC Switch(读同一个配置条目 157210 的 URL 和 key)。
-    fn gateway_profile(&self) -> CcSwitchGatewayProfile {
-        crate::server::read_ccswitch_gateway_profile().unwrap_or_else(|| CcSwitchGatewayProfile {
-            api_key: String::new(),
-            base_url: UPSTREAM_FALLBACK_URL.to_string(),
-        })
+    fn gateway_profile(&self) -> Option<CcSwitchGatewayProfile> {
+        proxy_gateway_profile(crate::server::read_ccswitch_gateway_profile())
     }
 
     /// 读 DB 取映射,失败时回退缓存;成功则刷新缓存。
@@ -203,7 +199,15 @@ async fn handle_conversation_title_i18n(
         return response;
     };
 
-    let profile = state.gateway_profile();
+    let Some(profile) = state.gateway_profile() else {
+        let mut response = (
+            StatusCode::BAD_GATEWAY,
+            axum::Json(serde_json::json!({ "ok": false, "error": "gateway profile not found" })),
+        )
+            .into_response();
+        apply_json_headers(response.headers_mut());
+        return response;
+    };
     if profile.api_key.is_empty() {
         let mut response = (
             StatusCode::BAD_GATEWAY,
@@ -412,6 +416,19 @@ fn reject_untrusted_auxiliary_request(state: &AppState, headers: &HeaderMap) -> 
         .into_response();
     apply_json_headers(response.headers_mut());
     Some(response)
+}
+
+fn proxy_gateway_profile(profile: Option<CcSwitchGatewayProfile>) -> Option<CcSwitchGatewayProfile> {
+    profile.filter(|profile| {
+        !profile.api_key.trim().is_empty() && !profile.base_url.trim().is_empty()
+    })
+}
+
+fn forward_proxy_header(name: &str) -> bool {
+    !matches!(
+        name.to_ascii_lowercase().as_str(),
+        "host" | "content-length" | "authorization"
+    )
 }
 
 fn local_gateway_token_matches(headers: &HeaderMap, expected: &str) -> bool {
@@ -664,7 +681,16 @@ async fn handle_proxy(
     }
 
     // 拼上游 URL:保留原 path 中 /claude-desktop 之后的部分 + query
-    let upstream = state.gateway_profile().base_url;
+    let Some(profile) = state.gateway_profile() else {
+        let mut response = (
+            StatusCode::BAD_GATEWAY,
+            axum::Json(serde_json::json!({ "ok": false, "error": "gateway profile not found" })),
+        )
+            .into_response();
+        apply_json_headers(response.headers_mut());
+        return response;
+    };
+    let upstream = profile.base_url.trim_end_matches('/');
     let path = uri.path();
     let suffix = path.strip_prefix("/claude-desktop").unwrap_or(path);
     let query = uri.query().map(|q| format!("?{q}")).unwrap_or_default();
@@ -695,10 +721,10 @@ async fn handle_proxy(
     let mut req = state
         .client
         .request(method, &upstream_url)
+        .bearer_auth(profile.api_key)
         .body(out_body.clone());
     for (k, val) in headers.iter() {
-        let kn = k.as_str().to_ascii_lowercase();
-        if kn == "host" || kn == "content-length" {
+        if !forward_proxy_header(k.as_str()) {
             continue;
         }
         req = req.header(k, val);
@@ -1290,6 +1316,21 @@ mod tests {
         assert!(text.contains("Prepare quarterly roadmap"));
         assert!(text.contains("不要 Markdown"));
         assert_eq!(body["thinking"]["type"], "disabled");
+    }
+
+    #[test]
+    fn missing_gateway_profile_is_not_replaced_with_fixed_upstream() {
+        assert!(proxy_gateway_profile(None).is_none());
+    }
+
+    #[test]
+    fn proxy_forwarding_replaces_inbound_authorization() {
+        assert!(!forward_proxy_header("authorization"));
+        assert!(!forward_proxy_header("Authorization"));
+        assert!(!forward_proxy_header("host"));
+        assert!(!forward_proxy_header("content-length"));
+        assert!(forward_proxy_header("accept"));
+        assert!(forward_proxy_header("x-request-id"));
     }
 
     #[test]

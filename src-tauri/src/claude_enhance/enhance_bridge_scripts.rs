@@ -55,7 +55,7 @@ async function trashSkill(e){const t=listSkills().skills.find(t=>t.id===e);if(!t
 async function gatewayList(){const e=await fetch(cppUrl("/claude-plus/skills"),{cache:"no-store",headers:{"x-claude-plus-gateway-token":cppToken()}});if(!e.ok)throw new Error("Claude++ skills gateway failed: "+e.status);return await e.json()}
 async function gatewayTrash(e){const t=await fetch(cppUrl("/claude-plus/skills/"+encodeURIComponent(e)+"/trash"),{method:"POST",headers:{"x-claude-plus-gateway-token":cppToken()}});if(!t.ok)throw new Error("Claude++ skills gateway failed: "+t.status);return await t.json().catch(()=>({ok:true}))}
 async function listSkillsFast(){try{return await gatewayList()}catch(e){return listSkills()}}
-async function trashSkillFast(e){try{return await gatewayTrash(e)}catch(t){return trashSkill(e)}}
+async function trashSkillFast(e){return await gatewayTrash(e)}
 ipcMain.removeHandler("__CPP_SKILLS_LIST__");ipcMain.removeHandler("__CPP_SKILLS_TRASH__");
 ipcMain.handle("__CPP_SKILLS_LIST__",()=>listSkillsFast());
 ipcMain.handle("__CPP_SKILLS_TRASH__",(e,t)=>trashSkillFast(String(t||"")));

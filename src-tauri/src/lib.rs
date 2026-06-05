@@ -112,8 +112,20 @@ struct DiagnosticsRequest {
     restart_needed: Option<bool>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StatusMode {
+    Manager,
+    Diagnostics,
+}
+
 fn proxy_status_blocking(state: &ServerHandle) -> StatusInfo {
-    ensure_proxy_if_applied(state);
+    proxy_status_for_mode(state, StatusMode::Manager)
+}
+
+fn proxy_status_for_mode(state: &ServerHandle, mode: StatusMode) -> StatusInfo {
+    if status_mode_restores_proxy(mode) {
+        ensure_proxy_if_applied(state);
+    }
     let port = settings::proxy_port();
     StatusInfo {
         running: state.is_healthy_on(port),
@@ -121,6 +133,10 @@ fn proxy_status_blocking(state: &ServerHandle) -> StatusInfo {
         cd_applied: cd_config::is_applied(),
         ccswitch_route: ccswitch_route_status(),
     }
+}
+
+fn status_mode_restores_proxy(mode: StatusMode) -> bool {
+    matches!(mode, StatusMode::Manager)
 }
 
 #[tauri::command]
@@ -389,11 +405,10 @@ fn install_claude_enhance(
     feature: String,
     state: tauri::State<ServerHandle>,
 ) -> Result<(), String> {
-    let result = claude_enhance::install(&feature);
-    if result.is_ok() && enhance_feature_needs_local_gateway(&feature) {
+    if install_enhance_starts_proxy_before_write(&feature) {
         state.ensure_running(settings::proxy_port(), server::default_db_path())?;
     }
-    result
+    claude_enhance::install(&feature)
 }
 
 #[tauri::command]
@@ -433,7 +448,7 @@ fn generate_diagnostics_blocking(
     state: &ServerHandle,
     request: Option<DiagnosticsRequest>,
 ) -> diagnostics::DiagnosticsPayload {
-    let status = proxy_status_blocking(state);
+    let status = proxy_status_for_mode(state, StatusMode::Diagnostics);
     let mappings = get_mappings_blocking()
         .and_then(|mappings| serde_json::to_value(mappings).map_err(|e| e.to_string()));
     let payload = diagnostics::report(
@@ -571,6 +586,10 @@ fn enhance_feature_needs_local_gateway(feature: &str) -> bool {
         feature,
         "plugins" | "conversation_title_i18n" | "token_usage"
     )
+}
+
+fn install_enhance_starts_proxy_before_write(feature: &str) -> bool {
+    enhance_feature_needs_local_gateway(feature)
 }
 
 fn show_main_window<R: tauri::Runtime>(manager: &impl Manager<R>) {
@@ -715,5 +734,21 @@ mod tests {
         assert!(enhance_feature_needs_local_gateway("token_usage"));
         assert!(enhance_feature_needs_local_gateway("plugins"));
         assert!(!enhance_feature_needs_local_gateway("timeline"));
+    }
+
+    #[test]
+    fn diagnostics_status_does_not_request_proxy_restore() {
+        assert!(!status_mode_restores_proxy(StatusMode::Diagnostics));
+        assert!(status_mode_restores_proxy(StatusMode::Manager));
+    }
+
+    #[test]
+    fn gateway_enhance_features_start_proxy_before_install() {
+        assert!(install_enhance_starts_proxy_before_write("plugins"));
+        assert!(install_enhance_starts_proxy_before_write(
+            "conversation_title_i18n"
+        ));
+        assert!(install_enhance_starts_proxy_before_write("token_usage"));
+        assert!(!install_enhance_starts_proxy_before_write("timeline"));
     }
 }

@@ -805,7 +805,7 @@ fn main_bridge_handles_skills_filesystem_api() {
     assert!(script.contains("async function listSkillsFast"));
     assert!(script.contains("async function trashSkillFast"));
     assert!(script.contains("return listSkills()"));
-    assert!(script.contains("return trashSkill(e)"));
+    assert!(!script.contains("return trashSkill(e)"));
     assert!(script.contains("listSkills"));
     assert!(script.contains(SKILLS_LIST_CHANNEL));
     assert!(script.contains(SKILLS_TRASH_CHANNEL));
